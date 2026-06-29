@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductModel;
@@ -97,7 +99,9 @@ final class ProductBulkEditTest extends CIUnitTestCase
         $logModel = new StockLogModel();
         foreach ($ids as $id) {
             $product = $this->model->find($id);
-            if (! $product) continue;
+            if (! $product) {
+                continue;
+            }
             $oldStock = (int) $product['stock'];
             $this->model->update($id, ['stock' => $stock]);
             $logModel->record($id, 'adjust', abs($stock - $oldStock), $oldStock, $stock, '관리자 일괄 재고 조정', $adminId);
@@ -145,8 +149,8 @@ final class ProductBulkEditTest extends CIUnitTestCase
 
         $this->applyBulkStatus([$target], 'hidden');
 
-        $this->assertSame('hidden',   $this->model->find($target)['status']);
-        $this->assertSame('on_sale',  $this->model->find($bystander)['status']);
+        $this->assertSame('hidden', $this->model->find($target)['status']);
+        $this->assertSame('on_sale', $this->model->find($bystander)['status']);
     }
 
     public function testBulkStatusUpdatesUpdatedAt(): void
@@ -199,10 +203,10 @@ final class ProductBulkEditTest extends CIUnitTestCase
 
         $this->assertNotNull($log1, 'id1 재고 로그가 기록돼야 한다');
         $this->assertNotNull($log2, 'id2 재고 로그가 기록돼야 한다');
-        $this->assertSame(10,  (int) $log1['stock_after']);
+        $this->assertSame(10, (int) $log1['stock_after']);
         $this->assertSame(100, (int) $log1['stock_before']);
-        $this->assertSame(10,  (int) $log2['stock_after']);
-        $this->assertSame(50,  (int) $log2['stock_before']);
+        $this->assertSame(10, (int) $log2['stock_after']);
+        $this->assertSame(50, (int) $log2['stock_before']);
     }
 
     public function testBulkStockLogRecordsCorrectDiff(): void
@@ -215,9 +219,9 @@ final class ProductBulkEditTest extends CIUnitTestCase
             ->where('product_id', $id)->where('note', '관리자 일괄 재고 조정')
             ->orderBy('id', 'DESC')->limit(1)->get()->getRowArray();
 
-        $this->assertSame(50,  (int) $log['quantity'],     'diff = |70 - 20| = 50');
-        $this->assertSame(70,  (int) $log['stock_before']);
-        $this->assertSame(20,  (int) $log['stock_after']);
+        $this->assertSame(50, (int) $log['quantity'], 'diff = |70 - 20| = 50');
+        $this->assertSame(70, (int) $log['stock_before']);
+        $this->assertSame(20, (int) $log['stock_after']);
     }
 
     // ── 소프트 삭제 ───────────────────────────────────────────────────────────
@@ -243,8 +247,10 @@ final class ProductBulkEditTest extends CIUnitTestCase
 
         $this->applyBulkDelete([$target]);
 
-        $this->assertNull(db_connect()->table('products')->where('id', $bystander)->get()->getRowArray()['deleted_at'],
-            '대상이 아닌 상품은 삭제되면 안 된다');
+        $this->assertNull(
+            db_connect()->table('products')->where('id', $bystander)->get()->getRowArray()['deleted_at'],
+            '대상이 아닌 상품은 삭제되면 안 된다'
+        );
     }
 
     public function testDeletedProductNotReturnedByModel(): void
@@ -260,8 +266,8 @@ final class ProductBulkEditTest extends CIUnitTestCase
 
     public function testValidStatusValues(): void
     {
-        $this->assertArrayHasKey('on_sale',  ProductModel::STATUSES);
+        $this->assertArrayHasKey('on_sale', ProductModel::STATUSES);
         $this->assertArrayHasKey('sold_out', ProductModel::STATUSES);
-        $this->assertArrayHasKey('hidden',   ProductModel::STATUSES);
+        $this->assertArrayHasKey('hidden', ProductModel::STATUSES);
     }
 }

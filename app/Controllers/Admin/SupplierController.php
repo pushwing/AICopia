@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -79,7 +81,9 @@ class SupplierController extends BaseController
             // 기존 파일 삭제
             if (! empty($supplier['business_license_path'])) {
                 $old = FCPATH . ltrim($supplier['business_license_path'], '/');
-                if (is_file($old)) unlink($old);
+                if (is_file($old)) {
+                    unlink($old);
+                }
             }
             $data['business_license_path'] = $path;
         }
@@ -95,7 +99,9 @@ class SupplierController extends BaseController
         $supplier = $db->table('suppliers')->where('id', $id)->get()->getRowArray();
         if ($supplier && ! empty($supplier['business_license_path'])) {
             $file = FCPATH . ltrim($supplier['business_license_path'], '/');
-            if (is_file($file)) unlink($file);
+            if (is_file($file)) {
+                unlink($file);
+            }
         }
         $db->table('products')->where('supplier_id', $id)->update(['supplier_id' => null]);
         $db->table('suppliers')->where('id', $id)->delete();
@@ -152,7 +158,9 @@ class SupplierController extends BaseController
         }
 
         $dir  = FCPATH . 'uploads/suppliers/';
-        if (! is_dir($dir)) mkdir($dir, 0755, true);
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
 
         $name = $file->getRandomName();
         $file->move($dir, $name);

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\UserModel;
@@ -81,7 +83,7 @@ final class UserJsonApiTest extends CIUnitTestCase
 
         $rows = $builder->get()->getResultArray();
 
-        return array_map(fn($u) => [
+        return array_map(fn ($u) => [
             'id'                 => (int) $u['id'],
             'nickname'           => $u['nickname'],
             'email'              => $u['email'],
@@ -151,8 +153,11 @@ final class UserJsonApiTest extends CIUnitTestCase
         ]);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame('1', $rows[0]['email_verify_token'],
-            '미인증 사용자의 email_verify_token 은 "1" 로 마스킹돼야 한다');
+        $this->assertSame(
+            '1',
+            $rows[0]['email_verify_token'],
+            '미인증 사용자의 email_verify_token 은 "1" 로 마스킹돼야 한다'
+        );
     }
 
     public function testVerifyTokenEmptyWhenNull(): void
@@ -160,8 +165,11 @@ final class UserJsonApiTest extends CIUnitTestCase
         $id   = $this->insertUser(['is_active' => 1, 'email_verify_token' => null]);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame('', $rows[0]['email_verify_token'],
-            '인증 완료 사용자의 email_verify_token 은 빈 문자열이어야 한다');
+        $this->assertSame(
+            '',
+            $rows[0]['email_verify_token'],
+            '인증 완료 사용자의 email_verify_token 은 빈 문자열이어야 한다'
+        );
     }
 
     public function testActualTokenValueIsNotExposed(): void
@@ -173,8 +181,11 @@ final class UserJsonApiTest extends CIUnitTestCase
         ]);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertNotSame($realToken, $rows[0]['email_verify_token'],
-            '실제 토큰 값이 노출되면 안 된다');
+        $this->assertNotSame(
+            $realToken,
+            $rows[0]['email_verify_token'],
+            '실제 토큰 값이 노출되면 안 된다'
+        );
     }
 
     // ── 기본값 처리 ───────────────────────────────────────────────────────────
@@ -186,8 +197,11 @@ final class UserJsonApiTest extends CIUnitTestCase
         db_connect()->table('users')->where('id', $id)->update(['grade' => null]);
 
         $rows = $this->fetchJsonData([$id]);
-        $this->assertSame('bronze', $rows[0]['grade'],
-            'grade NULL 은 bronze 로 기본값 처리돼야 한다');
+        $this->assertSame(
+            'bronze',
+            $rows[0]['grade'],
+            'grade NULL 은 bronze 로 기본값 처리돼야 한다'
+        );
     }
 
     public function testSocialProviderNullBecomesEmptyString(): void
@@ -195,8 +209,11 @@ final class UserJsonApiTest extends CIUnitTestCase
         $id   = $this->insertUser(['social_provider' => null]);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame('', $rows[0]['social_provider'],
-            'social_provider NULL 은 빈 문자열로 변환돼야 한다');
+        $this->assertSame(
+            '',
+            $rows[0]['social_provider'],
+            'social_provider NULL 은 빈 문자열로 변환돼야 한다'
+        );
     }
 
     public function testSocialProviderIsPreserved(): void
@@ -248,7 +265,10 @@ final class UserJsonApiTest extends CIUnitTestCase
         db_connect()->table('users')->where('id', $id)->update(['last_login' => null]);
 
         $rows = $this->fetchJsonData([$id]);
-        $this->assertSame('', $rows[0]['last_login'],
-            'last_login NULL 은 빈 문자열로 변환돼야 한다');
+        $this->assertSame(
+            '',
+            $rows[0]['last_login'],
+            'last_login NULL 은 빈 문자열로 변환돼야 한다'
+        );
     }
 }

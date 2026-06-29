@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\OAuth;
 
 /**
@@ -17,7 +19,7 @@ abstract class AbstractOAuthProvider
         $cfg = config(\Config\OAuth::class)->{$providerName};
 
         // .env 우선 적용
-        $cfg['client_id']     = env("oauth.{$providerName}.client_id",     $cfg['client_id']);
+        $cfg['client_id']     = env("oauth.{$providerName}.client_id", $cfg['client_id']);
         $cfg['client_secret'] = env("oauth.{$providerName}.client_secret", $cfg['client_secret']);
         $cfg['redirect_uri']  = base_url("auth/social/{$providerName}/callback");
 

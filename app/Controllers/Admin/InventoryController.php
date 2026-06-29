@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
-use App\Models\ProductModel;
 use App\Models\ProductImageModel;
+use App\Models\ProductModel;
 use App\Models\StockLogModel;
 
 class InventoryController extends BaseController
@@ -76,7 +78,7 @@ class InventoryController extends BaseController
     public function suggestions(): string
     {
         $windowDays  = max(7, (int) ($this->request->getGet('window') ?: \App\Libraries\RestockSuggestionService::WINDOW_DAYS));
-        $coverDays   = max(7, (int) ($this->request->getGet('cover')  ?: \App\Libraries\RestockSuggestionService::COVER_DAYS));
+        $coverDays   = max(7, (int) ($this->request->getGet('cover') ?: \App\Libraries\RestockSuggestionService::COVER_DAYS));
         $suggestions = (new \App\Libraries\RestockSuggestionService())->suggestions($windowDays, $coverDays);
 
         return $this->render('admin/inventory/suggestions', [

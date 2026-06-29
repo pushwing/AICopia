@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Libraries\CouponService;
@@ -216,8 +218,14 @@ final class OrderLifecycleTest extends CIUnitTestCase
         int $pointUsed = 0
     ): int {
         $orderId = $this->createPendingOrder(
-            $userId, $product, $qty,
-            $couponId, $userCouponId, $couponDiscount, $pointUsed, $pointEarned
+            $userId,
+            $product,
+            $qty,
+            $couponId,
+            $userCouponId,
+            $couponDiscount,
+            $pointUsed,
+            $pointEarned
         );
         $this->model->confirmPaid($orderId, 'toss', 'tid_' . uniqid(), 'card', []);
         return $orderId;
@@ -715,7 +723,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         // user_coupon을 'used' 상태로 연결
         $db->table('user_coupons')->where('id', $userCouponId)->update([
             'status'  => 'used',
-            'order_id'=> $orderId,
+            'order_id' => $orderId,
             'used_at' => date('Y-m-d H:i:s'),
         ]);
         $this->insertPaymentDirect($orderId, 'paid');
@@ -817,8 +825,14 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $product = $this->insertProduct();
 
         $result = $this->model->createPending(
-            $userId, $this->shippingData(), [$this->makeCartItem($product)],
-            null, null, 0, 4000, 0  // try to use 4000, only have 3000
+            $userId,
+            $this->shippingData(),
+            [$this->makeCartItem($product)],
+            null,
+            null,
+            0,
+            4000,
+            0  // try to use 4000, only have 3000
         );
         $this->assertSame(0, $result);
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -82,7 +84,9 @@ class PromotionModel extends Model
         $this->db->table('promotion_products')->where('promotion_id', $promotionId)->delete();
         foreach ($products as $item) {
             $productId = (int) ($item['product_id'] ?? 0);
-            if ($productId <= 0) continue;
+            if ($productId <= 0) {
+                continue;
+            }
             $this->db->table('promotion_products')->insert([
                 'promotion_id' => $promotionId,
                 'product_id'   => $productId,
@@ -94,8 +98,12 @@ class PromotionModel extends Model
     /** 회원 등급이 기획전 접근 조건을 만족하는지 확인 */
     public function checkGradeAccess(string $required, ?string $userGrade): bool
     {
-        if ($required === 'all') return true;
-        if ($userGrade === null) return false;
+        if ($required === 'all') {
+            return true;
+        }
+        if ($userGrade === null) {
+            return false;
+        }
         $req  = self::GRADE_ORDER[$required]   ?? 0;
         $user = self::GRADE_ORDER[$userGrade]  ?? 0;
         return $user >= $req;

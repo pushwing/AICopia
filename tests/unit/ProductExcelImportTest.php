@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Controllers\Admin\ProductController;
-use App\Models\CategoryModel;
 use App\Models\ProductModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -62,8 +63,8 @@ final class ProductExcelImportTest extends CIUnitTestCase
             'status'        => '',
             'shipping_type' => '',
             'shipping_fee'  => '',
-            'free_threshold'=> '',
-            'discount_price'=> '',
+            'free_threshold' => '',
+            'discount_price' => '',
             'category'      => '',
             'description'   => '',
         ], $override));
@@ -179,8 +180,8 @@ final class ProductExcelImportTest extends CIUnitTestCase
             'status'        => 'sold_out',
             'shipping_type' => 'fixed',
             'shipping_fee'  => '3000',
-            'free_threshold'=> '50000',
-            'discount_price'=> '25000',
+            'free_threshold' => '50000',
+            'discount_price' => '25000',
         ]));
         $this->assertEmpty($result['errors']);
         $this->assertSame('좋은 상품', $result['data']['name']);
@@ -277,8 +278,8 @@ final class ProductExcelImportTest extends CIUnitTestCase
                 'status'        => 'on_sale',
                 'shipping_type' => 'free',
                 'shipping_fee'  => 0,
-                'free_threshold'=> 0,
-                'discount_price'=> null,
+                'free_threshold' => 0,
+                'discount_price' => null,
                 'category_id'   => null,
                 'description'   => '',
             ],
@@ -294,7 +295,7 @@ final class ProductExcelImportTest extends CIUnitTestCase
                 'status'        => $row['status'],
                 'shipping_type' => $row['shipping_type'],
                 'shipping_fee'  => $row['shipping_fee'],
-                'free_threshold'=> $row['free_threshold'],
+                'free_threshold' => $row['free_threshold'],
                 'description'   => $row['description'],
             ];
             $productId = $model->insert($productData);

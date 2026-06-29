@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use App\Traits\HasSlug;
@@ -71,7 +73,9 @@ class CategoryModel extends Model
     public function getParent(int $childId): ?array
     {
         $child = $this->find($childId);
-        if (! $child || ! $child['parent_id']) return null;
+        if (! $child || ! $child['parent_id']) {
+            return null;
+        }
         return $this->find($child['parent_id']);
     }
 

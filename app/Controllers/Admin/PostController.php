@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\BoardModel;
-use App\Models\PostModel;
 use App\Models\PostFileModel;
+use App\Models\PostModel;
 
 class PostController extends BaseController
 {
@@ -52,7 +54,7 @@ class PostController extends BaseController
             ->orderBy('posts.id', 'DESC')
             ->findAll();
 
-        $data = array_map(fn($p) => [
+        $data = array_map(fn ($p) => [
             'id'         => (int) $p['id'],
             'title'      => $p['title'],
             'is_notice'  => (int) $p['is_notice'],

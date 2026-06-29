@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filters;
 
 use CodeIgniter\Filters\FilterInterface;
@@ -30,32 +32,46 @@ class StatsFilter implements FilterInterface
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null): ResponseInterface|null
     {
-        if (ENVIRONMENT === 'testing') return null;
+        if (ENVIRONMENT === 'testing') {
+            return null;
+        }
 
         // JSON 응답 제외
         $ct = $response->getHeaderLine('Content-Type');
-        if ($ct !== '' && ! str_contains($ct, 'text/html')) return null;
+        if ($ct !== '' && ! str_contains($ct, 'text/html')) {
+            return null;
+        }
 
         // 오류 응답 제외
-        if ($response->getStatusCode() >= 400) return null;
+        if ($response->getStatusCode() >= 400) {
+            return null;
+        }
 
         /** @var \CodeIgniter\HTTP\IncomingRequest $request */
         $path = '/' . ltrim($request->getUri()->getPath(), '/');
 
         // 관리자·인증·콜백 등 제외
-        if ($path === '/admin') return null;
+        if ($path === '/admin') {
+            return null;
+        }
         foreach (self::SKIP_PREFIXES as $prefix) {
-            if (str_starts_with($path, $prefix)) return null;
+            if (str_starts_with($path, $prefix)) {
+                return null;
+            }
         }
 
         // 정적 파일 제외
         $ext = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
-        if ($ext !== '' && in_array($ext, self::SKIP_EXTS, true)) return null;
+        if ($ext !== '' && in_array($ext, self::SKIP_EXTS, true)) {
+            return null;
+        }
 
         // 봇 제외
         $ua = strtolower($request->getUserAgent()->getAgentString());
         foreach (self::BOT_KEYWORDS as $bot) {
-            if (str_contains($ua, $bot)) return null;
+            if (str_contains($ua, $bot)) {
+                return null;
+            }
         }
 
         $page = mb_substr($path, 0, 500);

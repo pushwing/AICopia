@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+jobs:
+  # 정적 게이트 — DB 불필요. cs-fixer + PHPStan + 의존성 점검.
+  static:
+    name: 코드 스타일 · 정적 분석
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, json, gd, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # 이 저장소는 표준 CI4 스켈레톤(app/Config/App.php·Constants.php·system 등)을
+      # gitignore 하고 커스텀 Config만 추적한다. PHPStan 부트스트랩을 위해 복원한다.
+      - name: Restore CI4 skeleton
+        run: |
+          cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
+          [ -e system ] || ln -s vendor/codeigniter4/framework/system system
+          mkdir -p writable/cache writable/logs writable/session writable/tmp writable/uploads
+
+      - name: 코드 스타일 검사 (PHP-CS-Fixer)
+        run: composer cs
+
+      - name: 정적 분석 (PHPStan)
+        run: composer analyse
+
+      - name: 의존성 취약점 점검 (composer audit)
+        run: composer audit --no-dev || true
+
+  # 단위 테스트 — tests DB 그룹(프리픽스 db_)을 MySQL 서비스로 프로비저닝 후 마이그레이션.
+  test:
+    name: 단위 테스트
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: aicopia_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping" --health-interval=10s
+          --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, json, gd, zip, mysqli
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # 이 저장소는 표준 CI4 스켈레톤(app/Config 표준 파일·system·spark·env)을 gitignore 한다.
+      # vendor 프레임워크에서 복원한다(커스텀 Config는 cp -n 으로 보존).
+      - name: Restore CI4 skeleton
+        run: |
+          cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
+          [ -e system ] || ln -s vendor/codeigniter4/framework/system system
+          [ -f spark ] || cp vendor/codeigniter4/framework/spark spark
+          mkdir -p writable/cache writable/logs writable/session writable/tmp writable/uploads
+
+      # 마이그레이션은 MySQL 전용 DDL을 쓰므로 SQLite 불가 → MySQL 서비스 사용.
+      # 테스트는 $DBGroup='tests'($migrate=false)이므로 미리 마이그레이션해야 한다.
+      # 마이그레이션이 prefix 없는 raw DDL(`ALTER TABLE users ...`)을 쓰므로 DBPrefix는 빈 값이어야 한다.
+      # default·tests 두 그룹을 동일 MySQL DB로 맞춰
+      # `php spark migrate`(default)가 테이블을 만들고 테스트(tests)가 그대로 읽게 한다.
+      - name: Configure .env (test DB)
+        run: |
+          cp vendor/codeigniter4/framework/env .env
+          {
+            echo ""
+            echo "CI_ENVIRONMENT = development"
+            echo "database.default.hostname = 127.0.0.1"
+            echo "database.default.database = aicopia_test"
+            echo "database.default.username = root"
+            echo "database.default.password ="
+            echo "database.default.DBDriver = MySQLi"
+            echo "database.default.DBPrefix ="
+            echo "database.default.port = 3306"
+            echo "database.tests.hostname = 127.0.0.1"
+            echo "database.tests.database = aicopia_test"
+            echo "database.tests.username = root"
+            echo "database.tests.password ="
+            echo "database.tests.DBDriver = MySQLi"
+            echo "database.tests.DBPrefix ="
+            echo "database.tests.port = 3306"
+          } >> .env
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            mysqladmin ping -h 127.0.0.1 -uroot --silent && break
+            sleep 2
+          done
+
+      - name: Migrate test DB
+        run: php spark migrate --all
+
+      - name: 단위 테스트 (PHPUnit)
+        run: composer test

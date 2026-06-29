@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -39,13 +41,13 @@ class OrderController extends BaseController
             return redirect()->to('/cart')->with('error', '장바구니가 비어 있습니다.');
         }
 
-        $available = array_filter($items, fn($i) => $i['is_available']);
+        $available = array_filter($items, fn ($i) => $i['is_available']);
         if (empty($available)) {
             return redirect()->to('/cart')->with('error', '구매 가능한 상품이 없습니다.');
         }
 
         $totalProduct = array_sum(array_map(
-            fn($i) => ($i['discount_price'] ?? $i['price']) * $i['qty'],
+            fn ($i) => ($i['discount_price'] ?? $i['price']) * $i['qty'],
             $available
         ));
 
@@ -60,9 +62,15 @@ class OrderController extends BaseController
         $pointBalance = (int) ($user->point_balance ?? 0);
 
         return $this->render('shop/checkout', compact(
-            'available', 'totalProduct', 'shippingFee', 'totalAmount',
-            'savedAddresses', 'savedAddress', 'pgProviders',
-            'userCoupons', 'pointBalance'
+            'available',
+            'totalProduct',
+            'shippingFee',
+            'totalAmount',
+            'savedAddresses',
+            'savedAddress',
+            'pgProviders',
+            'userCoupons',
+            'pointBalance'
         ));
     }
 
@@ -95,7 +103,7 @@ class OrderController extends BaseController
         $pointUse     = max(0, (int) ($this->request->getPost('point_use') ?? 0));
 
         $items = $this->cartModel->getByUser($userId);
-        $items = array_values(array_filter($items, fn($i) => $i['is_available']));
+        $items = array_values(array_filter($items, fn ($i) => $i['is_available']));
 
         if (empty($items)) {
             return $this->response->setJSON(['success' => false, 'message' => '구매 가능한 상품이 없습니다.']);
@@ -115,7 +123,7 @@ class OrderController extends BaseController
 
         // 서버 금액 재계산
         $totalProduct = array_sum(array_map(
-            fn($i) => ((int) ($i['discount_price'] ?? $i['price'])) * (int) $i['qty'],
+            fn ($i) => ((int) ($i['discount_price'] ?? $i['price'])) * (int) $i['qty'],
             $items
         ));
         $shippingFee = $this->orderModel->calculateShippingFee($items, $totalProduct);
@@ -169,9 +177,14 @@ class OrderController extends BaseController
         $pointEarned = $payableAmount > 0 ? (int) floor($payableAmount * $earnRate / 100) : 0;
 
         $orderId = $this->orderModel->createPending(
-            $userId, $shippingData, $items,
-            $couponId, $resolvedUserCouponId,
-            $couponDiscountAmount, $pointUse, $pointEarned
+            $userId,
+            $shippingData,
+            $items,
+            $couponId,
+            $resolvedUserCouponId,
+            $couponDiscountAmount,
+            $pointUse,
+            $pointEarned
         );
 
         if (! $orderId) {

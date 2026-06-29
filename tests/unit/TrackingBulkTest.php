@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\OrderModel;
@@ -115,7 +117,7 @@ final class TrackingBulkTest extends CIUnitTestCase
         $this->model->updateTracking($orderId, 'CJ대한통운', '123456789012');
 
         $row = $this->model->find($orderId);
-        $this->assertEquals('CJ대한통운',   $row['tracking_company']);
+        $this->assertEquals('CJ대한통운', $row['tracking_company']);
         $this->assertEquals('123456789012', $row['tracking_number']);
     }
 
@@ -134,7 +136,7 @@ final class TrackingBulkTest extends CIUnitTestCase
         $this->model->updateTracking($orderId, '로젠택배', '222222222222');
 
         $row = $this->model->find($orderId);
-        $this->assertEquals('로젠택배',     $row['tracking_company']);
+        $this->assertEquals('로젠택배', $row['tracking_company']);
         $this->assertEquals('222222222222', $row['tracking_number']);
     }
 
@@ -276,7 +278,7 @@ final class TrackingBulkTest extends CIUnitTestCase
         $dataLine   = 'ORD-001,CJ대한통운,123456789012';
 
         $this->assertTrue((bool) preg_match('/^주문번호/u', $headerLine), '헤더 행 감지');
-        $this->assertFalse((bool) preg_match('/^주문번호/u', $dataLine),  '데이터 행은 헤더 아님');
+        $this->assertFalse((bool) preg_match('/^주문번호/u', $dataLine), '데이터 행은 헤더 아님');
     }
 
     public function testCsvLineWithTwoColumnsIsInvalid(): void
@@ -293,8 +295,8 @@ final class TrackingBulkTest extends CIUnitTestCase
         $cols = str_getcsv($line);
 
         $this->assertGreaterThanOrEqual(3, count($cols));
-        $this->assertEquals('ORD-001',        trim($cols[0]));
-        $this->assertEquals('CJ대한통운',      trim($cols[1]));
-        $this->assertEquals('123456789012',    trim($cols[2]));
+        $this->assertEquals('ORD-001', trim($cols[0]));
+        $this->assertEquals('CJ대한통운', trim($cols[1]));
+        $this->assertEquals('123456789012', trim($cols[2]));
     }
 }

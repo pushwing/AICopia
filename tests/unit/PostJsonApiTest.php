@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -126,7 +128,7 @@ final class PostJsonApiTest extends CIUnitTestCase
         }
 
         $rows = $builder->get()->getResultArray();
-        return array_map(fn($p) => [
+        return array_map(fn ($p) => [
             'id'         => (int) $p['id'],
             'title'      => $p['title'],
             'is_notice'  => (int) $p['is_notice'],
@@ -163,8 +165,11 @@ final class PostJsonApiTest extends CIUnitTestCase
         $id   = $this->insertPost($bid, ['user_id' => $uid, 'author_name' => '']);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame($this->prefix . 'nick', $rows[0]['author'],
-            '로그인 작성자는 user_nickname 이 author 여야 한다');
+        $this->assertSame(
+            $this->prefix . 'nick',
+            $rows[0]['author'],
+            '로그인 작성자는 user_nickname 이 author 여야 한다'
+        );
     }
 
     public function testAuthorFallsBackToAuthorNameWhenNoUser(): void
@@ -173,8 +178,11 @@ final class PostJsonApiTest extends CIUnitTestCase
         $id   = $this->insertPost($bid, ['user_id' => null, 'author_name' => '비회원테스터']);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame('비회원테스터', $rows[0]['author'],
-            'user_id 없는 게시물은 author_name 이 author 여야 한다');
+        $this->assertSame(
+            '비회원테스터',
+            $rows[0]['author'],
+            'user_id 없는 게시물은 author_name 이 author 여야 한다'
+        );
     }
 
     // ── 타입 캐스팅 ───────────────────────────────────────────────────────────

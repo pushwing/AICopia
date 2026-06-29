@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -109,8 +111,11 @@ class MyPageController extends BaseController
         $exchangeReasonPayer = $eCode ? ($exchangeReasonCodes[$eCode]['payer'] ?? null) : null;
 
         return $this->render('shop/orders/detail', compact(
-            'order', 'returnReasonCodes', 'returnReasonPayer',
-            'exchangeReasonCodes', 'exchangeReasonPayer'
+            'order',
+            'returnReasonCodes',
+            'returnReasonPayer',
+            'exchangeReasonCodes',
+            'exchangeReasonPayer'
         ));
     }
 
@@ -227,7 +232,9 @@ class MyPageController extends BaseController
         $currentPage = max(1, (int) ($this->request->getGet('page') ?? 1));
         $perPage     = 10;
 
-        if (! in_array($tab, ['available', 'used'], true)) $tab = 'available';
+        if (! in_array($tab, ['available', 'used'], true)) {
+            $tab = 'available';
+        }
 
         $now     = date('Y-m-d H:i:s');
         $builder = \Config\Database::connect()->table('user_coupons uc')

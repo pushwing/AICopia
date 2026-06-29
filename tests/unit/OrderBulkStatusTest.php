@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\OrderModel;
@@ -151,7 +153,10 @@ final class OrderBulkStatusTest extends CIUnitTestCase
         $updated  = 0;
         $failed   = 0;
         foreach ($orderIds as $id) {
-            if ($id <= 0) { $failed++; continue; }
+            if ($id <= 0) {
+                $failed++;
+                continue;
+            }
             $this->model->updateStatus($id, $status) ? $updated++ : $failed++;
         }
         return compact('updated', 'failed');
@@ -234,7 +239,7 @@ final class OrderBulkStatusTest extends CIUnitTestCase
         $this->assertSame(1, $result['updated']);
         $this->assertSame(1, $result['failed']);
         $this->assertSame('preparing', $this->model->find($validId)['status']);
-        $this->assertSame('shipped',   $this->model->find($invalidId)['status']);
+        $this->assertSame('shipped', $this->model->find($invalidId)['status']);
     }
 
     // ── 타겟 외 주문 영향 없음 ────────────────────────────────────────────────
@@ -247,7 +252,7 @@ final class OrderBulkStatusTest extends CIUnitTestCase
         $this->bulkUpdate([$target], 'preparing');
 
         $this->assertSame('preparing', $this->model->find($target)['status']);
-        $this->assertSame('paid',      $this->model->find($bystander)['status'], '미선택 주문 상태 불변');
+        $this->assertSame('paid', $this->model->find($bystander)['status'], '미선택 주문 상태 불변');
     }
 
     // ── 경계값 ────────────────────────────────────────────────────────────────

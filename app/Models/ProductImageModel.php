@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -49,7 +51,9 @@ class ProductImageModel extends Model
 
     public function attachPrimaryImages(array &$items): void
     {
-        if (empty($items)) return;
+        if (empty($items)) {
+            return;
+        }
 
         $ids  = array_column($items, 'id');
         $rows = $this->select('product_images.product_id, media.file_path')

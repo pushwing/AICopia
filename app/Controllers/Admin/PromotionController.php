@@ -1,11 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Libraries\ImageUploader;
 use App\Models\CategoryModel;
-use App\Models\ProductModel;
 use App\Models\PromotionModel;
 
 class PromotionController extends BaseController
@@ -152,7 +153,7 @@ class PromotionController extends BaseController
             'banner_image' => null,
             'grade_access' => $this->request->getPost('grade_access') ?? 'all',
             'start_date'   => $startDate !== '' ? $startDate : null,
-            'end_date'     => $endDate   !== '' ? $endDate   : null,
+            'end_date'     => $endDate   !== '' ? $endDate : null,
             'is_active'    => (int) $this->request->getPost('is_active'),
             'sort_order'   => (int) $this->request->getPost('sort_order'),
         ];

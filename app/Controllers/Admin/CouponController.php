@@ -1,11 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\CouponModel;
 use App\Models\UserCouponModel;
-use App\Models\UserModel;
 
 class CouponController extends BaseController
 {
@@ -39,7 +40,7 @@ class CouponController extends BaseController
             ->orderBy('id', 'DESC')
             ->get()->getResultArray();
 
-        $data = array_map(fn($c) => [
+        $data = array_map(fn ($c) => [
             'id'                  => (int) $c['id'],
             'name'                => $c['name'],
             'code'                => $c['code'],
@@ -84,7 +85,9 @@ class CouponController extends BaseController
     public function edit(int $id): \CodeIgniter\HTTP\RedirectResponse|string
     {
         $coupon = $this->couponModel->find($id);
-        if (! $coupon) return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        if (! $coupon) {
+            return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        }
 
         return $this->render('admin/coupons/form', [
             'coupon' => $coupon,
@@ -96,7 +99,9 @@ class CouponController extends BaseController
     public function update(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $coupon = $this->couponModel->find($id);
-        if (! $coupon) return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        if (! $coupon) {
+            return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        }
 
         if (! $this->validate($this->validationRules($id))) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
@@ -111,7 +116,9 @@ class CouponController extends BaseController
     public function delete(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $coupon = $this->couponModel->find($id);
-        if (! $coupon) return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        if (! $coupon) {
+            return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        }
 
         $this->couponModel->update($id, ['is_active' => 0]);
 
@@ -122,7 +129,9 @@ class CouponController extends BaseController
     public function issueForm(int $id): \CodeIgniter\HTTP\RedirectResponse|string
     {
         $coupon = $this->couponModel->find($id);
-        if (! $coupon) return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        if (! $coupon) {
+            return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        }
 
         $page   = max(1, (int) ($this->request->getGet('page') ?? 1));
         $result = $this->userCouponModel->getByCoupon($id, $page);
@@ -134,7 +143,9 @@ class CouponController extends BaseController
     public function issue(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $coupon = $this->couponModel->find($id);
-        if (! $coupon) return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        if (! $coupon) {
+            return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        }
 
         $userIds = array_filter(array_map('intval', explode(',', $this->request->getPost('user_ids') ?? '')));
         if (empty($userIds)) {
@@ -154,7 +165,9 @@ class CouponController extends BaseController
 
         $toInsert = [];
         foreach ($userIds as $userId) {
-            if (in_array($userId, $alreadyHas, true)) continue;
+            if (in_array($userId, $alreadyHas, true)) {
+                continue;
+            }
             $toInsert[] = [
                 'user_id'    => $userId,
                 'coupon_id'  => $id,
@@ -171,7 +184,9 @@ class CouponController extends BaseController
         }
 
         $msg = "발급 완료: {$issued}명";
-        if ($skipped > 0) $msg .= " (이미 보유: {$skipped}명 건너뜀)";
+        if ($skipped > 0) {
+            $msg .= " (이미 보유: {$skipped}명 건너뜀)";
+        }
 
         return redirect()->to("/admin/coupons/{$id}/issue")->with('success', $msg);
     }
@@ -180,7 +195,9 @@ class CouponController extends BaseController
     public function issueGrade(int $id)
     {
         $coupon = $this->couponModel->find($id);
-        if (! $coupon) return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        if (! $coupon) {
+            return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
+        }
 
         $grade = $this->request->getPost('grade');
         $validGrades = ['bronze', 'silver', 'gold', 'platinum'];
@@ -198,7 +215,7 @@ class CouponController extends BaseController
         }
 
         $now       = date('Y-m-d H:i:s');
-        $memberIds = array_map(fn(array $m) => (int) $m['id'], $members);
+        $memberIds = array_map(fn (array $m) => (int) $m['id'], $members);
 
         $existingRows = $db->table('user_coupons')
             ->select('user_id')
@@ -210,7 +227,9 @@ class CouponController extends BaseController
 
         $toInsert = [];
         foreach ($memberIds as $userId) {
-            if (in_array($userId, $alreadyHas, true)) continue;
+            if (in_array($userId, $alreadyHas, true)) {
+                continue;
+            }
             $toInsert[] = [
                 'user_id'    => $userId,
                 'coupon_id'  => $id,
@@ -227,7 +246,9 @@ class CouponController extends BaseController
         }
 
         $msg = "등급별 발급 완료: {$issued}명";
-        if ($skipped > 0) $msg .= " (이미 보유: {$skipped}명 건너뜀)";
+        if ($skipped > 0) {
+            $msg .= " (이미 보유: {$skipped}명 건너뜀)";
+        }
 
         return redirect()->to("/admin/coupons/{$id}/issue")->with('success', $msg);
     }
@@ -252,7 +273,7 @@ class CouponController extends BaseController
         $type         = $this->request->getPost('type');
         $gradeRaw     = $this->request->getPost('target_grade') ?? [];
         $validGrades  = ['bronze', 'silver', 'gold', 'platinum'];
-        $selectedGrades = array_values(array_filter((array) $gradeRaw, fn($g) => in_array($g, $validGrades, true)));
+        $selectedGrades = array_values(array_filter((array) $gradeRaw, fn ($g) => in_array($g, $validGrades, true)));
         $targetGrade  = empty($selectedGrades) ? null : implode(',', $selectedGrades);
 
         return [

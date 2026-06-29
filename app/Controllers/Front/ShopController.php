@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -71,18 +73,24 @@ class ShopController extends BaseController
         $featuredCount = max(1, (int) ($s['welcome_featured_count'] ?? 8));
 
         $newProducts = ($s['welcome_show_new'] ?? '1') ? $this->productModel->getLatest($newCount) : [];
-        if ($newProducts) $this->imageModel->attachPrimaryImages($newProducts);
+        if ($newProducts) {
+            $this->imageModel->attachPrimaryImages($newProducts);
+        }
 
         $discountedProducts = ($s['welcome_show_discount'] ?? '1') ? $this->productModel->getDiscounted($discountCount) : [];
-        if ($discountedProducts) $this->imageModel->attachPrimaryImages($discountedProducts);
+        if ($discountedProducts) {
+            $this->imageModel->attachPrimaryImages($discountedProducts);
+        }
 
         $featuredProducts = ($s['welcome_show_featured'] ?? '1') ? $this->productModel->getFeatured($featuredCount) : [];
-        if ($featuredProducts) $this->imageModel->attachPrimaryImages($featuredProducts);
+        if ($featuredProducts) {
+            $this->imageModel->attachPrimaryImages($featuredProducts);
+        }
 
         $categories = ($s['welcome_show_categories'] ?? '1') ? $this->categoryModel->getTree() : [];
 
         return $this->render('shop/welcome', [
-            'heroBanners'        => ($s['welcome_show_hero'] ?? '1')          ? $bannerModel->getActiveByPosition('main_top')    : [],
+            'heroBanners'        => ($s['welcome_show_hero'] ?? '1') ? $bannerModel->getActiveByPosition('main_top') : [],
             'mainBotBanners'     => ($s['welcome_show_bottom_banner'] ?? '1') ? $bannerModel->getActiveByPosition('main_bottom') : [],
             'newProducts'        => $newProducts,
             'discountedProducts' => $discountedProducts,
@@ -140,14 +148,16 @@ class ShopController extends BaseController
 
         // 최근 본 상품 쿠키 업데이트
         $viewed = json_decode($this->request->getCookie('recently_viewed') ?? '[]', true);
-        if (! is_array($viewed)) $viewed = [];
-        $viewed = array_values(array_filter($viewed, fn($s) => $s !== $slug));
+        if (! is_array($viewed)) {
+            $viewed = [];
+        }
+        $viewed = array_values(array_filter($viewed, fn ($s) => $s !== $slug));
         array_unshift($viewed, $slug);
         $viewed = array_slice($viewed, 0, 11);
         $this->response->setCookie('recently_viewed', json_encode($viewed), 30 * 24 * 3600);
 
         // 최근 본 상품 목록 (현재 상품 제외, 최대 10개)
-        $recentSlugs    = array_values(array_filter($viewed, fn($s) => $s !== $slug));
+        $recentSlugs    = array_values(array_filter($viewed, fn ($s) => $s !== $slug));
         $recentProducts = [];
         if ($recentSlugs) {
             $recentProducts = $this->productModel
@@ -155,7 +165,9 @@ class ShopController extends BaseController
                 ->whereIn('status', ['on_sale', 'sold_out'])
                 ->findAll();
             $this->imageModel->attachPrimaryImages($recentProducts);
-            usort($recentProducts, fn($a, $b) =>
+            usort(
+                $recentProducts,
+                fn ($a, $b) =>
                 array_search($a['slug'], $recentSlugs) <=> array_search($b['slug'], $recentSlugs)
             );
         }
@@ -281,13 +293,23 @@ class ShopController extends BaseController
         if (isset($uploadFiles['images'])) {
             $fileList = is_array($uploadFiles['images']) ? $uploadFiles['images'] : [$uploadFiles['images']];
             foreach (array_slice($fileList, 0, 3) as $file) {
-                if (! ($file instanceof \CodeIgniter\HTTP\Files\UploadedFile)) continue;
-                if (! $file->isValid() || $file->hasMoved()) continue;
-                if (! in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) continue;
-                if ($file->getSize() > 5 * 1024 * 1024) continue;
+                if (! ($file instanceof \CodeIgniter\HTTP\Files\UploadedFile)) {
+                    continue;
+                }
+                if (! $file->isValid() || $file->hasMoved()) {
+                    continue;
+                }
+                if (! in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
+                    continue;
+                }
+                if ($file->getSize() > 5 * 1024 * 1024) {
+                    continue;
+                }
                 $name = $file->getRandomName();
                 $dir  = FCPATH . 'uploads/reviews/';
-                if (! is_dir($dir)) mkdir($dir, 0755, true);
+                if (! is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
                 if ($file->move($dir, $name)) {
                     $uploadedImages[] = '/uploads/reviews/' . $name;
                 }
@@ -359,7 +381,7 @@ class ShopController extends BaseController
             'per_page'     => 12,
             'price_min'    => $this->request->getGet('price_min'),
             'price_max'    => $this->request->getGet('price_max'),
-            'only_discount'=> $this->request->getGet('only_discount'),
+            'only_discount' => $this->request->getGet('only_discount'),
         ];
 
         // 시맨틱 검색: 검색어를 AI로 확장해 재현율 향상 (AI 미설정 시 일반 검색)
@@ -403,7 +425,7 @@ class ShopController extends BaseController
             'onlyDiscount' => (bool) $params['only_discount'],
             'wishedIds'    => $wishedIds,
             'recommended'  => $recommended,
-            'expandedTerms'=> $expandedTerms,
+            'expandedTerms' => $expandedTerms,
         ]));
     }
 

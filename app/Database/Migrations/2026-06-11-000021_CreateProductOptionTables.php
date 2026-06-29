@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
@@ -24,7 +26,7 @@ class CreateProductOptionTables extends Migration
             'id'        => ['type' => 'INT', 'unsigned' => true, 'auto_increment' => true],
             'option_id' => ['type' => 'INT', 'unsigned' => true],
             'value'     => ['type' => 'VARCHAR', 'constraint' => 100],
-            'sort_order'=> ['type' => 'INT', 'default' => 0],
+            'sort_order' => ['type' => 'INT', 'default' => 0],
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addKey('option_id');

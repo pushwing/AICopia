@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\AiProvider;
 
 class ClaudeProvider implements AiProviderInterface
@@ -113,7 +115,7 @@ class ClaudeProvider implements AiProviderInterface
     {
         $text = preg_replace('/```[\s\S]*?```/', '', $text);
         $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $text);
-        $text = preg_replace('/__(.+?)__/u',     '<strong>$1</strong>', $text);
+        $text = preg_replace('/__(.+?)__/u', '<strong>$1</strong>', $text);
 
         $lines     = explode("\n", $text);
         $result    = [];
@@ -128,7 +130,10 @@ class ClaudeProvider implements AiProviderInterface
 
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '') { $flushList($listItems, $result); continue; }
+            if ($line === '') {
+                $flushList($listItems, $result);
+                continue;
+            }
 
             if (preg_match('/^#{1,3}\s+(.+)/u', $line, $m)) {
                 $flushList($listItems, $result);
@@ -252,7 +257,7 @@ class ClaudeProvider implements AiProviderInterface
             'max_tokens' => 256,
             'system'     => AiPrompts::get('search_expand'),
             'messages'   => [
-                ['role' => 'user', 'content' => "검색어: " . mb_substr($query, 0, 50)],
+                ['role' => 'user', 'content' => '검색어: ' . mb_substr($query, 0, 50)],
             ],
         ]);
 

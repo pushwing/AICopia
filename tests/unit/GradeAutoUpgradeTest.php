@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Libraries\GradeService;
@@ -108,8 +110,8 @@ final class GradeAutoUpgradeTest extends CIUnitTestCase
             'name'          => 'AU쿠폰_' . uniqid(),
             'code'          => 'AU-' . strtoupper(uniqid()),
             'type'          => 'fixed',
-            'discount_value'=> 1000,
-            'min_order_amount'=> 0,
+            'discount_value' => 1000,
+            'min_order_amount' => 0,
             'total_qty'     => null,
             'used_count'    => 0,
             'is_active'     => 1,

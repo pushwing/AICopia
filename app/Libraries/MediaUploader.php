@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Models\MediaModel;
@@ -66,11 +68,15 @@ class MediaUploader
     // GIF(애니메이션)·SVG(벡터)를 제외하고 MAX_DIMENSION 초과 시 비율 유지하며 축소
     private function resizeIfNeeded(string $fullPath, string $ext): void
     {
-        if (in_array($ext, ['gif', 'svg'])) return;
+        if (in_array($ext, ['gif', 'svg'])) {
+            return;
+        }
 
         [$width, $height] = getimagesize($fullPath) ?: [0, 0];
 
-        if ($width <= self::MAX_DIMENSION && $height <= self::MAX_DIMENSION) return;
+        if ($width <= self::MAX_DIMENSION && $height <= self::MAX_DIMENSION) {
+            return;
+        }
 
         $masterDim = $width >= $height ? 'width' : 'height';
 

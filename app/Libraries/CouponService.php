@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Models\CouponModel;
@@ -105,7 +107,7 @@ class CouponService
         }
 
         if ((int) $coupon['min_order_amount'] > 0 && $orderAmount < (int) $coupon['min_order_amount']) {
-            return $this->fail('최소 주문 금액(' . number_format($coupon['min_order_amount']) . '원) 이상일 때 사용 가능합니다.');
+            return $this->fail('최소 주문 금액(' . number_format((int) $coupon['min_order_amount']) . '원) 이상일 때 사용 가능합니다.');
         }
 
         // 등급 제한 쿠폰 검증 (콤마 구분 다중 등급)
@@ -116,7 +118,7 @@ class CouponService
             $targetGrades = array_map('trim', explode(',', $coupon['target_grade']));
             if (! in_array($userGrade, $targetGrades, true)) {
                 $gradeLabels   = \App\Libraries\GradeService::LABELS;
-                $targetLabels  = array_map(fn($g) => $gradeLabels[$g] ?? $g, $targetGrades);
+                $targetLabels  = array_map(fn ($g) => $gradeLabels[$g] ?? $g, $targetGrades);
                 return $this->fail(implode('·', $targetLabels) . ' 등급 전용 쿠폰입니다.');
             }
         }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\AiProvider;
 
 class GroqProvider implements AiProviderInterface
@@ -215,7 +217,7 @@ class GroqProvider implements AiProviderInterface
             'max_tokens'      => 200,
             'messages'        => [
                 ['role' => 'system', 'content' => AiPrompts::get('search_expand')],
-                ['role' => 'user',   'content' => "검색어: " . mb_substr($query, 0, 50)],
+                ['role' => 'user',   'content' => '검색어: ' . mb_substr($query, 0, 50)],
             ],
             'response_format' => ['type' => 'json_object'],
         ]);
@@ -280,7 +282,7 @@ class GroqProvider implements AiProviderInterface
 
         // **bold** / __bold__ → <strong>
         $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $text);
-        $text = preg_replace('/__(.+?)__/u',     '<strong>$1</strong>', $text);
+        $text = preg_replace('/__(.+?)__/u', '<strong>$1</strong>', $text);
 
         $lines      = explode("\n", $text);
         $result     = [];
@@ -295,7 +297,10 @@ class GroqProvider implements AiProviderInterface
 
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '') { $flushList($listItems, $result); continue; }
+            if ($line === '') {
+                $flushList($listItems, $result);
+                continue;
+            }
 
             // ## 헤딩 → <p><strong>
             if (preg_match('/^#{1,3}\s+(.+)/u', $line, $m)) {

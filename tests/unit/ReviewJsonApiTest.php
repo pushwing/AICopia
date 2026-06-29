@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -151,7 +153,7 @@ final class ReviewJsonApiTest extends CIUnitTestCase
             }
         }
 
-        return array_map(fn($r) => [
+        return array_map(fn ($r) => [
             'id'           => (int) $r['id'],
             'product_name' => $r['product_name'],
             'product_slug' => $r['product_slug'],
@@ -188,8 +190,11 @@ final class ReviewJsonApiTest extends CIUnitTestCase
         $id   = $this->insertReview($pid, $uid);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame(0, $rows[0]['image_count'],
-            '이미지 없는 리뷰의 image_count 는 0 이어야 한다');
+        $this->assertSame(
+            0,
+            $rows[0]['image_count'],
+            '이미지 없는 리뷰의 image_count 는 0 이어야 한다'
+        );
     }
 
     public function testImageCountReflectsActualImages(): void
@@ -201,8 +206,11 @@ final class ReviewJsonApiTest extends CIUnitTestCase
         $this->insertReviewImage($id, '/uploads/reviews/b.jpg');
 
         $rows = $this->fetchJsonData([$id]);
-        $this->assertSame(2, $rows[0]['image_count'],
-            '이미지 2장인 리뷰의 image_count 는 2 여야 한다');
+        $this->assertSame(
+            2,
+            $rows[0]['image_count'],
+            '이미지 2장인 리뷰의 image_count 는 2 여야 한다'
+        );
     }
 
     public function testImageCountIsolatedPerReview(): void
@@ -229,8 +237,11 @@ final class ReviewJsonApiTest extends CIUnitTestCase
         $id   = $this->insertReview($pid, $uid);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame($this->prefix . 'alice', $rows[0]['author'],
-            'nickname 이 있으면 author 로 사용해야 한다');
+        $this->assertSame(
+            $this->prefix . 'alice',
+            $rows[0]['author'],
+            'nickname 이 있으면 author 로 사용해야 한다'
+        );
     }
 
     public function testAuthorFallsBackToUsernameWhenNicknameEmpty(): void
@@ -240,8 +251,11 @@ final class ReviewJsonApiTest extends CIUnitTestCase
         $id   = $this->insertReview($pid, $uid);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertStringStartsWith('rjt_fallback_', $rows[0]['author'],
-            'nickname 이 비어 있으면 username 을 author 로 사용해야 한다');
+        $this->assertStringStartsWith(
+            'rjt_fallback_',
+            $rows[0]['author'],
+            'nickname 이 비어 있으면 username 을 author 로 사용해야 한다'
+        );
     }
 
     // ── 타입 캐스팅 ───────────────────────────────────────────────────────────

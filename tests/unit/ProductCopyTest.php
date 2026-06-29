@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductModel;
@@ -29,7 +31,7 @@ final class ProductCopyTest extends CIUnitTestCase
     private array  $cleanup = [
         'product_sku_values'   => [],
         'product_skus'         => [],
-        'product_option_values'=> [],
+        'product_option_values' => [],
         'product_options'      => [],
         'product_images'       => [],
         'products'             => [],
@@ -82,7 +84,7 @@ final class ProductCopyTest extends CIUnitTestCase
             'status'        => 'on_sale',
             'shipping_type' => 'free',
             'shipping_fee'  => 0,
-            'free_threshold'=> 0,
+            'free_threshold' => 0,
             'created_at'    => date('Y-m-d H:i:s'),
             'updated_at'    => date('Y-m-d H:i:s'),
         ], $overrides);

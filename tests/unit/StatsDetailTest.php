@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -85,15 +87,15 @@ final class StatsDetailTest extends CIUnitTestCase
     private function buildHourlyData(string $from, string $to): array
     {
         $raw = db_connect()->query(
-            "SELECT HOUR(created_at) AS hour, COUNT(*) AS hits
+            'SELECT HOUR(created_at) AS hour, COUNT(*) AS hits
              FROM access_logs
              WHERE created_at BETWEEN ? AND ?
              GROUP BY HOUR(created_at)
-             ORDER BY hour ASC",
+             ORDER BY hour ASC',
             [$from . ' 00:00:00', $to . ' 23:59:59']
         )->getResultArray();
         $map = array_column($raw, 'hits', 'hour');
-        return array_map(fn($h) => (int) ($map[$h] ?? 0), range(0, 23));
+        return array_map(fn ($h) => (int) ($map[$h] ?? 0), range(0, 23));
     }
 
     // ── 인기 상품 페이지 ─────────────────────────────────────────────────────
@@ -115,13 +117,17 @@ final class StatsDetailTest extends CIUnitTestCase
     public function testTopProductPagesOrderedByHitsDesc(): void
     {
         $today = date('Y-m-d');
-        foreach (range(1, 5) as $_) $this->insertLog(['page' => '/shop/popular']);
-        foreach (range(1, 2) as $_) $this->insertLog(['page' => '/shop/less-popular']);
+        foreach (range(1, 5) as $_) {
+            $this->insertLog(['page' => '/shop/popular']);
+        }
+        foreach (range(1, 2) as $_) {
+            $this->insertLog(['page' => '/shop/less-popular']);
+        }
 
         $rows = $this->buildTopProductPages($today, $today);
         $pages = array_column($rows, 'page');
 
-        $popularIdx    = array_search('/shop/popular',      $pages);
+        $popularIdx    = array_search('/shop/popular', $pages);
         $lessPopularIdx = array_search('/shop/less-popular', $pages);
 
         if ($popularIdx !== false && $lessPopularIdx !== false) {
@@ -206,6 +212,6 @@ final class StatsDetailTest extends CIUnitTestCase
         $data = $this->buildHourlyData($today, $today);
 
         $this->assertGreaterThanOrEqual(2, $data[14], '14시 접속 2건 이상이어야 함');
-        $this->assertGreaterThanOrEqual(1, $data[9],  '9시 접속 1건 이상이어야 함');
+        $this->assertGreaterThanOrEqual(1, $data[9], '9시 접속 1건 이상이어야 함');
     }
 }
