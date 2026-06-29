@@ -208,7 +208,13 @@ final class DashboardChartTest extends CIUnitTestCase
 
     public function testTopDataAreIntegers(): void
     {
+        $userId  = $this->insertUser();
+        $orderId = $this->insertOrder($userId, 'paid', 10000, date('Y-m-d'));
+        $this->insertOrderItem($orderId, '테스트상품', 2);
+
         $result = $this->buildChartData();
+
+        $this->assertNotEmpty($result['top']['data'], 'top data가 비어있어 정수 타입 검증 불가');
         foreach ($result['top']['data'] as $val) {
             $this->assertIsInt($val);
             $this->assertGreaterThan(0, $val);
