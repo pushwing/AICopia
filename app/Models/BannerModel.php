@@ -66,7 +66,7 @@ class BannerModel extends Model
         }
 
         $fullPath = FCPATH . ($banner['image_path'] ?? '');
-        if ($fullPath && file_exists($fullPath)) {
+        if ($banner['image_path'] !== null && $banner['image_path'] !== '' && file_exists($fullPath)) {
             unlink($fullPath);
         }
 

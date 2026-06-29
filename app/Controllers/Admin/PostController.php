@@ -59,9 +59,9 @@ class PostController extends BaseController
             'title'      => $p['title'],
             'is_notice'  => (int) $p['is_notice'],
             'is_secret'  => (int) $p['is_secret'],
-            'board_name' => $p['board_name'] ?? '',
-            'board_slug' => $p['board_slug'] ?? '',
-            'author'     => $p['user_nickname'] ?: ($p['author_name'] ?? ''),
+            'board_name' => $p['board_name'],
+            'board_slug' => $p['board_slug'],
+            'author'     => $p['user_nickname'] ?: $p['author_name'],
             'views'      => (int) $p['views'],
             'created_at' => $p['created_at'],
         ], $posts);

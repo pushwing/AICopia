@@ -103,7 +103,7 @@ class RecommendationService
     }
 
     /** 사용자가 찜했거나 구매한 상품 id 집합. */
-    private function ownedProductIds($db, int $userId): array
+    private function ownedProductIds(\CodeIgniter\Database\BaseConnection $db, int $userId): array
     {
         $wished = $db->table('wishlists')
             ->select('product_id')
@@ -126,7 +126,7 @@ class RecommendationService
     }
 
     /** 보유 상품들의 카테고리 빈도 상위 5개. */
-    private function preferredCategories($db, array $ownedIds): array
+    private function preferredCategories(\CodeIgniter\Database\BaseConnection $db, array $ownedIds): array
     {
         if ($ownedIds === []) {
             return [];

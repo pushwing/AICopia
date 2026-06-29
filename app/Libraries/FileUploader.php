@@ -131,8 +131,8 @@ class FileUploader
             return ['success' => false, 'error' => "{$file->getName()}: 허용되지 않는 파일 형식"];
         }
 
-        $allowedMimes = self::EXT_MIME_MAP[$ext] ?? [];
-        if (! empty($allowedMimes) && ! in_array($mime, $allowedMimes, true)) {
+        $allowedMimes = self::EXT_MIME_MAP[$ext];
+        if (! in_array($mime, $allowedMimes, true)) {
             return ['success' => false, 'error' => "{$file->getName()}: 파일 형식이 올바르지 않습니다."];
         }
 

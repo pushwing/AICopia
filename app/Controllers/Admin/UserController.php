@@ -147,7 +147,7 @@ class UserController extends BaseController
     }
 
     /** 관리자 수동 이메일 인증 처리 */
-    public function manualVerify(int $id)
+    public function manualVerify(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $user = $this->userModel->find($id);
         if (! $user) {
@@ -168,7 +168,7 @@ class UserController extends BaseController
     }
 
     /** 인증 메일 재발송 */
-    public function resendVerify(int $id)
+    public function resendVerify(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $user = $this->userModel->find($id);
         if (! $user) {

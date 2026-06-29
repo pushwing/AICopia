@@ -47,7 +47,7 @@ class InquiryController extends BaseController
             'filter'      => $filter,
             'category'    => $category,
             'unreadCount' => $this->model->getUnreadCount(),
-            'totalAll'    => $this->model->countAll(),
+            'totalAll'    => $this->model->countAllResults(),
         ]);
     }
 

@@ -64,7 +64,7 @@ class SalesController extends BaseController
     ];
 
     /** 매출 집계 공통 base 쿼리 (결제완료 주문 + 매입원가 조인). */
-    private function baseSalesQuery($db, string $from, string $to, string $keyword = '')
+    private function baseSalesQuery(\CodeIgniter\Database\BaseConnection $db, string $from, string $to, string $keyword = ''): \CodeIgniter\Database\BaseBuilder
     {
         $paidPaymentSql = "
             SELECT p1.*
@@ -100,7 +100,7 @@ class SalesController extends BaseController
     }
 
     /** 기간별 매출 집계 (GMV = total_amount, 실매출 = payable_amount). */
-    private function salesPeriodRows($base, string $period): array
+    private function salesPeriodRows(\CodeIgniter\Database\BaseBuilder $base, string $period): array
     {
         $groupExpr = match ($period) {
             'weekly'  => "DATE_FORMAT(DATE_SUB(o.created_at, INTERVAL (DAYOFWEEK(o.created_at)-2+7)%7 DAY), '%Y-%m-%d')",
@@ -122,7 +122,7 @@ class SalesController extends BaseController
     }
 
     /** 결제수단별 집계. */
-    private function salesMethodRows($base): array
+    private function salesMethodRows(\CodeIgniter\Database\BaseBuilder $base): array
     {
         return (clone $base)
             ->select('p.pg_provider, p.method, COUNT(o.id) AS order_count,
@@ -133,7 +133,7 @@ class SalesController extends BaseController
     }
 
     /** 기간 요약 집계. */
-    private function salesSummary($base): array
+    private function salesSummary(\CodeIgniter\Database\BaseBuilder $base): array
     {
         return (clone $base)
             ->select('COUNT(o.id) AS total_orders,
