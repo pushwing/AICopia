@@ -12,9 +12,15 @@ class ProductSeeder extends Seeder
     {
         $now = date('Y-m-d H:i:s');
 
+        // 카테고리 삽입
+        $this->db->table('categories')->insertBatch([
+            ['id' => 1, 'parent_id' => null, 'name' => '의류', 'slug' => 'clothing', 'sort_order' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 2, 'parent_id' => 1,    'name' => '상의', 'slug' => 'tops',     'sort_order' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 3, 'parent_id' => 1,    'name' => '하의', 'slug' => 'bottoms',  'sort_order' => 2, 'created_at' => $now, 'updated_at' => $now],
+        ]);
+
         $products = [
             [
-                'category_id'    => 1,
                 'name'           => '클래식 화이트 티셔츠',
                 'slug'           => 'classic-white-tshirt',
                 'price'          => 29000,
@@ -27,9 +33,9 @@ class ProductSeeder extends Seeder
                 'free_threshold' => 0,
                 'created_at'     => $now,
                 'updated_at'     => $now,
+                '_category_id'   => 2,
             ],
             [
-                'category_id'    => 1,
                 'name'           => '슬림핏 블랙 청바지',
                 'slug'           => 'slim-black-jeans',
                 'price'          => 59000,
@@ -42,9 +48,9 @@ class ProductSeeder extends Seeder
                 'free_threshold' => 50000,
                 'created_at'     => $now,
                 'updated_at'     => $now,
+                '_category_id'   => 3,
             ],
             [
-                'category_id'    => 1,
                 'name'           => '오버사이즈 후드 집업',
                 'slug'           => 'oversized-hood-zipup',
                 'price'          => 79000,
@@ -57,9 +63,9 @@ class ProductSeeder extends Seeder
                 'free_threshold' => 0,
                 'created_at'     => $now,
                 'updated_at'     => $now,
+                '_category_id'   => 2,
             ],
             [
-                'category_id'    => 1,
                 'name'           => '린넨 와이드 팬츠',
                 'slug'           => 'linen-wide-pants',
                 'price'          => 49000,
@@ -72,9 +78,9 @@ class ProductSeeder extends Seeder
                 'free_threshold' => 0,
                 'created_at'     => $now,
                 'updated_at'     => $now,
+                '_category_id'   => 3,
             ],
             [
-                'category_id'    => 1,
                 'name'           => '스트라이프 카라 셔츠',
                 'slug'           => 'stripe-collar-shirt',
                 'price'          => 45000,
@@ -87,9 +93,9 @@ class ProductSeeder extends Seeder
                 'free_threshold' => 0,
                 'created_at'     => $now,
                 'updated_at'     => $now,
+                '_category_id'   => 2,
             ],
             [
-                'category_id'    => 1,
                 'name'           => '캐시미어 니트 스웨터',
                 'slug'           => 'cashmere-knit-sweater',
                 'price'          => 129000,
@@ -102,9 +108,9 @@ class ProductSeeder extends Seeder
                 'free_threshold' => 0,
                 'created_at'     => $now,
                 'updated_at'     => $now,
+                '_category_id'   => 2,
             ],
             [
-                'category_id'    => 1,
                 'name'           => '데님 미니 스커트',
                 'slug'           => 'denim-mini-skirt',
                 'price'          => 39000,
@@ -117,9 +123,9 @@ class ProductSeeder extends Seeder
                 'free_threshold' => 50000,
                 'created_at'     => $now,
                 'updated_at'     => $now,
+                '_category_id'   => 3,
             ],
             [
-                'category_id'    => 1,
                 'name'           => '울 코트 롱',
                 'slug'           => 'wool-long-coat',
                 'price'          => 189000,
@@ -132,9 +138,23 @@ class ProductSeeder extends Seeder
                 'free_threshold' => 0,
                 'created_at'     => $now,
                 'updated_at'     => $now,
+                '_category_id'   => 2,
             ],
         ];
 
-        $this->db->table('products')->insertBatch($products);
+        // products 테이블에는 _category_id 제외하고 삽입
+        $pivots = [];
+        foreach ($products as $product) {
+            $categoryId = $product['_category_id'];
+            unset($product['_category_id']);
+
+            $this->db->table('products')->insert($product);
+            $productId = $this->db->insertID();
+
+            $pivots[] = ['product_id' => $productId, 'category_id' => $categoryId];
+        }
+
+        // pivot 테이블에 카테고리 연결
+        $this->db->table('product_categories')->insertBatch($pivots);
     }
 }
