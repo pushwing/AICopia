@@ -84,6 +84,28 @@
         </div>
     </div>
 
+    <!-- 이미지 처리 API -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">
+            <i class="bi bi-scissors me-2 text-primary"></i>이미지 처리 API
+        </div>
+        <div class="card-body">
+            <div class="mb-0">
+                <label class="form-label small fw-semibold">Clipdrop API 키 <small class="text-muted">(배경 제거 기능)</small></label>
+                <input type="password" name="clipdrop_api_key" class="form-control form-control-sm"
+                       value="<?= esc($settings['clipdrop_api_key'] ?? '') ?>"
+                       placeholder="Clipdrop API 키 입력" autocomplete="new-password">
+                <div class="form-text">
+                    <a href="https://clipdrop.co/apis" target="_blank">clipdrop.co</a>에서 발급.
+                    미설정 시 상품 이미지 배경 제거 기능이 비활성화됩니다.
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-white border-0 text-end p-3">
+            <button type="submit" class="btn btn-primary btn-sm px-4">저장</button>
+        </div>
+    </div>
+
     <!-- AI 프롬프트 (고급) -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center"
