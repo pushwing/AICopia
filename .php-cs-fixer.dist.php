@@ -11,7 +11,8 @@ declare(strict_types=1);
 
 $finder = PhpCsFixer\Finder::create()
     ->in([__DIR__ . '/app', __DIR__ . '/tests'])
-    ->exclude(['Views']) // CI4 뷰는 HTML 혼합이라 제외
+    ->exclude(['Views'])      // CI4 뷰는 HTML 혼합이라 제외
+    ->ignoreVCSIgnored(true)  // gitignore된 복원 스켈레톤(app/Config 표준 파일 등) 제외
     ->name('*.php');
 
 return (new PhpCsFixer\Config())

@@ -468,19 +468,20 @@ composer test
 ```
 
 - 단위 테스트는 `tests/unit/`(`CIUnitTestCase` + `DatabaseTestTrait`, `$DBGroup = 'tests'`, `$migrate = false`).
-- 테스트는 **미리 마이그레이션된 `tests` DB 그룹**(프리픽스 `db_`)을 가정한다(스스로 마이그레이션하지 않음).
+- 테스트는 **미리 마이그레이션된 `tests` DB 그룹**을 가정한다(스스로 마이그레이션하지 않음).
 - 마이그레이션은 **MySQL 전용 DDL**(`ALTER TABLE ... ADD UNIQUE KEY` 등)을 사용하므로 SQLite로는 실행 불가 — 테스트 DB도 **MySQL**이어야 한다.
+- 마이그레이션이 prefix 없는 raw DDL(`ALTER TABLE users ...`)을 쓰므로 **DBPrefix는 빈 값**이어야 한다(프레임워크 기본 tests 그룹의 `db_`를 쓰면 안 됨).
 - 로컬 테스트 준비 예시(default·tests 그룹을 같은 MySQL DB로):
 
 ```bash
-# .env (default·tests 그룹 모두 동일 MySQL, prefix db_)
+# .env (default·tests 그룹 모두 동일 MySQL, prefix 없음)
 #   database.default.DBDriver = MySQLi
 #   database.default.database = aicopia_test
-#   database.default.DBPrefix = db_
+#   database.default.DBPrefix =
 #   database.tests.DBDriver   = MySQLi
 #   database.tests.database   = aicopia_test
-#   database.tests.DBPrefix   = db_
-php spark migrate --all      # default 그룹(prefix db_)에 db_ 테이블 생성
+#   database.tests.DBPrefix   =
+php spark migrate --all      # default 그룹에 테이블 생성
 composer test                # tests 그룹이 같은 DB를 읽음
 ```
 
