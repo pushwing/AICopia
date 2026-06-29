@@ -10,7 +10,7 @@ use App\Libraries\CouponService;
 class CouponController extends BaseController
 {
     /** POST /coupon/check — 쿠폰 코드 AJAX 검증 */
-    public function check()
+    public function check(): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId      = (int) session()->get('user_id');
         $code        = trim($this->request->getPost('coupon_code') ?? '');

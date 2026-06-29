@@ -202,7 +202,7 @@ class ProductModel extends Model
             ->get()->getResultArray();
     }
 
-    private function buildPage($builder, int $page, int $perPage): array
+    private function buildPage(\CodeIgniter\Database\BaseBuilder $builder, int $page, int $perPage): array
     {
         // DB Builder는 배열 기반 상태라 clone이 안전함 (Model clone과 달리 DB 커넥션을 통한 상태 공유 없음)
         $total  = (clone $builder)->countAllResults();

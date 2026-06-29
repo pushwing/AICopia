@@ -24,7 +24,7 @@ class MediaController extends BaseController
         $page   = (int) ($this->request->getGet('page') ?? 1);
         $limit  = 24;
         $offset = ($page - 1) * $limit;
-        $total  = $this->mediaModel->countAll();
+        $total  = $this->mediaModel->countAllResults();
 
         return $this->render('admin/media/index', [
             'mediaList'  => $this->mediaModel->getList($limit, $offset),

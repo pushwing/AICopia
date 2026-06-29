@@ -192,7 +192,7 @@ class CouponController extends BaseController
     }
 
     /** POST /admin/coupons/:id/issue-grade — 등급별 일괄 발급 */
-    public function issueGrade(int $id)
+    public function issueGrade(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $coupon = $this->couponModel->find($id);
         if (! $coupon) {

@@ -139,12 +139,12 @@ class AuthController extends BaseController
 
     // ─── 이메일 인증 ──────────────────────────────────────────────────────────────
 
-    public function verifyPending()
+    public function verifyPending(): string
     {
         return $this->render('auth/verify_pending');
     }
 
-    public function verifyEmail(string $token)
+    public function verifyEmail(string $token): \CodeIgniter\HTTP\RedirectResponse
     {
         $user = $this->userModel->verifyByToken($token);
 
@@ -163,7 +163,7 @@ class AuthController extends BaseController
             ->with('success', '이메일 인증이 완료되었습니다. 로그인해주세요.');
     }
 
-    public function resendVerification()
+    public function resendVerification(): \CodeIgniter\HTTP\RedirectResponse
     {
         $email = $this->request->getPost('email');
 
@@ -207,9 +207,13 @@ class AuthController extends BaseController
 
     public function profileUpdate(): \CodeIgniter\HTTP\RedirectResponse
     {
-        $userId = session()->get('user_id');
+        $userId = (int) session()->get('user_id');
         $user   = $this->userModel->find($userId);
-        $tab  = $this->request->getPost('tab') ?? 'info';
+        $tab    = $this->request->getPost('tab') ?? 'info';
+
+        if (! is_array($user)) {
+            return redirect()->to('/auth/login');
+        }
 
         // ── 기본정보 탭 ──
         if ($tab === 'info') {

@@ -9,14 +9,12 @@ use App\Models\CartModel;
 use App\Models\OrderModel;
 use App\Models\PointLogModel;
 use App\Models\ShippingAddressModel;
-use App\Models\UserCouponModel;
 use App\Models\WishlistModel;
 
 class MyPageController extends BaseController
 {
     private OrderModel           $orderModel;
     private ShippingAddressModel $addressModel;
-    private UserCouponModel      $userCouponModel;
     private PointLogModel        $pointLogModel;
     private WishlistModel        $wishlistModel;
 
@@ -33,11 +31,10 @@ class MyPageController extends BaseController
 
     public function __construct()
     {
-        $this->orderModel      = new OrderModel();
-        $this->addressModel    = new ShippingAddressModel();
-        $this->userCouponModel = new UserCouponModel();
-        $this->pointLogModel   = new PointLogModel();
-        $this->wishlistModel   = new WishlistModel();
+        $this->orderModel    = new OrderModel();
+        $this->addressModel  = new ShippingAddressModel();
+        $this->pointLogModel = new PointLogModel();
+        $this->wishlistModel = new WishlistModel();
     }
 
     /** GET /mypage/orders */
