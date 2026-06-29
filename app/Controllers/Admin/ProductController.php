@@ -847,6 +847,107 @@ class ProductController extends BaseController
         return redirect()->to('/admin/products/categories')->with('success', '카테고리가 쇼핑몰에 적용되었습니다.');
     }
 
+    // ── 이미지 배경 제거 (Ajax) ──────────────────────────────────────────────
+
+    /** POST /admin/products/image/{imageId}/remove-bg */
+    public function removeBg(int $imageId): \CodeIgniter\HTTP\ResponseInterface
+    {
+        // Clipdrop API 키 조회 (settings 테이블 우선, 없으면 env fallback)
+        $settings = model('SettingModel')->getAllAsMap();
+        $apiKey   = ($settings['clipdrop_api_key'] ?? '') ?: env('clipdrop.api_key', '');
+        if (! $apiKey) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Clipdrop API 키가 설정되지 않았습니다. 관리자 설정에서 등록해주세요.',
+            ]);
+        }
+
+        // 이미지 레코드 조회
+        $image = $this->imageModel->find($imageId);
+        if (! $image) {
+            return $this->response->setJSON(['success' => false, 'message' => '이미지를 찾을 수 없습니다.']);
+        }
+
+        // media 테이블에서 파일 경로 조회
+        $mediaModel = new MediaModel();
+        $media      = $mediaModel->find((int) $image['media_id']);
+        if (! $media) {
+            return $this->response->setJSON(['success' => false, 'message' => '미디어 파일 정보를 찾을 수 없습니다.']);
+        }
+
+        $filePath = FCPATH . $media['file_path'];
+        if (! is_file($filePath)) {
+            return $this->response->setJSON(['success' => false, 'message' => '실제 파일이 존재하지 않습니다.']);
+        }
+
+        // Clipdrop API 호출 (multipart/form-data)
+        $ch = curl_init('https://clipdrop-api.co/remove-background/v1');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => [
+                'image_file' => new \CURLFile($filePath, mime_content_type($filePath) ?: 'image/jpeg', basename($filePath)),
+            ],
+            CURLOPT_HTTPHEADER => ['x-api-key: ' . $apiKey],
+            CURLOPT_TIMEOUT    => 30,
+        ]);
+        $result   = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200 || $result === false) {
+            // API 오류 응답 파싱 시도
+            $errMsg = '배경 제거 API 오류 (HTTP ' . $httpCode . ')';
+            if (is_string($result)) {
+                $errData = json_decode($result, true);
+                if (isset($errData['error'])) {
+                    $errMsg = $errData['error'];
+                }
+            }
+
+            return $this->response->setJSON(['success' => false, 'message' => $errMsg]);
+        }
+
+        // 저장 경로 구성 — uploads/media/{Y/m}/rmbg_{uniqid}.png
+        $subDir  = 'uploads/media/' . date('Y/m') . '/';
+        $saveDir = FCPATH . $subDir;
+        if (! is_dir($saveDir)) {
+            mkdir($saveDir, 0755, true);
+        }
+
+        $newFileName = 'rmbg_' . uniqid() . '.png';
+        $newFilePath = $saveDir . $newFileName;
+
+        if (file_put_contents($newFilePath, $result) === false) {
+            return $this->response->setJSON(['success' => false, 'message' => '배경 제거 결과 파일 저장에 실패했습니다.']);
+        }
+
+        // media 테이블에 새 레코드 INSERT
+        $newFileSizeResult = filesize($newFilePath);
+        $newFileSize       = $newFileSizeResult !== false ? $newFileSizeResult : 0;
+        $relPath           = $subDir . $newFileName;
+
+        $newMediaId = $mediaModel->insert([
+            'original_name' => pathinfo($media['original_name'], PATHINFO_FILENAME) . '_rmbg.png',
+            'stored_name'   => $newFileName,
+            'file_path'     => $relPath,
+            'mime_type'     => 'image/png',
+            'file_size'     => $newFileSize,
+        ]);
+
+        if (! $newMediaId) {
+            unlink($newFilePath);
+            return $this->response->setJSON(['success' => false, 'message' => '미디어 등록에 실패했습니다.']);
+        }
+
+        // product_images 테이블의 media_id를 새 미디어로 업데이트
+        $this->imageModel->update($imageId, ['media_id' => (int) $newMediaId]);
+
+        $newUrl = base_url($relPath);
+
+        return $this->response->setJSON(['success' => true, 'url' => $newUrl]);
+    }
+
     // ── 이미지 삭제 (Ajax) ────────────────────────────────────────────────────
 
     public function imageDelete(int $imageId): \CodeIgniter\HTTP\ResponseInterface

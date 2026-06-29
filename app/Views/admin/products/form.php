@@ -270,6 +270,14 @@
                                     onclick="deleteImage(<?= $img['id'] ?>, <?= $img['media_id'] ?>)">
                                 <i class="bi bi-x"></i>
                             </button>
+                            <button type="button"
+                                    class="btn btn-outline-info btn-sm position-absolute btn-rmbg"
+                                    style="bottom:4px;right:4px;padding:2px 6px"
+                                    data-image-id="<?= $img['id'] ?>"
+                                    data-media-id="<?= $img['media_id'] ?>"
+                                    title="AI 배경 제거">
+                                <i class="bi bi-scissors"></i>
+                            </button>
                         </div>
                         <div class="form-check mt-1">
                             <input class="form-check-input" type="radio" name="primary_media_id"
@@ -432,6 +440,44 @@ function deleteImage(imageId, mediaId) {
         }
     });
 }
+
+// ── AI 배경 제거 ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.btn-rmbg').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+        const imageId = this.dataset.imageId;
+        const mediaId = this.dataset.mediaId;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        const fd = new FormData();
+        fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+        try {
+            const res  = await fetch(`/admin/products/image/${imageId}/remove-bg`, {
+                method: 'POST',
+                body: fd,
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            });
+            const data = await res.json();
+            if (data.success) {
+                // 해당 이미지 썸네일 src 교체
+                const imgEl = document.getElementById('imgThumb_' + mediaId);
+                if (imgEl) {
+                    imgEl.src = data.url + '?t=' + Date.now();
+                }
+                this.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+            } else {
+                alert(data.message || '배경 제거 실패');
+                this.innerHTML = '<i class="bi bi-scissors"></i>';
+                this.disabled = false;
+            }
+        } catch (e) {
+            alert('오류가 발생했습니다.');
+            this.innerHTML = '<i class="bi bi-scissors"></i>';
+            this.disabled = false;
+        }
+    });
+});
 
 toggleShippingFields();
 

@@ -138,6 +138,7 @@ $routes->group('admin', ['filter' => 'auth:admin'], function ($routes) {
     $routes->post('products/(:num)/stock', 'Admin\ProductController::updateStock/$1');
     $routes->post('products/(:num)/featured', 'Admin\ProductController::toggleFeatured/$1');
     $routes->post('products/image/(:num)/delete', 'Admin\ProductController::imageDelete/$1');
+    $routes->post('products/image/(:num)/remove-bg', 'Admin\ProductController::removeBg/$1');
     $routes->get('products/unassigned', 'Admin\ProductController::unassigned');
     $routes->post('products/assign-category', 'Admin\ProductController::assignCategory');
     $routes->post('products/suggest-category', 'Admin\ProductController::suggestCategory');
