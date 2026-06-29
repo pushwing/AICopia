@@ -387,7 +387,7 @@ class OrderModel extends Model
                 'expired_at' => $now,
             ]);
 
-            $this->writeStatusLog($order['id'], 'pending', 'expired', '미결제 자동 만료');
+            $this->writeStatusLog((int) $order['id'], 'pending', 'expired', '미결제 자동 만료');
 
             $this->db->transComplete();
             if ($this->db->transStatus()) {

@@ -119,19 +119,22 @@ final class AiCategoryAdvisorTest extends CIUnitTestCase
     {
         parent::setUp();
 
-        // SQLite in-memory 테스트 DB에 settings 테이블 생성 (한 번만)
+        // settings 테이블 확보 (한 번만). MySQL 등에서 마이그레이션으로 이미 존재하면 건너뛴다.
+        // 미존재 시(SQLite in-memory 등)에만 최소 스키마를 생성한다.
         if (! self::$tableCreated) {
-            $db    = \Config\Database::connect();
-            $table = $db->getPrefix() . 'settings';
-            $db->query("CREATE TABLE IF NOT EXISTS {$table} (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                \"group\" VARCHAR(30)  NOT NULL DEFAULT 'general',
-                key      VARCHAR(100) NOT NULL,
-                value    TEXT,
-                label    VARCHAR(255) DEFAULT NULL,
-                type     VARCHAR(50)  DEFAULT 'text',
-                updated_at DATETIME   DEFAULT NULL
-            )");
+            $db = \Config\Database::connect();
+            if (! $db->tableExists('settings')) {
+                $table = $db->getPrefix() . 'settings';
+                $db->query("CREATE TABLE IF NOT EXISTS {$table} (
+                    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                    \"group\" VARCHAR(30)  NOT NULL DEFAULT 'general',
+                    key      VARCHAR(100) NOT NULL,
+                    value    TEXT,
+                    label    VARCHAR(255) DEFAULT NULL,
+                    type     VARCHAR(50)  DEFAULT 'text',
+                    updated_at DATETIME   DEFAULT NULL
+                )");
+            }
             self::$tableCreated = true;
         }
 

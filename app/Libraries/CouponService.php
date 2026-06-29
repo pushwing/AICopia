@@ -107,7 +107,7 @@ class CouponService
         }
 
         if ((int) $coupon['min_order_amount'] > 0 && $orderAmount < (int) $coupon['min_order_amount']) {
-            return $this->fail('최소 주문 금액(' . number_format($coupon['min_order_amount']) . '원) 이상일 때 사용 가능합니다.');
+            return $this->fail('최소 주문 금액(' . number_format((int) $coupon['min_order_amount']) . '원) 이상일 때 사용 가능합니다.');
         }
 
         // 등급 제한 쿠폰 검증 (콤마 구분 다중 등급)
