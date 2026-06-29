@@ -239,12 +239,15 @@ class SettingController extends BaseController
 
         if ($group === 'api') {
             $save = [
-                'ai_provider'                  => in_array($postData['ai_provider'] ?? '', ['groq', 'claude'], true)
+                'ai_provider'                  => in_array($postData['ai_provider'] ?? '', ['groq', 'claude', 'openrouter'], true)
                     ? $postData['ai_provider'] : 'groq',
                 'groq_api_key'                 => trim($postData['groq_api_key'] ?? ''),
                 'anthropic_api_key'            => trim($postData['anthropic_api_key'] ?? ''),
+                'openrouter_api_key'           => trim($postData['openrouter_api_key'] ?? ''),
+                'openrouter_model'             => trim($postData['openrouter_model'] ?? ''),
                 'naver_shopping_client_id'     => trim($postData['naver_shopping_client_id'] ?? ''),
                 'naver_shopping_client_secret' => trim($postData['naver_shopping_client_secret'] ?? ''),
+                'clipdrop_api_key'             => trim($postData['clipdrop_api_key'] ?? ''),
             ];
             // AI 프롬프트: 입력값이 있으면 저장, 비우면 코드 기본값으로 폴백
             foreach (\App\Libraries\AiProvider\AiPrompts::KEYS as $key) {
