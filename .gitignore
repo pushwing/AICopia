@@ -76,3 +76,7 @@ Thumbs.db
 # PHPUnit / PHPStan 캐시
 .phpunit.result.cache
 tmp/
+
+# TinyMCE 자체 호스팅 (npm install tinymce 후 복사)
+public/tinymce/
+node_modules/
