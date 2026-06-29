@@ -38,6 +38,7 @@ class StockLogModel extends Model
         ]);
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getByProduct(int $productId, int $limit = 30): array
     {
         return $this->select('stock_logs.*, users.nickname as admin_name')

@@ -18,6 +18,7 @@ class PostModel extends Model
         'is_notice', 'is_secret', 'ip_address',
     ];
 
+    /** @return array{notices: array<int, array<string, mixed>>, posts: array<int, array<string, mixed>>} */
     public function getList(int $boardId, int $page, int $perPage): array
     {
         $offset = ($page - 1) * $perPage;
@@ -44,6 +45,7 @@ class PostModel extends Model
                     ->countAllResults();
     }
 
+    /** @return array<string, mixed>|null */
     public function getDetail(int $id): ?array
     {
         return $this->select('posts.*, users.nickname as user_nickname, users.email as user_email')
@@ -56,6 +58,7 @@ class PostModel extends Model
         $this->db->query('UPDATE posts SET views = views + 1 WHERE id = ?', [$id]);
     }
 
+    /** @return array{posts: array<int, array<string, mixed>>, total: int} */
     public function getAdminList(int $page, int $perPage, string $keyword = '', int $boardId = 0): array
     {
         $builder = $this->select('posts.*, boards.name as board_name, boards.slug as board_slug, users.nickname as user_nickname')
@@ -80,6 +83,7 @@ class PostModel extends Model
         return ['posts' => $posts, 'total' => $total];
     }
 
+    /** @return array{posts: array<int, array<string, mixed>>, total: int} */
     public function search(int $boardId, string $keyword, string $type, int $page, int $perPage): array
     {
         $offset = ($page - 1) * $perPage;

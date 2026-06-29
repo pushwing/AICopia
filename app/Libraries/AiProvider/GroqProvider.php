@@ -21,6 +21,7 @@ class GroqProvider implements AiProviderInterface
         $this->apiKey = ($settings['groq_api_key'] ?? '') ?: env('GROQ_API_KEY', '');
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     public function suggestCategories(string $name, string $description, array $tree): array
     {
         $prompt = $this->buildPrompt($name, $description, $tree);
@@ -59,17 +60,20 @@ class GroqProvider implements AiProviderInterface
         return $this->parseResponse($response);
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     protected function systemPrompt(array $tree): string
     {
         return AiPrompts::render('category', ['categories' => $this->flattenTree($tree)]);
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     protected function buildPrompt(string $name, string $description, array $tree): string
     {
         $desc = mb_substr(strip_tags($description), 0, 500);
         return "상품명: {$name}\n상품 설명: {$desc}";
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     protected function flattenTree(array $tree): string
     {
         $lines = [];
@@ -82,6 +86,7 @@ class GroqProvider implements AiProviderInterface
         return implode("\n", $lines);
     }
 
+    /** @return array<int, int> */
     protected function parseResponse(string $raw): array
     {
         $data = json_decode($raw, true);
@@ -138,6 +143,7 @@ class GroqProvider implements AiProviderInterface
         return $data['choices'][0]['message']['content'] ?? '';
     }
 
+    /** @param array<int, array<string, mixed>> $reviews */
     public function summarizeReviews(string $productName, array $reviews): array
     {
         if ($reviews === []) {
@@ -254,6 +260,7 @@ class GroqProvider implements AiProviderInterface
         return trim((string) ($data['choices'][0]['message']['content'] ?? ''));
     }
 
+    /** @param array<string, mixed> $stats */
     public function generateSalesReport(array $stats): string
     {
         $payload = json_encode([

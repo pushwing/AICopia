@@ -21,6 +21,10 @@ class InicisAdapter implements PGInterface
         $this->signKey    = $cfg->inicisSignKey;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         $timestamp = time() * 1000;
@@ -40,6 +44,7 @@ class InicisAdapter implements PGInterface
         ];
     }
 
+    /** @return array<string, mixed> */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         // pgToken = authToken (이니시스 결제 후 전달되는 인증 토큰)
@@ -73,6 +78,7 @@ class InicisAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $timestamp = time() * 1000;
@@ -100,6 +106,10 @@ class InicisAdapter implements PGInterface
         return 'inicis';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -127,6 +137,7 @@ class InicisAdapter implements PGInterface
         };
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];

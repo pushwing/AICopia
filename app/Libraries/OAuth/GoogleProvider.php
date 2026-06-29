@@ -20,6 +20,7 @@ class GoogleProvider extends AbstractOAuthProvider
      * 구글은 code → token 교환 시 POST body가 아닌 JSON 방식도 지원하지만
      * application/x-www-form-urlencoded 로도 동작함
      */
+    /** @return array<string, mixed>|null */
     public function getProfile(string $token): ?array
     {
         $data = $this->get($this->config['profile_url'], [

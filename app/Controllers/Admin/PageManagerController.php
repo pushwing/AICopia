@@ -59,6 +59,7 @@ class PageManagerController extends BaseController
         return redirect()->to('/admin/pages')->with('success', '삭제되었습니다.');
     }
 
+    /** @return array<string, mixed> */
     private function collectData(bool $isUpdate = false): array
     {
         $data = [

@@ -110,6 +110,10 @@ class SocialAuthController extends BaseController
     /**
      * 소셜 ID로 기존 유저 찾기, 없으면 자동 가입
      */
+    /**
+     * @param  array<string, mixed>      $profile
+     * @return array<string, mixed>|null
+     */
     private function findOrCreateUser(string $provider, array $profile, string $token): ?array
     {
         // 1. 같은 소셜 제공자 + ID로 기존 가입 확인

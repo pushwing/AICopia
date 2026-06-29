@@ -23,6 +23,10 @@ class NaverPayAdapter implements PGInterface
         $this->chainId      = $cfg->naverpayChainId;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         return [
@@ -38,7 +42,11 @@ class NaverPayAdapter implements PGInterface
         ];
     }
 
-    /** pgToken = paymentId (네이버페이 결제 후 전달) */
+    /**
+     * pgToken = paymentId (네이버페이 결제 후 전달)
+     *
+     * @return array<string, mixed>
+     */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         $response = $this->request('POST', '/apply', [
@@ -66,6 +74,7 @@ class NaverPayAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $response = $this->request('POST', '/cancel', [
@@ -87,6 +96,10 @@ class NaverPayAdapter implements PGInterface
         return 'naverpay';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -105,6 +118,7 @@ class NaverPayAdapter implements PGInterface
         return json_decode($result ?: '{}', true) ?? [];
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];

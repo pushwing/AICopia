@@ -44,7 +44,9 @@ class FileUploader
 
     /**
      * 파일 유효성 사전 검증 (DB/디스크 저장 없음)
-     * @return string[] 에러 메시지 배열 (비어 있으면 통과)
+     *
+     * @param  array<int, mixed> $uploadedFiles
+     * @return string[]           에러 메시지 배열 (비어 있으면 통과)
      */
     public function validateFiles(array $uploadedFiles): array
     {
@@ -77,7 +79,9 @@ class FileUploader
 
     /**
      * 게시글의 첨부파일 일괄 저장
-     * @return array ['saved' => int, 'errors' => array]
+     *
+     * @param  array<int, mixed>       $uploadedFiles
+     * @return array{saved: int, errors: string[]}
      */
     public function savePostFiles(int $postId, array $uploadedFiles): array
     {
@@ -122,6 +126,7 @@ class FileUploader
         };
     }
 
+    /** @return array{success: bool, error?: string} */
     private function saveFile(int $postId, UploadedFile $file): array
     {
         $ext  = strtolower($file->getClientExtension());
@@ -166,6 +171,7 @@ class FileUploader
         return ['success' => true];
     }
 
+    /** @param array<string, mixed> $fileRecord */
     public function deleteFile(array $fileRecord): void
     {
         $fullPath = FCPATH . $fileRecord['file_path'];

@@ -313,6 +313,7 @@ class ProductController extends BaseController
         return redirect()->to('/admin/products')->with('success', '저장되었습니다.');
     }
 
+    /** @param array<string, mixed> $product */
     private function dispatchRestockAlerts(array $product): void
     {
         $alertModel = new RestockAlertModel();
@@ -333,7 +334,11 @@ class ProductController extends BaseController
         $alertModel->markNotified((int) $product['id']);
     }
 
-    /** 재입고 알림용 AI 개인화 문구 (상품별 캐시, 실패 시 null로 폴백). */
+    /**
+     * 재입고 알림용 AI 개인화 문구 (상품별 캐시, 실패 시 null로 폴백).
+     *
+     * @param array<string, mixed> $product
+     */
     private function restockAiMessage(array $product): ?string
     {
         try {
@@ -857,6 +862,7 @@ class ProductController extends BaseController
 
     // ── private 헬퍼 ─────────────────────────────────────────────────────────
 
+    /** @return array<string, string> */
     private function validationRules(?int $excludeId = null): array
     {
         $slugRule = 'required|max_length[220]|is_unique[products.slug' . ($excludeId ? ",id,{$excludeId}" : '') . ']';
@@ -869,6 +875,7 @@ class ProductController extends BaseController
         ];
     }
 
+    /** @return array<string, mixed> */
     private function collectData(?int $productId = null): array
     {
         $name = $this->request->getPost('name');
@@ -1118,6 +1125,11 @@ class ProductController extends BaseController
         return redirect()->to('/admin/products')->with('success', "{$inserted}개 상품이 일괄 등록되었습니다.");
     }
 
+    /**
+     * @param  array<int, string>  $cells
+     * @param  array<string, int>  $catMap
+     * @return array<string, mixed>
+     */
     public function parseImportRow(array $cells, array $catMap): array
     {
         [$name, $price, $stock, $status, $shippingType, $shippingFee, $freeThreshold, $discountPrice, $categoryName, $description]

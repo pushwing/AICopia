@@ -20,6 +20,7 @@ class MediaUploader
         $this->model = new MediaModel();
     }
 
+    /** @return array{success: bool, id?: int|string, path?: string, url?: string, error?: string} */
     public function upload(UploadedFile $file, string $alt = ''): array
     {
         $ext = strtolower($file->getClientExtension());

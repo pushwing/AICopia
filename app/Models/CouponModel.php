@@ -23,11 +23,16 @@ class CouponModel extends Model
         'free_shipping' => '무료배송',
     ];
 
+    /** @return array<string, mixed>|null */
     public function findByCode(string $code): ?array
     {
         return $this->where('code', $code)->where('is_active', 1)->first();
     }
 
+    /**
+     * @param  array<string, mixed> $params
+     * @return array<string, mixed>
+     */
     public function getAdminList(array $params = []): array
     {
         $keyword = trim($params['keyword'] ?? '');

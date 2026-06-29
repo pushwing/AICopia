@@ -13,6 +13,7 @@ class OrderMemoModel extends Model
     protected $useTimestamps = true;
     protected $allowedFields = ['order_id', 'admin_id', 'content'];
 
+    /** @return array<int, array<string, mixed>> */
     public function getByOrder(int $orderId): array
     {
         return $this->db->table('order_memos om')

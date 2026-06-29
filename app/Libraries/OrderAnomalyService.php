@@ -103,6 +103,10 @@ class OrderAnomalyService
      *
      * @return array<int,true>
      */
+    /**
+     * @param  array<int, array<string, mixed>> $orders
+     * @return array<int, true>
+     */
     private function detectBurst(array $orders): array
     {
         $byUser = [];
@@ -141,6 +145,10 @@ class OrderAnomalyService
      * 같은 수취 연락처를 2개 이상 계정이 사용한 주문 id 집합.
      *
      * @return array<int,true>
+     */
+    /**
+     * @param  array<int, array<string, mixed>> $orders
+     * @return array<int, true>
      */
     private function detectMultiAccountPhone(array $orders): array
     {

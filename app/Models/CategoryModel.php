@@ -20,6 +20,8 @@ class CategoryModel extends Model
     /**
      * 대분류(parent_id=null) → 소분류 트리 반환 (캐시 1시간)
      * 반환 구조: [['id'=>1,'name'=>'의류','children'=>[...]], ...]
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getTree(): array
     {
@@ -46,6 +48,8 @@ class CategoryModel extends Model
 
     /**
      * 캐시 없이 DB 직접 조회 (관리자 페이지용)
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getTreeDirect(): array
     {
@@ -69,6 +73,8 @@ class CategoryModel extends Model
 
     /**
      * 소분류 id → 대분류 row 반환 (캐시에서 탐색)
+     *
+     * @return array<string, mixed>|null
      */
     public function getParent(int $childId): ?array
     {

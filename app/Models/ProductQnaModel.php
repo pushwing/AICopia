@@ -16,6 +16,7 @@ class ProductQnaModel extends Model
         'is_secret', 'is_answered', 'answer', 'answered_at', 'answered_by',
     ];
 
+    /** @return array{items: array<int, array<string, mixed>>, total: int} */
     public function getByProduct(int $productId, int $page = 1, int $perPage = 10): array
     {
         $offset = ($page - 1) * $perPage;
@@ -33,6 +34,10 @@ class ProductQnaModel extends Model
         return compact('items', 'total');
     }
 
+    /**
+     * @param  array<string, mixed> $params
+     * @return array{items: array<int, array<string, mixed>>, total: int, page: int, perPage: int}
+     */
     public function adminGetAll(array $params = []): array
     {
         $keyword  = trim($params['keyword'] ?? '');

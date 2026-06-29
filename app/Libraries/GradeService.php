@@ -48,6 +48,7 @@ class GradeService
     //  등급별 적립률
     // ------------------------------------------------------------------ //
 
+    /** @param array<string, mixed> $settings */
     public function getEarnRate(string $grade, array $settings): float
     {
         $key = 'point_earn_rate_' . $grade;
@@ -58,11 +59,13 @@ class GradeService
     //  보너스 포인트
     // ------------------------------------------------------------------ //
 
+    /** @param array<string, mixed> $settings */
     public function getSignupBonus(array $settings): int
     {
         return max(0, (int) ($settings['point_bonus_signup'] ?? 1000));
     }
 
+    /** @param array<string, mixed> $settings */
     public function getGradeBonus(string $grade, array $settings): int
     {
         $key = 'point_bonus_' . $grade;
@@ -78,6 +81,7 @@ class GradeService
      * 주문 배송완료 후 호출. 승급 여부 확인 후 DB 반영 + 보너스 지급.
      * @return string|null 새 등급 (승급 없으면 null)
      */
+    /** @param array<string, mixed> $settings */
     public function checkAndUpgrade(int $userId, array $settings): ?string
     {
         $user = $this->db->table('users')
@@ -124,6 +128,7 @@ class GradeService
     /**
      * 등급 변경 DB 반영 + 보너스 포인트 지급 + 로그 + 승급 쿠폰 발급
      */
+    /** @param array<string, mixed> $settings */
     public function applyUpgrade(int $userId, string $newGrade, array $settings): void
     {
         $bonus = $this->getGradeBonus($newGrade, $settings);
@@ -160,6 +165,7 @@ class GradeService
     /**
      * 등급 승급 쿠폰 발급 — 설정에 coupon_grade_{grade}_id 가 있을 때만 발급
      */
+    /** @param array<string, mixed> $settings */
     public function issueGradeCoupon(int $userId, string $grade, array $settings, string $now = ''): void
     {
         if ($now === '') {
@@ -207,6 +213,7 @@ class GradeService
     /**
      * 가입 보너스 포인트 지급 (이메일 인증 완료 또는 소셜 가입 직후)
      */
+    /** @param array<string, mixed> $settings */
     public function awardSignupBonus(int $userId, array $settings): void
     {
         $bonus = $this->getSignupBonus($settings);
@@ -237,6 +244,7 @@ class GradeService
     /**
      * 골드 회원 목록 + 주문 통계 (플래티넘 선정 화면용)
      */
+    /** @return array<string, mixed> */
     public function getGoldMembersForPromotion(string $keyword = '', int $page = 1, int $perPage = 20): array
     {
         $builder = $this->db->table('users u')
@@ -280,6 +288,7 @@ class GradeService
     //  내부 헬퍼
     // ------------------------------------------------------------------ //
 
+    /** @return array{count: int, amount: int} */
     private function getOrderStats(int $userId): array
     {
         $row = $this->db->query("

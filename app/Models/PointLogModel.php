@@ -35,6 +35,7 @@ class PointLogModel extends Model
         ]);
     }
 
+    /** @return array{items: array<int, array<string, mixed>>, total: int, totalPages: int, currentPage: int, perPage: int} */
     public function getByUser(int $userId, int $page = 1, int $perPage = 20): array
     {
         $builder = $this->db->table('point_logs')->where('user_id', $userId);

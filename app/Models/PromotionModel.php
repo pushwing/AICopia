@@ -20,12 +20,17 @@ class PromotionModel extends Model
         'all' => 0, 'bronze' => 1, 'silver' => 2, 'gold' => 3, 'platinum' => 4,
     ];
 
+    /** @return array<int, array<string, mixed>> */
     public function getList(): array
     {
         return $this->orderBy('sort_order', 'ASC')->orderBy('id', 'DESC')->findAll();
     }
 
-    /** 프론트용 — 활성 기획전 목록 (날짜 유효한 것만) */
+    /**
+     * 프론트용 — 활성 기획전 목록 (날짜 유효한 것만)
+     *
+     * @return array<int, array<string, mixed>>
+     */
     public function getActiveFrontList(): array
     {
         $today = date('Y-m-d');
@@ -43,7 +48,11 @@ class PromotionModel extends Model
             ->findAll();
     }
 
-    /** 프론트용 — 활성·날짜 유효 기획전 반환 */
+    /**
+     * 프론트용 — 활성·날짜 유효 기획전 반환
+     *
+     * @return array<string, mixed>|null
+     */
     public function getActiveBySlug(string $slug): ?array
     {
         $today = date('Y-m-d');
@@ -60,7 +69,11 @@ class PromotionModel extends Model
             ->first();
     }
 
-    /** 기획전 상품 목록 (기본 이미지 포함) */
+    /**
+     * 기획전 상품 목록 (기본 이미지 포함)
+     *
+     * @return array<int, array<string, mixed>>
+     */
     public function getProducts(int $promotionId): array
     {
         $items = $this->db->table('promotion_products pp')
@@ -78,7 +91,11 @@ class PromotionModel extends Model
         return $items;
     }
 
-    /** 기획전 상품 동기화 (전체 교체) */
+    /**
+     * 기획전 상품 동기화 (전체 교체)
+     *
+     * @param array<int, array<string, mixed>> $products
+     */
     public function syncProducts(int $promotionId, array $products): void
     {
         $this->db->table('promotion_products')->where('promotion_id', $promotionId)->delete();

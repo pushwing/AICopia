@@ -15,6 +15,8 @@ class CartModel extends Model
 
     /**
      * 사용자의 장바구니 목록 (상품 정보 + SKU + 대표 이미지 JOIN)
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getByUser(int $userId): array
     {
@@ -48,6 +50,10 @@ class CartModel extends Model
         return $rows;
     }
 
+    /**
+     * @param  array<int|string, mixed> $skuIds
+     * @return array<string, string>
+     */
     private function getSkuLabels(array $skuIds): array
     {
         if (empty($skuIds)) {
@@ -131,6 +137,10 @@ class CartModel extends Model
      * 세션 장바구니 → DB 병합 (로그인 후 호출)
      * 세션 키 형식: "productId_skuId" (skuId=0이면 SKU 없음)
      * $stockMap: ['productId_skuId' => stock] — 호출자가 미리 조회해서 전달
+     */
+    /**
+     * @param array<string, mixed> $sessionCart
+     * @param array<string, int>   $stockMap
      */
     public function mergeSession(int $userId, array $sessionCart, array $stockMap): void
     {
@@ -224,7 +234,11 @@ class CartModel extends Model
         session()->remove('cart');
     }
 
-    /** 세션 키 "productId_skuId" 파싱 */
+    /**
+     * 세션 키 "productId_skuId" 파싱
+     *
+     * @return array{0: int, 1: int}
+     */
     public static function parseSessionKey(string $key): array
     {
         $parts = explode('_', $key, 2);

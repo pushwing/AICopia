@@ -14,6 +14,8 @@ class MenuModel extends Model
 
     /**
      * 트리 구조로 메뉴 반환 (캐시 1시간)
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getTree(): array
     {

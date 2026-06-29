@@ -16,6 +16,7 @@ use CodeIgniter\Controller;
 
 class BaseController extends Controller
 {
+    /** @var array<string, mixed> */
     protected array $viewData = [];
 
     public function initController(
@@ -99,6 +100,9 @@ class BaseController extends Controller
         };
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     protected function render(string $view, array $data = []): string
     {
         return view($view, array_merge($this->viewData, $data));

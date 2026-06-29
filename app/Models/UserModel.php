@@ -18,12 +18,17 @@ class UserModel extends Model
         'email_verify_token', 'email_verify_token_at',
     ];
 
+    /** @return array<string, mixed>|null */
     public function findByEmail(string $email): ?array
     {
         return $this->where('email', $email)->where('is_active', 1)->first();
     }
 
-    /** 미인증(is_active=0) 일반 가입 유저 조회 */
+    /**
+     * 미인증(is_active=0) 일반 가입 유저 조회
+     *
+     * @return array<string, mixed>|null
+     */
     public function findUnverified(string $email): ?array
     {
         return $this->where('email', $email)
@@ -43,7 +48,11 @@ class UserModel extends Model
         return $token;
     }
 
-    /** 토큰으로 유저 조회 (24시간 이내만 유효) */
+    /**
+     * 토큰으로 유저 조회 (24시간 이내만 유효)
+     *
+     * @return array<string, mixed>|null
+     */
     public function verifyByToken(string $token): ?array
     {
         $expiry = date('Y-m-d H:i:s', strtotime('-24 hours'));

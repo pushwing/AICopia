@@ -21,7 +21,7 @@ class CouponService
     /**
      * 쿠폰 코드로 검증
      *
-     * @return array{valid: bool, coupon: array|null, user_coupon_id: int|null, discount: int, message: string}
+     * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
      */
     public function validate(string $code, int $userId, int $orderAmount): array
     {
@@ -36,7 +36,7 @@ class CouponService
     /**
      * 발급된 user_coupon_id 로 검증
      *
-     * @return array{valid: bool, coupon: array|null, user_coupon_id: int|null, discount: int, message: string}
+     * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
      */
     public function validateByUserCouponId(int $userCouponId, int $userId, int $orderAmount): array
     {
@@ -70,6 +70,7 @@ class CouponService
      * 할인 금액 계산 (orderAmount 초과 불가)
      * free_shipping은 배송비를 직접 알 수 없으므로 0 반환 — 호출처에서 shippingFee로 오버라이드
      */
+    /** @param array<string, mixed> $coupon */
     public function calculateDiscount(array $coupon, int $orderAmount): int
     {
         if ($coupon['type'] === 'free_shipping') {
@@ -88,6 +89,10 @@ class CouponService
         return min($discount, $orderAmount);
     }
 
+    /**
+     * @param  array<string, mixed>  $coupon
+     * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
+     */
     private function checkCoupon(array $coupon, int $userId, int $orderAmount, ?int $userCouponId): array
     {
         if (! $coupon['is_active']) {
@@ -147,6 +152,7 @@ class CouponService
         ];
     }
 
+    /** @return array{valid: bool, coupon: null, user_coupon_id: null, discount: int, message: string} */
     private function fail(string $message): array
     {
         return ['valid' => false, 'coupon' => null, 'user_coupon_id' => null, 'discount' => 0, 'message' => $message];
