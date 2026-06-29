@@ -139,7 +139,21 @@ chmod -R 755 public/uploads writable
 
 ---
 
-## 10. 개발 서버 실행
+## 10. TinyMCE 에디터 설치
+
+게시판·상품·페이지 편집기에 사용되는 TinyMCE를 로컬에 복사합니다 (API 키 불필요).
+
+```bash
+npm install
+cp -r node_modules/tinymce public/tinymce
+```
+
+> Node.js가 없으면 [nodejs.org](https://nodejs.org)에서 설치하세요.
+> `public/tinymce/`는 `.gitignore`에 포함되어 있으므로 환경마다 위 명령을 실행해야 합니다.
+
+---
+
+## 11. 개발 서버 실행
 
 ### PHP 내장 서버 (기본)
 
