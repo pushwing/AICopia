@@ -1,4 +1,8 @@
 {
+    "name": "pushwing/aicopia",
+    "description": "AICopia — AI 운영 보조 기능을 갖춘 CodeIgniter 4 쇼핑몰 솔루션",
+    "type": "project",
+    "license": "proprietary",
     "require-dev": {
         "phpstan/phpstan": "^2.2",
         "codeigniter/phpstan-codeigniter": "^2.1",

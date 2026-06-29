@@ -51,7 +51,10 @@ composer check               # cs + analyse + test 일괄
 
 ```bash
 composer install
-cp env .env                    # 이후 편집: DB, CI_ENVIRONMENT, AI 키, PG 키, OAuth 키, SMTP
+# 표준 CI4 스켈레톤은 gitignore 되어 있어 vendor에서 복원한다(커스텀 Config는 보존).
+cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
+[ -e system ] || ln -s vendor/codeigniter4/framework/system system
+cp vendor/codeigniter4/framework/env .env   # 이후 편집: DB, CI_ENVIRONMENT, AI 키, PG 키, OAuth 키, SMTP
 # app/Config/App.php: $appTimezone = 'Asia/Seoul' 로 설정
 php spark migrate              # 테이블 생성 + 기본 데이터 시드
 ```
@@ -464,8 +467,24 @@ composer rector-fix   # 적용
 composer test
 ```
 
-- 단위 테스트는 `tests/unit/`(`CIUnitTestCase` + `DatabaseTestTrait`, `$DBGroup = 'tests'`).
-- 테스트는 **미리 마이그레이션된 `tests` DB 그룹**(프리픽스 `db_`)을 가정한다. 로컬은 `.env`에 `database.tests.*`를 정의하고 `php spark migrate`로 준비. 운영 DB는 절대 사용 금지.
+- 단위 테스트는 `tests/unit/`(`CIUnitTestCase` + `DatabaseTestTrait`, `$DBGroup = 'tests'`, `$migrate = false`).
+- 테스트는 **미리 마이그레이션된 `tests` DB 그룹**(프리픽스 `db_`)을 가정한다(스스로 마이그레이션하지 않음).
+- 마이그레이션은 **MySQL 전용 DDL**(`ALTER TABLE ... ADD UNIQUE KEY` 등)을 사용하므로 SQLite로는 실행 불가 — 테스트 DB도 **MySQL**이어야 한다.
+- 로컬 테스트 준비 예시(default·tests 그룹을 같은 MySQL DB로):
+
+```bash
+# .env (default·tests 그룹 모두 동일 MySQL, prefix db_)
+#   database.default.DBDriver = MySQLi
+#   database.default.database = aicopia_test
+#   database.default.DBPrefix = db_
+#   database.tests.DBDriver   = MySQLi
+#   database.tests.database   = aicopia_test
+#   database.tests.DBPrefix   = db_
+php spark migrate --all      # default 그룹(prefix db_)에 db_ 테이블 생성
+composer test                # tests 그룹이 같은 DB를 읽음
+```
+
+- 운영 DB는 절대 사용 금지. CI는 `.github/workflows/ci.yml`의 `test` 잡이 동일 흐름을 MySQL 서비스로 자동 수행.
 - 새 기능(특히 Service/Model 로직)은 테스트를 함께 작성.
 
 ## CI / CD

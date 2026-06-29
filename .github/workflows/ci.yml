@@ -80,6 +80,8 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
+      # 이 저장소는 표준 CI4 스켈레톤(app/Config 표준 파일·system·spark·env)을 gitignore 한다.
+      # vendor 프레임워크에서 복원한다(커스텀 Config는 cp -n 으로 보존).
       - name: Restore CI4 skeleton
         run: |
           cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
@@ -87,25 +89,38 @@ jobs:
           [ -f spark ] || cp vendor/codeigniter4/framework/spark spark
           mkdir -p writable/cache writable/logs writable/session writable/tmp writable/uploads
 
-      # tests 그룹 = MySQL 서비스. 프로젝트의 db_ 프리픽스에 맞춤.
-      # 프로젝트 실제 스키마/프리픽스가 다르면 이 값을 조정할 것.
+      # 마이그레이션은 MySQL 전용 DDL을 쓰므로 SQLite 불가 → MySQL 서비스 사용.
+      # 테스트는 $DBGroup='tests'(prefix db_, $migrate=false)이므로 미리 마이그레이션해야 한다.
+      # default·tests 두 그룹 모두 동일 MySQL DB(prefix db_)로 맞춰
+      # `php spark migrate`(default)가 db_ 테이블을 만들고 테스트(tests)가 그대로 읽게 한다.
       - name: Configure .env (test DB)
         run: |
-          cp env .env
+          cp vendor/codeigniter4/framework/env .env
           {
+            echo ""
+            echo "CI_ENVIRONMENT = development"
             echo "database.default.hostname = 127.0.0.1"
             echo "database.default.database = aicopia_test"
             echo "database.default.username = root"
             echo "database.default.password ="
             echo "database.default.DBDriver = MySQLi"
             echo "database.default.DBPrefix = db_"
+            echo "database.default.port = 3306"
             echo "database.tests.hostname = 127.0.0.1"
             echo "database.tests.database = aicopia_test"
             echo "database.tests.username = root"
             echo "database.tests.password ="
             echo "database.tests.DBDriver = MySQLi"
             echo "database.tests.DBPrefix = db_"
+            echo "database.tests.port = 3306"
           } >> .env
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            mysqladmin ping -h 127.0.0.1 -uroot --silent && break
+            sleep 2
+          done
 
       - name: Migrate test DB
         run: php spark migrate --all
