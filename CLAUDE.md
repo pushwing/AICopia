@@ -499,8 +499,9 @@ composer test                # tests 그룹이 같은 DB를 읽음
 ### 배포 (CD) — `.github/workflows/deploy.yml`
 
 - 트리거: `main`에 머지(push)되면 배포 잡이 큐에 들어가고, **`production` 환경의 Required reviewers 승인 후** SSH로 운영 서버에 배포(머지 후 수동 승인). `workflow_dispatch`로 수동 재배포도 가능.
-- 서버 배포 순서: `git reset --hard origin/main` → `composer install --no-dev` → **`php spark migrate --all`(자동)** → `php spark cache:clear`.
+- 서버 배포 순서: `git reset --hard origin/main` → `composer install --no-dev` → `php spark cache:clear`.
   - `.env`와 gitignore된 스켈레톤은 untracked라 `git reset --hard`에도 보존된다.
+- **DB 마이그레이션은 수동**: 일반 배포에서는 실행하지 않는다. 마이그레이션이 필요하면 Actions 탭에서 `workflow_dispatch`로 **`run_migration = true`**를 선택해 배포를 실행하면 그때만 `php spark migrate --all`이 돈다. (서버에 직접 SSH로 `php spark migrate`를 돌려도 됨.)
 - **필수 GitHub Secrets**: `SSH_HOST`, `SSH_USER`, `SSH_KEY`(개인키), `DEPLOY_PATH`(서버의 git 클론 경로). 선택: `SSH_PORT`(기본 22), Variable `PRODUCTION_URL`.
 - **사전 준비(1회)**: ① 운영 서버에 이 저장소를 git clone하고 `.env`·스켈레톤·`writable/` 권한을 세팅, ② GitHub Settings → Environments에서 `production` 환경 생성 후 **Required reviewers** 지정(승인 게이트), ③ 배포용 SSH 키를 서버 `authorized_keys`에 등록하고 개인키를 `SSH_KEY` Secret에 저장.
-- 운영 DB 자동 마이그레이션은 되돌리기 어렵다 — `deploy.yml`의 mysqldump 백업 단계(주석) 활성화를 권장.
+- 마이그레이션은 되돌리기 어렵다 — `run_migration` 실행 전 `deploy.yml`의 mysqldump 백업 단계(주석) 활성화를 권장.
