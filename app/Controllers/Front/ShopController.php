@@ -121,25 +121,26 @@ class ShopController extends BaseController
         $product['stock']  = $freshStock ? (int) $freshStock->stock : 0;
         $product['status'] = $product['stock'] === 0 ? 'sold_out' : $product['status'];
 
-        $images = $this->imageModel->getByProduct($product['id']);
+        $productId = (int) $product['id'];
+        $images = $this->imageModel->getByProduct($productId);
 
         $qnaPerPage = 10;
         $qnaPage    = max(1, (int) ($this->request->getGet('qna_page') ?? 1));
-        $qnaData    = $this->qnaModel->getByProduct($product['id'], $qnaPage, $qnaPerPage);
+        $qnaData    = $this->qnaModel->getByProduct($productId, $qnaPage, $qnaPerPage);
 
         $reviewPerPage = 10;
         $reviewPage    = max(1, (int) ($this->request->getGet('review_page') ?? 1));
-        $reviewData    = $this->reviewModel->getByProduct($product['id'], $reviewPage, $reviewPerPage);
+        $reviewData    = $this->reviewModel->getByProduct($productId, $reviewPage, $reviewPerPage);
 
         $canWriteReview = false;
         $reviewOrderId  = null;
         $userId = (int) session()->get('user_id');
         if ($userId > 0) {
-            $reviewOrderId  = $this->reviewModel->canWriteReview($userId, $product['id']);
+            $reviewOrderId  = $this->reviewModel->canWriteReview($userId, $productId);
             $canWriteReview = $reviewOrderId !== null;
         }
 
-        $optionsAndSkus = $this->skuModel->getOptionsAndSkus($product['id']);
+        $optionsAndSkus = $this->skuModel->getOptionsAndSkus($productId);
 
         // 찜 여부
         $isWished = $userId > 0
@@ -277,7 +278,7 @@ class ShopController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => '상품을 찾을 수 없습니다.']);
         }
 
-        $orderId = $this->reviewModel->canWriteReview($userId, $product['id']);
+        $orderId = $this->reviewModel->canWriteReview($userId, (int) $product['id']);
         if ($orderId === null) {
             return $this->response->setJSON(['success' => false, 'message' => '구매 확정된 상품에만 리뷰를 작성할 수 있습니다.']);
         }
