@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "tinymce": "^6.8.6"
+  }
+}

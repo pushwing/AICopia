@@ -66,7 +66,7 @@
 <?= $this->endSection() ?>
 <?= $this->section('scripts') ?>
 <!-- TinyMCE 에디터 (무료 CDN) -->
-<script src="https://cdn.tiny.cloud/1/<?= config('Editor')->tinymceApiKey ?>/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="/tinymce/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
 tinymce.init({
     selector: '#editor',
