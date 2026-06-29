@@ -3,10 +3,25 @@
         "phpstan/phpstan": "^2.2",
         "codeigniter/phpstan-codeigniter": "^2.1",
         "codeigniter4/framework": "^4.7",
-        "phpunit/phpunit": "^11.2"
+        "phpunit/phpunit": "^11.2",
+        "friendsofphp/php-cs-fixer": "^3",
+        "rector/rector": "^2"
     },
     "require": {
         "phpoffice/phpspreadsheet": "^5.8",
         "codeigniter4/tasks": "^1.0"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse",
+        "cs": "php-cs-fixer fix --dry-run --diff",
+        "cs-fix": "php-cs-fixer fix",
+        "rector": "rector process --dry-run",
+        "rector-fix": "rector process",
+        "check": [
+            "@cs",
+            "@analyse",
+            "@test"
+        ]
     }
 }

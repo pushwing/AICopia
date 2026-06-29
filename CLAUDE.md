@@ -21,8 +21,14 @@ php spark serve              # 개발 서버 실행 (http://localhost:8080)
 php spark migrate            # 대기 중인 마이그레이션 전체 실행 (테이블 생성 + 시드)
 php spark migrate:rollback   # 마지막 마이그레이션 배치 롤백
 php spark db:seed <Seeder>   # 시더 실행 (예: ProductSeeder, PostSeeder)
-./vendor/bin/phpunit         # 테스트 실행
-vendor/bin/phpstan analyse   # 정적 분석 (설정: phpstan.neon)
+
+composer test                # PHPUnit
+composer analyse             # PHPStan (레벨 5)
+composer cs                  # 코드 스타일 검사 (PHP-CS-Fixer, dry-run)
+composer cs-fix              # 코드 스타일 자동 수정
+composer rector              # 리팩토링 미리보기 (dry-run)
+composer rector-fix          # 리팩토링 적용
+composer check               # cs + analyse + test 일괄
 ```
 
 ### 스케줄 / 배치 명령 (`app/Commands/`)
@@ -416,14 +422,56 @@ $rows = $spreadsheet->getActiveSheet()->toArray();
 - 대용량(1만 행 이상)은 청크 단위 처리(`ChunkReadFilter`) 적용.
 - 업로드 파일은 `public/` 외부(`writable/uploads/`)에 저장 후 처리하고, 완료 즉시 임시 파일 삭제.
 
-## 정적 분석 · 테스트
+## 개발 품질 게이트 (필수)
+
+커밋·PR 전에 아래를 통과시킵니다. 한 번에 `composer check`(= cs + analyse + test).
+
+### 1. 코드 스타일 — PHP-CS-Fixer
 
 ```bash
-vendor/bin/phpstan analyse     # 정적 분석 (설정: phpstan.neon, 레벨 5)
-./vendor/bin/phpunit           # 테스트 실행 (tests/unit)
+composer cs       # 검사 (변경 없음)
+composer cs-fix   # 자동 수정
 ```
 
-- PHPStan 분석 레벨 **5**, 대상은 `app/`의 코드 디렉토리(Views 제외) — 자세한 paths는 `phpstan.neon`.
-- 기존 억제 항목은 `phpstan-baseline.neon`에 정리되어 있음. 새 코드는 `@phpstan-ignore`로 덮지 말고 원인을 수정.
+- 설정: `.php-cs-fixer.dist.php` — **PSR-12** 기반 + `declare(strict_types=1)` 강제 + import 정렬·short array 등.
+- 대상: `app/`, `tests/`(Views 제외). CI에서 `composer cs`가 실패하면 머지 불가.
+- **모든 PHP 파일 첫 줄에 `declare(strict_types=1);`** — cs-fixer가 자동 삽입/검사.
+
+### 2. 정적 분석 — PHPStan
+
+```bash
+composer analyse
+```
+
+- 레벨 **5**(`phpstan.neon`), CI4 확장(`codeigniter/phpstan-codeigniter`) 사용. 대상은 `app/` 코드 디렉토리(Views 제외).
+- 기존 억제는 `phpstan-baseline.neon`. 새 코드는 `@phpstan-ignore`로 덮지 말고 원인 수정.
 - 새 클래스·메서드에는 제네릭 타입(`array<string, mixed>` 등) 명시.
-- 단위 테스트는 `tests/unit/`. 새 기능(특히 Service/Model 로직)은 테스트를 함께 작성하고, 운영 DB는 절대 사용하지 말 것.
+- 점진적 상향 목표: 5 → 6 → 8 (baseline으로 단계적 적용).
+
+### 3. 자동 현대화 — Rector
+
+```bash
+composer rector       # 미리보기(dry-run)
+composer rector-fix   # 적용
+```
+
+- 설정: `rector.php` — PHP 8.1 셋 + CODE_QUALITY / DEAD_CODE / TYPE_DECLARATION / EARLY_RETURN.
+- 대량 변경이 나올 수 있으므로 **반드시 PR 단위로 검토**하고 cs-fix·analyse·test로 재검증.
+
+### 4. 테스트 — PHPUnit
+
+```bash
+composer test
+```
+
+- 단위 테스트는 `tests/unit/`(`CIUnitTestCase` + `DatabaseTestTrait`, `$DBGroup = 'tests'`).
+- 테스트는 **미리 마이그레이션된 `tests` DB 그룹**(프리픽스 `db_`)을 가정한다. 로컬은 `.env`에 `database.tests.*`를 정의하고 `php spark migrate`로 준비. 운영 DB는 절대 사용 금지.
+- 새 기능(특히 Service/Model 로직)은 테스트를 함께 작성.
+
+## CI / CD
+
+- **GitHub Actions**(`.github/workflows/ci.yml`)가 `dev`·`main` 대상 PR·push마다 실행:
+  - `static` 잡 — `composer cs` + `composer analyse` + `composer audit`(의존성 취약점).
+  - `test` 잡 — MySQL 서비스 프로비저닝 → `tests` DB 마이그레이션 → `composer test`.
+- 이 저장소는 표준 CI4 스켈레톤(`app/Config/App.php`·`Constants.php`·`system/`·`public/index.php`·`spark`)을 **gitignore** 하고 커스텀 Config만 추적한다. CI는 `vendor/codeigniter4/framework`에서 누락 스켈레톤을 복원(`cp -rn` + `system` 심링크)한 뒤 검사를 돌린다. 로컬도 동일 방식으로 복원 가능.
+- 권장: GitHub 브랜치 보호 규칙으로 `main`·`dev` 직접 push 차단 + CI 통과를 머지 조건으로 설정.
