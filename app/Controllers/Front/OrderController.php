@@ -260,7 +260,7 @@ class OrderController extends BaseController
             return redirect()->to('/')->with('error', '유효하지 않은 주문입니다.');
         }
 
-        $order = $this->orderModel->getWithItems($order['id'], $userId);
+        $order = $this->orderModel->getWithItems((int) $order['id'], $userId);
 
         return $this->render('shop/bank_transfer', compact('order'));
     }
@@ -275,7 +275,7 @@ class OrderController extends BaseController
             return redirect()->to('/')->with('error', '유효하지 않은 주문입니다.');
         }
 
-        $order = $this->orderModel->getWithItems($order['id'], $userId);
+        $order = $this->orderModel->getWithItems((int) $order['id'], $userId);
 
         return $this->render('shop/order_complete', compact('order'));
     }
