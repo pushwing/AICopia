@@ -1,0 +1,12 @@
+{
+    "require-dev": {
+        "phpstan/phpstan": "^2.2",
+        "codeigniter/phpstan-codeigniter": "^2.1",
+        "codeigniter4/framework": "^4.7",
+        "phpunit/phpunit": "^11.2"
+    },
+    "require": {
+        "phpoffice/phpspreadsheet": "^5.8",
+        "codeigniter4/tasks": "^1.0"
+    }
+}

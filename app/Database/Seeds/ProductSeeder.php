@@ -1,0 +1,138 @@
+<?php
+
+namespace App\Database\Seeds;
+
+use CodeIgniter\Database\Seeder;
+
+class ProductSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $now = date('Y-m-d H:i:s');
+
+        $products = [
+            [
+                'category_id'    => 1,
+                'name'           => '클래식 화이트 티셔츠',
+                'slug'           => 'classic-white-tshirt',
+                'price'          => 29000,
+                'discount_price' => 23000,
+                'stock'          => 50,
+                'status'         => 'on_sale',
+                'description'    => '<p>일상에서 편하게 입기 좋은 클래식한 화이트 티셔츠입니다.</p>',
+                'shipping_type'  => 'fixed',
+                'shipping_fee'   => 3000,
+                'free_threshold' => 0,
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ],
+            [
+                'category_id'    => 1,
+                'name'           => '슬림핏 블랙 청바지',
+                'slug'           => 'slim-black-jeans',
+                'price'          => 59000,
+                'discount_price' => null,
+                'stock'          => 30,
+                'status'         => 'on_sale',
+                'description'    => '<p>날씬해 보이는 슬림핏 블랙 청바지입니다.</p>',
+                'shipping_type'  => 'conditional',
+                'shipping_fee'   => 3000,
+                'free_threshold' => 50000,
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ],
+            [
+                'category_id'    => 1,
+                'name'           => '오버사이즈 후드 집업',
+                'slug'           => 'oversized-hood-zipup',
+                'price'          => 79000,
+                'discount_price' => 63000,
+                'stock'          => 20,
+                'status'         => 'on_sale',
+                'description'    => '<p>넉넉한 핏의 후드 집업으로 다양한 스타일링이 가능합니다.</p>',
+                'shipping_type'  => 'free',
+                'shipping_fee'   => 0,
+                'free_threshold' => 0,
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ],
+            [
+                'category_id'    => 1,
+                'name'           => '린넨 와이드 팬츠',
+                'slug'           => 'linen-wide-pants',
+                'price'          => 49000,
+                'discount_price' => null,
+                'stock'          => 15,
+                'status'         => 'on_sale',
+                'description'    => '<p>시원한 린넨 소재의 와이드 팬츠입니다.</p>',
+                'shipping_type'  => 'fixed',
+                'shipping_fee'   => 3000,
+                'free_threshold' => 0,
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ],
+            [
+                'category_id'    => 1,
+                'name'           => '스트라이프 카라 셔츠',
+                'slug'           => 'stripe-collar-shirt',
+                'price'          => 45000,
+                'discount_price' => 36000,
+                'stock'          => 0,
+                'status'         => 'sold_out',
+                'description'    => '<p>세련된 스트라이프 패턴의 카라 셔츠입니다.</p>',
+                'shipping_type'  => 'fixed',
+                'shipping_fee'   => 3000,
+                'free_threshold' => 0,
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ],
+            [
+                'category_id'    => 1,
+                'name'           => '캐시미어 니트 스웨터',
+                'slug'           => 'cashmere-knit-sweater',
+                'price'          => 129000,
+                'discount_price' => null,
+                'stock'          => 10,
+                'status'         => 'on_sale',
+                'description'    => '<p>부드러운 캐시미어 소재의 니트 스웨터입니다.</p>',
+                'shipping_type'  => 'free',
+                'shipping_fee'   => 0,
+                'free_threshold' => 0,
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ],
+            [
+                'category_id'    => 1,
+                'name'           => '데님 미니 스커트',
+                'slug'           => 'denim-mini-skirt',
+                'price'          => 39000,
+                'discount_price' => 31000,
+                'stock'          => 25,
+                'status'         => 'on_sale',
+                'description'    => '<p>트렌디한 데님 미니 스커트입니다.</p>',
+                'shipping_type'  => 'conditional',
+                'shipping_fee'   => 3000,
+                'free_threshold' => 50000,
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ],
+            [
+                'category_id'    => 1,
+                'name'           => '울 코트 롱',
+                'slug'           => 'wool-long-coat',
+                'price'          => 189000,
+                'discount_price' => 149000,
+                'stock'          => 8,
+                'status'         => 'on_sale',
+                'description'    => '<p>따뜻하고 고급스러운 울 롱코트입니다.</p>',
+                'shipping_type'  => 'free',
+                'shipping_fee'   => 0,
+                'free_threshold' => 0,
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ],
+        ];
+
+        $this->db->table('products')->insertBatch($products);
+    }
+}

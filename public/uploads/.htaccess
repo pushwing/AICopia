@@ -1,0 +1,7 @@
+# 업로드 폴더: PHP/CGI 실행 완전 차단
+Options -ExecCGI -Indexes
+RemoveHandler .php .phtml .phar .php3 .php4 .php5 .php7 .php8
+RemoveType .php .phtml .phar .php3 .php4 .php5 .php7 .php8
+<FilesMatch "\.(php|phtml|phar|php\d|cgi|pl|py|sh|bash)$">
+    Require all denied
+</FilesMatch>

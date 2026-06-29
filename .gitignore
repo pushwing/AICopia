@@ -1,0 +1,76 @@
+# CI4 기본 제외
+/vendor/
+.env
+app/Config/App.php
+writable/cache/*
+writable/logs/*
+writable/session/*
+writable/tmp/*
+!writable/cache/.gitkeep
+!writable/logs/.gitkeep
+!writable/session/.gitkeep
+!writable/tmp/.gitkeep
+
+# 업로드 파일 (실제 미디어는 제외, 폴더 구조만 유지)
+public/uploads/*/*
+!public/uploads/**/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# ── CI4 스캐폴드 (오버레이 repo — framework 패키지에서 로컬 생성, 커밋 금지) ──
+# 로컬 실행/테스트용. 커스텀 Config(Editor/Filters/Routes/Security/Services/Tasks 등)만 추적.
+/spark
+/preload.php
+/phpunit.xml.dist
+/build/
+/writable/
+/public/index.php
+/public/.htaccess
+/app/Config/Autoload.php
+/app/Config/Boot/
+/app/Config/CURLRequest.php
+/app/Config/Cache.php
+/app/Config/Constants.php
+/app/Config/ContentSecurityPolicy.php
+/app/Config/Cookie.php
+/app/Config/Cors.php
+/app/Config/Database.php
+/app/Config/DocTypes.php
+/app/Config/Email.php
+/app/Config/Encryption.php
+/app/Config/Events.php
+/app/Config/Exceptions.php
+/app/Config/Feature.php
+/app/Config/ForeignCharacters.php
+/app/Config/Format.php
+/app/Config/Generators.php
+/app/Config/Honeypot.php
+/app/Config/Hostnames.php
+/app/Config/Images.php
+/app/Config/Kint.php
+/app/Config/Logger.php
+/app/Config/Migrations.php
+/app/Config/Mimes.php
+/app/Config/Modules.php
+/app/Config/Optimize.php
+/app/Config/Pager.php
+/app/Config/Paths.php
+/app/Config/Publisher.php
+/app/Config/Routing.php
+/app/Config/Session.php
+/app/Config/Toolbar.php
+/app/Config/UserAgents.php
+/app/Config/Validation.php
+/app/Config/View.php
+/app/Config/WorkerMode.php
+
+# PHPUnit / PHPStan 캐시
+.phpunit.result.cache
+tmp/

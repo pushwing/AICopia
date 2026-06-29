@@ -1,0 +1,30 @@
+includes:
+    - vendor/codeigniter/phpstan-codeigniter/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    phpVersion: 80300
+    level: 5
+
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+
+    paths:
+        - app/Controllers
+        - app/Models
+        - app/Libraries
+        - app/Filters
+        - app/Traits
+        - app/Commands
+
+    excludePaths:
+        - app/Database/Migrations
+
+    scanFiles:
+        - app/Config/Routes.php
+        - app/Config/OAuth.php
+
+    ignoreErrors: []
+
+    parallel:
+        maximumNumberOfProcesses: 4

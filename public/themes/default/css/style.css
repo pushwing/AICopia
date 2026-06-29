@@ -1,0 +1,171 @@
+/* ─── 기본 리셋 ────────────────────────────────── */
+:root {
+    --primary: #0d6efd;
+    --dark:    #1e2a38;
+}
+
+body {
+    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    color: #333;
+}
+
+/* ─── 네비게이션 ────────────────────────────────── */
+.navbar {
+    border-bottom: 1px solid #f0f0f0;
+}
+.navbar-brand {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+.nav-link {
+    font-weight: 500;
+    font-size: .9rem;
+}
+
+/* ─── 히어로 ─────────────────────────────────────── */
+.hero-section {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+}
+
+/* ─── 페이지 콘텐츠 ──────────────────────────────── */
+.page-content img {
+    max-width: 100%;
+    height: auto;
+}
+.page-content h2, .page-content h3 {
+    margin-top: 1.5rem;
+    margin-bottom: .75rem;
+}
+
+/* ─── 게시글 본문 ────────────────────────────────── */
+.post-content {
+    min-height: 200px;
+    line-height: 1.8;
+    overflow-wrap: break-word;
+}
+.post-content img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* ─── 게시판 ─────────────────────────────────────── */
+.board-table th {
+    background: #f8f9fa;
+    font-size: .8rem;
+    font-weight: 600;
+}
+.board-table td {
+    font-size: .875rem;
+    vertical-align: middle;
+}
+
+/* ─── 카드 공통 ──────────────────────────────────── */
+.card {
+    --bs-card-border-radius: .75rem;
+    --bs-card-inner-border-radius: calc(.75rem - 1px);
+}
+
+/* ─── 상품 카드 ──────────────────────────────────── */
+.product-card {
+    overflow: hidden;
+    transition: box-shadow .15s;
+}
+.product-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,.1);
+}
+
+/* ─── 푸터 ───────────────────────────────────────── */
+footer a {
+    color: #adb5bd;
+    text-decoration: none;
+}
+footer a:hover {
+    color: #fff;
+}
+
+/* ─── 유틸 ───────────────────────────────────────── */
+.object-fit-cover {
+    object-fit: cover;
+}
+
+/* ─── 배너 슬롯 ──────────────────────────────────── */
+.sp-banner-slot {
+    width: 320px;
+}
+.sp-banner-img {
+    display: block;
+    width: 300px;
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 8px;
+}
+
+/* ─── 메인 배너 ──────────────────────────────────── */
+.main-banner-wrap {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+.main-banner-wrap img {
+    display: block;
+    width: 100%;
+    max-width: 1000px;
+    height: auto;
+    margin-bottom: 8px;
+}
+
+/* ─── 팝업 레이어 ───────────────────────────────── */
+.site-popup {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.22);
+    max-width: 380px;
+    width: max-content;
+    max-width: min(380px, calc(100vw - 40px));
+}
+.site-popup-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #888;
+    padding: 0 4px;
+}
+.site-popup-close:hover { color: #333; }
+.site-popup-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px 8px 0 0;
+}
+.site-popup-body {
+    padding: 1rem 1rem .5rem;
+    font-size: .9rem;
+    line-height: 1.6;
+}
+.site-popup-body:first-child { padding-top: 2rem; }
+.site-popup-footer {
+    padding: .5rem 1rem .75rem;
+    border-top: 1px solid #f0f0f0;
+}
+.site-popup-today {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .8rem;
+    color: #888;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* ─── 회원 등급 배지 ─────────────────────────────── */
+.badge-bronze { background-color: #a0522d; color: #fff; }
+.badge-silver { background-color: #888f94; color: #fff; }
