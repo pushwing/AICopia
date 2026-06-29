@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -47,7 +49,9 @@ class PointController extends BaseController
         $user = $db->table('users')->select('id, email, nickname, point_balance')
             ->where('id', $userId)->get()->getRowArray();
 
-        if (! $user) return redirect()->to('/admin/points')->with('error', '회원을 찾을 수 없습니다.');
+        if (! $user) {
+            return redirect()->to('/admin/points')->with('error', '회원을 찾을 수 없습니다.');
+        }
 
         $page   = max(1, (int) ($this->request->getGet('page') ?? 1));
         $result = $this->pointLogModel->getByUser($userId, $page);
@@ -69,7 +73,9 @@ class PointController extends BaseController
         $db   = \Config\Database::connect();
         $user = $db->table('users')->select('id, point_balance')->where('id', $userId)->get()->getRowArray();
 
-        if (! $user) return redirect()->back()->with('error', '회원을 찾을 수 없습니다.');
+        if (! $user) {
+            return redirect()->back()->with('error', '회원을 찾을 수 없습니다.');
+        }
 
         $newBalance = (int) $user['point_balance'] + $amount;
         if ($newBalance < 0) {

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Libraries\AiProvider\ClaudeProvider;
@@ -15,7 +17,9 @@ class MockGroqSearchProvider extends GroqProvider
 {
     public string $lastPayload = '';
 
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -26,7 +30,9 @@ class MockGroqSearchProvider extends GroqProvider
 
 class MockClaudeSearchProvider extends ClaudeProvider
 {
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -88,7 +90,9 @@ final class BirthdayCouponTest extends CIUnitTestCase
     {
         $db        = db_connect();
         $coupon    = $db->table('coupons')->where('id', $couponId)->where('is_active', 1)->get()->getRowArray();
-        if (! $coupon) return ['issued' => 0, 'skipped' => 0];
+        if (! $coupon) {
+            return ['issued' => 0, 'skipped' => 0];
+        }
 
         $monthDay = date('m-d', strtotime($targetDate));
         $now      = date('Y-m-d H:i:s');
@@ -99,11 +103,14 @@ final class BirthdayCouponTest extends CIUnitTestCase
             [$monthDay]
         )->getResultArray();
 
-        $issued = 0; $skipped = 0;
+        $issued = 0;
+        $skipped = 0;
 
         foreach ($users as $user) {
             // 내 테스트 데이터만 대상 (cleanup 목록 내)
-            if (! in_array((int) $user['id'], $this->cleanup['users'])) continue;
+            if (! in_array((int) $user['id'], $this->cleanup['users'])) {
+                continue;
+            }
 
             $alreadyToday = $db->table('user_coupons')
                 ->where('user_id', (int) $user['id'])
@@ -111,7 +118,10 @@ final class BirthdayCouponTest extends CIUnitTestCase
                 ->where('DATE(issued_at)', $todayYmd)
                 ->countAllResults();
 
-            if ($alreadyToday > 0) { $skipped++; continue; }
+            if ($alreadyToday > 0) {
+                $skipped++;
+                continue;
+            }
 
             $db->table('user_coupons')->insert([
                 'user_id'    => (int) $user['id'],

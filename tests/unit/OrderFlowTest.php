@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\OrderModel;
@@ -513,7 +515,7 @@ final class OrderFlowTest extends CIUnitTestCase
             'total_product_price'   => $product['price'] * $qty,
             'shipping_fee'          => 0,
             'total_amount'          => $product['price'] * $qty,
-            'coupon_discount_amount'=> 0,
+            'coupon_discount_amount' => 0,
             'point_used_amount'     => 0,
             'point_earned_amount'   => 0,
             'payable_amount'        => $product['price'] * $qty,

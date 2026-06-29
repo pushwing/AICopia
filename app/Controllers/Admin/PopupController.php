@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -63,7 +65,9 @@ class PopupController extends BaseController
     public function edit(int $id): \CodeIgniter\HTTP\RedirectResponse|string
     {
         $popup = $this->popupModel->find($id);
-        if (! $popup) return redirect()->to('/admin/popups')->with('error', '팝업을 찾을 수 없습니다.');
+        if (! $popup) {
+            return redirect()->to('/admin/popups')->with('error', '팝업을 찾을 수 없습니다.');
+        }
 
         return $this->render('admin/popups/form', [
             'popup'    => $popup,
@@ -76,7 +80,9 @@ class PopupController extends BaseController
     public function update(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $popup = $this->popupModel->find($id);
-        if (! $popup) return redirect()->to('/admin/popups')->with('error', '팝업을 찾을 수 없습니다.');
+        if (! $popup) {
+            return redirect()->to('/admin/popups')->with('error', '팝업을 찾을 수 없습니다.');
+        }
 
         $rules = ['title' => 'required|max_length[200]'];
         if (! $this->validate($rules)) {
@@ -92,7 +98,9 @@ class PopupController extends BaseController
             }
             if ($imagePath) {
                 $oldPath = FCPATH . $imagePath;
-                if (file_exists($oldPath)) unlink($oldPath);
+                if (file_exists($oldPath)) {
+                    unlink($oldPath);
+                }
             }
             $imagePath = $result['path'];
         }
@@ -111,7 +119,7 @@ class PopupController extends BaseController
 
     private function collectData(?string $imagePath): array
     {
-        $toDatetime = fn($val) => $val
+        $toDatetime = fn ($val) => $val
             ? (strlen($val) <= 16
                 ? str_replace('T', ' ', $val) . ':00'
                 : str_replace('T', ' ', substr($val, 0, 19)))

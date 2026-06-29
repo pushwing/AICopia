@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 /**
@@ -83,12 +85,16 @@ class GradeService
             ->where('id', $userId)
             ->get()->getRowArray();
 
-        if (! $user) return null;
+        if (! $user) {
+            return null;
+        }
 
         $grade = $user['grade'];
 
         // platinum, gold 는 자동 승급 없음
-        if (in_array($grade, ['gold', 'platinum'], true)) return null;
+        if (in_array($grade, ['gold', 'platinum'], true)) {
+            return null;
+        }
 
         $stats = $this->getOrderStats($userId);
 
@@ -156,13 +162,19 @@ class GradeService
      */
     public function issueGradeCoupon(int $userId, string $grade, array $settings, string $now = ''): void
     {
-        if ($now === '') $now = date('Y-m-d H:i:s');
+        if ($now === '') {
+            $now = date('Y-m-d H:i:s');
+        }
 
         $couponId = (int) ($settings['coupon_grade_' . $grade . '_id'] ?? 0);
-        if ($couponId <= 0) return;
+        if ($couponId <= 0) {
+            return;
+        }
 
         $coupon = $this->db->table('coupons')->where('id', $couponId)->where('is_active', 1)->get()->getRowArray();
-        if (! $coupon) return;
+        if (! $coupon) {
+            return;
+        }
 
         // 중복 발급 방지 — 같은 쿠폰이 이미 issued 상태로 있으면 스킵
         $exists = $this->db->table('user_coupons')
@@ -170,10 +182,14 @@ class GradeService
             ->where('coupon_id', $couponId)
             ->where('status', 'issued')
             ->countAllResults();
-        if ($exists > 0) return;
+        if ($exists > 0) {
+            return;
+        }
 
         // total_qty 체크
-        if ($coupon['total_qty'] !== null && (int) $coupon['used_count'] >= (int) $coupon['total_qty']) return;
+        if ($coupon['total_qty'] !== null && (int) $coupon['used_count'] >= (int) $coupon['total_qty']) {
+            return;
+        }
 
         $this->db->table('user_coupons')->insert([
             'user_id'    => $userId,
@@ -194,7 +210,9 @@ class GradeService
     public function awardSignupBonus(int $userId, array $settings): void
     {
         $bonus = $this->getSignupBonus($settings);
-        if ($bonus <= 0) return;
+        if ($bonus <= 0) {
+            return;
+        }
 
         $now = date('Y-m-d H:i:s');
 
@@ -222,12 +240,12 @@ class GradeService
     public function getGoldMembersForPromotion(string $keyword = '', int $page = 1, int $perPage = 20): array
     {
         $builder = $this->db->table('users u')
-            ->select("
+            ->select('
                 u.id, u.email, u.nickname, u.phone, u.grade, u.created_at,
                 COALESCE(s.order_count, 0) AS order_count,
                 COALESCE(s.total_amount, 0) AS total_amount,
                 TIMESTAMPDIFF(YEAR, u.created_at, NOW()) AS years_since_signup
-            ")
+            ')
             ->join("(
                 SELECT o.user_id,
                        COUNT(*) AS order_count,

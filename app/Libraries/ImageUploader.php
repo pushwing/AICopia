@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use CodeIgniter\HTTP\Files\UploadedFile;
@@ -11,7 +13,9 @@ class ImageUploader
     private const MAX_SIZE      = 2 * 1024 * 1024; // 2MB
     private const MAX_DIMENSION = 1200;             // 리사이즈 기준 (px)
 
-    public function __construct(private string $folder) {}
+    public function __construct(private string $folder)
+    {
+    }
 
     public function upload(UploadedFile $file): array
     {
@@ -28,7 +32,9 @@ class ImageUploader
         $subDir     = date('Y/m');
         $uploadPath = FCPATH . "uploads/{$this->folder}/{$subDir}";
 
-        if (! is_dir($uploadPath)) mkdir($uploadPath, 0755, true);
+        if (! is_dir($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
 
         $storedName   = bin2hex(random_bytes(16)) . '.' . $ext;
         $relativePath = "uploads/{$this->folder}/{$subDir}/{$storedName}";
@@ -45,11 +51,15 @@ class ImageUploader
     private function resizeIfNeeded(string $fullPath, string $ext): void
     {
         // GIF는 애니메이션 손상 방지를 위해 리사이즈 건너뜀
-        if ($ext === 'gif') return;
+        if ($ext === 'gif') {
+            return;
+        }
 
         [$width, $height] = getimagesize($fullPath) ?: [0, 0];
 
-        if ($width <= self::MAX_DIMENSION && $height <= self::MAX_DIMENSION) return;
+        if ($width <= self::MAX_DIMENSION && $height <= self::MAX_DIMENSION) {
+            return;
+        }
 
         $masterDim = $width >= $height ? 'width' : 'height';
 

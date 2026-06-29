@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Controllers\Admin\UserController;
@@ -75,14 +77,26 @@ final class UserExportTest extends CIUnitTestCase
                 ->orLike('email', $keyword)
                 ->groupEnd();
         }
-        if ($role  !== '') $builder->where('role', $role);
-        if ($grade !== '') $builder->where('grade', $grade);
-        if ($from  !== '') $builder->where('DATE(created_at) >=', $from);
-        if ($to    !== '') $builder->where('DATE(created_at) <=', $to);
+        if ($role  !== '') {
+            $builder->where('role', $role);
+        }
+        if ($grade !== '') {
+            $builder->where('grade', $grade);
+        }
+        if ($from  !== '') {
+            $builder->where('DATE(created_at) >=', $from);
+        }
+        if ($to    !== '') {
+            $builder->where('DATE(created_at) <=', $to);
+        }
 
-        if ($status === 'active')         $builder->where('is_active', 1);
-        elseif ($status === 'unverified') $builder->where('is_active', 0)->where('email_verify_token IS NOT NULL');
-        elseif ($status === 'inactive')   $builder->where('is_active', 0)->where('email_verify_token IS NULL');
+        if ($status === 'active') {
+            $builder->where('is_active', 1);
+        } elseif ($status === 'unverified') {
+            $builder->where('is_active', 0)->where('email_verify_token IS NOT NULL');
+        } elseif ($status === 'inactive') {
+            $builder->where('is_active', 0)->where('email_verify_token IS NULL');
+        }
 
         return $builder->orderBy('id', 'DESC')->get()->getResultArray();
     }
@@ -97,7 +111,7 @@ final class UserExportTest extends CIUnitTestCase
         $rows = $this->buildExportRows(['role' => 'admin']);
         $ids  = array_column($rows, 'id');
 
-        $this->assertContains((string) $adminId,  $ids, '관리자 회원이 포함돼야 함');
+        $this->assertContains((string) $adminId, $ids, '관리자 회원이 포함돼야 함');
         $this->assertNotContains((string) $memberId, $ids, '일반 회원이 제외돼야 함');
     }
 
@@ -109,7 +123,7 @@ final class UserExportTest extends CIUnitTestCase
         $rows = $this->buildExportRows(['grade' => 'gold']);
         $ids  = array_column($rows, 'id');
 
-        $this->assertContains((string) $goldId,   $ids, '골드 회원이 포함돼야 함');
+        $this->assertContains((string) $goldId, $ids, '골드 회원이 포함돼야 함');
         $this->assertNotContains((string) $bronzeId, $ids, '브론즈 회원이 제외돼야 함');
     }
 
@@ -121,7 +135,7 @@ final class UserExportTest extends CIUnitTestCase
         $rows = $this->buildExportRows(['status' => 'active']);
         $ids  = array_column($rows, 'id');
 
-        $this->assertContains((string) $activeId,    $ids);
+        $this->assertContains((string) $activeId, $ids);
         $this->assertNotContains((string) $inactiveId, $ids);
     }
 
@@ -133,8 +147,8 @@ final class UserExportTest extends CIUnitTestCase
         $rows = $this->buildExportRows(['status' => 'inactive']);
         $ids  = array_column($rows, 'id');
 
-        $this->assertNotContains((string) $activeId,  $ids);
-        $this->assertContains((string) $inactiveId,   $ids);
+        $this->assertNotContains((string) $activeId, $ids);
+        $this->assertContains((string) $inactiveId, $ids);
     }
 
     public function testStatusUnverifiedFilterMatchesUnverifiedOnly(): void
@@ -145,7 +159,7 @@ final class UserExportTest extends CIUnitTestCase
         $rows = $this->buildExportRows(['status' => 'unverified']);
         $ids  = array_column($rows, 'id');
 
-        $this->assertContains((string) $unverifiedId,  $ids);
+        $this->assertContains((string) $unverifiedId, $ids);
         $this->assertNotContains((string) $verifiedId, $ids);
     }
 
@@ -157,7 +171,7 @@ final class UserExportTest extends CIUnitTestCase
         $rows = $this->buildExportRows(['from' => date('Y-m-d')]);
         $ids  = array_column($rows, 'id');
 
-        $this->assertContains((string) $newId,  $ids, '오늘 가입 회원이 포함돼야 함');
+        $this->assertContains((string) $newId, $ids, '오늘 가입 회원이 포함돼야 함');
         $this->assertNotContains((string) $oldId, $ids, '2020년 가입 회원은 제외돼야 함');
     }
 
@@ -169,7 +183,7 @@ final class UserExportTest extends CIUnitTestCase
         $rows = $this->buildExportRows(['to' => '2020-12-31']);
         $ids  = array_column($rows, 'id');
 
-        $this->assertContains((string) $oldId,  $ids, '2020년 가입 회원이 포함돼야 함');
+        $this->assertContains((string) $oldId, $ids, '2020년 가입 회원이 포함돼야 함');
         $this->assertNotContains((string) $newId, $ids, '오늘 가입 회원은 제외돼야 함');
     }
 
@@ -222,8 +236,8 @@ final class UserExportTest extends CIUnitTestCase
         $rows = $this->buildExportRows(['grade' => 'gold', 'role' => 'member']);
         $ids  = array_column($rows, 'id');
 
-        $this->assertContains((string) $goldMemberId,   $ids);
+        $this->assertContains((string) $goldMemberId, $ids);
         $this->assertNotContains((string) $silverMemberId, $ids);
-        $this->assertNotContains((string) $goldAdminId,    $ids);
+        $this->assertNotContains((string) $goldAdminId, $ids);
     }
 }

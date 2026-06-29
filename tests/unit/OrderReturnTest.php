@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\OrderModel;
@@ -230,7 +232,8 @@ final class OrderReturnTest extends CIUnitTestCase
         $orderId = $this->insertOrder($userId, 'paid');
 
         $this->assertFalse($this->model->requestReturn($orderId, $userId, 'simple_change'));
-        $this->assertSame('paid',
+        $this->assertSame(
+            'paid',
             db_connect()->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }
@@ -252,7 +255,8 @@ final class OrderReturnTest extends CIUnitTestCase
         ]);
 
         $this->assertFalse($this->model->requestReturn($orderId, $userId, 'simple_change'));
-        $this->assertSame('delivered',
+        $this->assertSame(
+            'delivered',
             db_connect()->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }
@@ -283,7 +287,8 @@ final class OrderReturnTest extends CIUnitTestCase
         $stock = (int) $db->table('products')->where('id', $productId)->get()->getRowArray()['stock'];
         $this->assertSame(13, $stock);
 
-        $this->assertSame('return_approved',
+        $this->assertSame(
+            'return_approved',
             $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }
@@ -380,7 +385,8 @@ final class OrderReturnTest extends CIUnitTestCase
 
         $this->assertTrue($this->model->confirmReturnRefund($orderId));
 
-        $this->assertSame('refunded',
+        $this->assertSame(
+            'refunded',
             $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
         $payment = $db->table('payments')->where('order_id', $orderId)->get()->getRowArray();
@@ -414,7 +420,8 @@ final class OrderReturnTest extends CIUnitTestCase
 
         $this->assertTrue($this->model->rejectReturn($orderId));
 
-        $this->assertSame('delivered',
+        $this->assertSame(
+            'delivered',
             $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }

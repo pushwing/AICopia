@@ -1,15 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Exceptions\AiKeyMissingException;
 use App\Libraries\AiCategoryAdvisor;
 use App\Libraries\Mailer;
-use App\Libraries\NaverShoppingProvider;
-use App\Models\MediaModel;
 use App\Libraries\MediaUploader;
+use App\Libraries\NaverShoppingProvider;
 use App\Models\CategoryModel;
+use App\Models\MediaModel;
 use App\Models\ProductImageModel;
 use App\Models\ProductModel;
 use App\Models\ProductSkuModel;
@@ -55,7 +57,7 @@ class ProductController extends BaseController
         $db = db_connect();
         $unassignedCount = (int) $db->table('products')
             ->where('deleted_at IS NULL')
-            ->where("NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id)", null, false)
+            ->where('NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id)', null, false)
             ->countAllResults();
 
         return $this->render('admin/products/list', array_merge($result, [
@@ -85,7 +87,7 @@ class ProductController extends BaseController
         $this->imageModel->attachPrimaryImages($rows);
         $threshold = (int) ($this->viewData['settings']['low_stock_threshold'] ?? 5);
 
-        $data = array_map(fn($p) => [
+        $data = array_map(fn ($p) => [
             'id'             => (int) $p['id'],
             'name'           => $p['name'],
             'slug'           => $p['slug'],
@@ -136,7 +138,9 @@ class ProductController extends BaseController
                 $logModel = new StockLogModel();
                 foreach ($ids as $id) {
                     $product = $this->productModel->find($id);
-                    if (! $product) continue;
+                    if (! $product) {
+                        continue;
+                    }
                     $oldStock = (int) $product['stock'];
                     $this->productModel->update($id, ['stock' => $stock]);
                     $logModel->record($id, 'adjust', abs($stock - $oldStock), $oldStock, $stock, '관리자 일괄 재고 조정', $adminId);
@@ -163,7 +167,9 @@ class ProductController extends BaseController
                 $discountValue = (int) $discountValue;
                 foreach ($ids as $id) {
                     $product = $this->productModel->find($id);
-                    if (! $product) continue;
+                    if (! $product) {
+                        continue;
+                    }
                     $price         = (int) $product['price'];
                     $discountPrice = $discountType === 'percent'
                         ? (int) round($price * (1 - $discountValue / 100))
@@ -203,9 +209,11 @@ class ProductController extends BaseController
         $this->productModel->update($id, ['stock' => $newStock]);
 
         (new StockLogModel())->record(
-            $id, 'adjust',
+            $id,
+            'adjust',
             abs($newStock - $oldStock),
-            $oldStock, $newStock,
+            $oldStock,
+            $newStock,
             '관리자 재고 조정',
             $adminId
         );
@@ -261,7 +269,9 @@ class ProductController extends BaseController
     public function edit(int $id): \CodeIgniter\HTTP\RedirectResponse|string
     {
         $product = $this->productModel->find($id);
-        if (! $product) return redirect()->to('/admin/products')->with('error', '상품을 찾을 수 없습니다.');
+        if (! $product) {
+            return redirect()->to('/admin/products')->with('error', '상품을 찾을 수 없습니다.');
+        }
 
         return $this->render('admin/products/form', [
             'product'        => $product,
@@ -278,7 +288,9 @@ class ProductController extends BaseController
     public function update(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $product = $this->productModel->find($id);
-        if (! $product) return redirect()->to('/admin/products')->with('error', '상품을 찾을 수 없습니다.');
+        if (! $product) {
+            return redirect()->to('/admin/products')->with('error', '상품을 찾을 수 없습니다.');
+        }
 
         if (! $this->validate($this->validationRules($id))) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
@@ -305,7 +317,9 @@ class ProductController extends BaseController
     {
         $alertModel = new RestockAlertModel();
         $pending    = $alertModel->getPending((int) $product['id']);
-        if (! $pending) return;
+        if (! $pending) {
+            return;
+        }
 
         $settings = model('SettingModel')->getAllAsMap();
         $mailer   = new Mailer($settings);
@@ -346,7 +360,9 @@ class ProductController extends BaseController
     public function copy(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $product = $this->productModel->find($id);
-        if (! $product) return redirect()->to('/admin/products')->with('error', '상품을 찾을 수 없습니다.');
+        if (! $product) {
+            return redirect()->to('/admin/products')->with('error', '상품을 찾을 수 없습니다.');
+        }
 
         $db  = \Config\Database::connect();
         $now = date('Y-m-d H:i:s');
@@ -417,7 +433,9 @@ class ProductController extends BaseController
     public function delete(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $product = $this->productModel->find($id);
-        if (! $product) return redirect()->to('/admin/products')->with('error', '상품을 찾을 수 없습니다.');
+        if (! $product) {
+            return redirect()->to('/admin/products')->with('error', '상품을 찾을 수 없습니다.');
+        }
 
         $this->productModel->delete($id);
         return redirect()->to('/admin/products')->with('success', '삭제되었습니다.');
@@ -442,7 +460,7 @@ class ProductController extends BaseController
             ->orderBy('products.id', 'DESC');
 
         if ($onlyUnassigned) {
-            $builder->where("NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id)", null, false);
+            $builder->where('NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id)', null, false);
         }
         if ($keyword !== '') {
             $builder->like('products.name', $keyword);
@@ -457,7 +475,7 @@ class ProductController extends BaseController
 
         $unassignedCount = (int) $db->table('products')
             ->where('deleted_at IS NULL')
-            ->where("NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id)", null, false)
+            ->where('NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id)', null, false)
             ->countAllResults();
 
         return $this->render('admin/products/unassigned', [
@@ -567,7 +585,9 @@ class ProductController extends BaseController
 
         $subDir     = date('Y/m');
         $uploadPath = FCPATH . "uploads/media/{$subDir}";
-        if (! is_dir($uploadPath)) mkdir($uploadPath, 0755, true);
+        if (! is_dir($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
 
         $storedName   = bin2hex(random_bytes(16)) . ".{$ext}";
         $relativePath = "uploads/media/{$subDir}/{$storedName}";
@@ -733,7 +753,9 @@ class ProductController extends BaseController
     public function categoryUpdate(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $category = $this->categoryModel->find($id);
-        if (! $category) return redirect()->to('/admin/products/categories')->with('error', '카테고리를 찾을 수 없습니다.');
+        if (! $category) {
+            return redirect()->to('/admin/products/categories')->with('error', '카테고리를 찾을 수 없습니다.');
+        }
 
         $rules = ['name' => 'required|max_length[100]'];
         if (! $this->validate($rules)) {
@@ -788,7 +810,10 @@ class ProductController extends BaseController
 
         $currentIdx = null;
         foreach ($siblings as $i => $s) {
-            if ((int) $s['id'] === $id) { $currentIdx = $i; break; }
+            if ((int) $s['id'] === $id) {
+                $currentIdx = $i;
+                break;
+            }
         }
 
         if ($currentIdx === null) {
@@ -881,7 +906,9 @@ class ProductController extends BaseController
         }
 
         $data = json_decode($json, true);
-        if (! is_array($data)) return;
+        if (! is_array($data)) {
+            return;
+        }
 
         $this->skuModel->saveOptionsAndSkus($productId, $data);
     }
@@ -909,10 +936,14 @@ class ProductController extends BaseController
         }
 
         foreach ($newImages as $file) {
-            if (! $file->isValid() || $file->hasMoved()) continue;
+            if (! $file->isValid() || $file->hasMoved()) {
+                continue;
+            }
 
             $result = $uploader->upload($file, $this->request->getPost('name'));
-            if (! $result['success']) continue;
+            if (! $result['success']) {
+                continue;
+            }
 
             $this->imageModel->insert([
                 'product_id' => $productId,
@@ -939,7 +970,7 @@ class ProductController extends BaseController
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
 
-        $col = fn(int $c, int $r): string =>
+        $col = fn (int $c, int $r): string =>
             \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r;
 
         $headers = ['상품명*', '판매가*', '재고*', '상태', '배송유형', '배송비', '무료배송기준금액', '할인가', '카테고리', '상품설명'];
@@ -979,7 +1010,7 @@ class ProductController extends BaseController
     {
         return $this->render('admin/products/import', [
             'preview'     => session()->getFlashdata('import_preview')  ?? [],
-            'importErrors'=> session()->getFlashdata('import_errors')   ?? [],
+            'importErrors' => session()->getFlashdata('import_errors')   ?? [],
             'validCount'  => session()->getFlashdata('import_valid_count') ?? 0,
         ]);
     }
@@ -1014,14 +1045,16 @@ class ProductController extends BaseController
         }
 
         $valid       = [];
-        $importErrors= [];
+        $importErrors = [];
 
         for ($row = 2; $row <= $maxRow; $row++) {
             $cells = [];
             for ($c = 1; $c <= 10; $c++) {
                 $cells[] = trim((string) ($sheet->getCell([$c, $row])->getValue() ?? ''));
             }
-            if (implode('', $cells) === '') continue;
+            if (implode('', $cells) === '') {
+                continue;
+            }
 
             $parsed = $this->parseImportRow($cells, $catMap);
 
@@ -1039,8 +1072,8 @@ class ProductController extends BaseController
         session()->set('product_import_valid', $valid);
 
         return redirect()->to('/admin/products/import')
-            ->with('import_preview',     $valid)
-            ->with('import_errors',      $importErrors)
+            ->with('import_preview', $valid)
+            ->with('import_errors', $importErrors)
             ->with('import_valid_count', (string) count($valid));
     }
 
@@ -1064,7 +1097,7 @@ class ProductController extends BaseController
                 'status'        => $row['status'],
                 'shipping_type' => $row['shipping_type'],
                 'shipping_fee'  => $row['shipping_fee'],
-                'free_threshold'=> $row['free_threshold'],
+                'free_threshold' => $row['free_threshold'],
                 'description'   => $row['description'],
             ];
             if ($row['discount_price'] !== null) {

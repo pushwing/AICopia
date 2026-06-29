@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Commands;
 
 use App\Models\SettingModel;
@@ -96,7 +98,7 @@ class IssueBirthdayCoupons extends BaseCommand
             log_message('info', "[coupons:birthday] user_id={$uid} 생일쿠폰 발급 coupon_id={$couponId}");
         }
 
-        CLI::write("[coupons:birthday] 대상 " . count($users) . "명 / 발급 {$issued}명 / 스킵 {$skipped}명", 'green');
-        log_message('info', "[coupons:birthday] 대상=" . count($users) . " 발급={$issued} 스킵={$skipped}");
+        CLI::write('[coupons:birthday] 대상 ' . count($users) . "명 / 발급 {$issued}명 / 스킵 {$skipped}명", 'green');
+        log_message('info', '[coupons:birthday] 대상=' . count($users) . " 발급={$issued} 스킵={$skipped}");
     }
 }

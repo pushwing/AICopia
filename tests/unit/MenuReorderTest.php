@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -75,7 +77,9 @@ final class MenuReorderTest extends CIUnitTestCase
     {
         $db      = db_connect();
         $current = $db->table('menus')->where('id', $id)->get()->getRowArray();
-        if (! $current) return false;
+        if (! $current) {
+            return false;
+        }
 
         $builder = $db->table('menus');
         if ($current['parent_id'] === null) {
@@ -89,12 +93,19 @@ final class MenuReorderTest extends CIUnitTestCase
 
         $currentIdx = null;
         foreach ($siblings as $i => $s) {
-            if ((int) $s['id'] === $id) { $currentIdx = $i; break; }
+            if ((int) $s['id'] === $id) {
+                $currentIdx = $i;
+                break;
+            }
         }
-        if ($currentIdx === null) return false;
+        if ($currentIdx === null) {
+            return false;
+        }
 
         $swapIdx = $direction === 'up' ? $currentIdx - 1 : $currentIdx + 1;
-        if ($swapIdx < 0 || $swapIdx >= count($siblings)) return false;
+        if ($swapIdx < 0 || $swapIdx >= count($siblings)) {
+            return false;
+        }
 
         [$siblings[$currentIdx], $siblings[$swapIdx]] = [$siblings[$swapIdx], $siblings[$currentIdx]];
 

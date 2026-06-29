@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -133,7 +135,9 @@ class ProductSkuModel extends Model
             $skuId = (int) $this->db->insertID();
 
             foreach (($sku['value_tmp_ids'] ?? []) as $tmpId) {
-                if (! isset($valueIdMap[$tmpId])) continue;
+                if (! isset($valueIdMap[$tmpId])) {
+                    continue;
+                }
                 $this->db->table('product_sku_values')->insert([
                     'sku_id'          => $skuId,
                     'option_value_id' => $valueIdMap[$tmpId],

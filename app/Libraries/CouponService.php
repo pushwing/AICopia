@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Models\CouponModel;
@@ -116,7 +118,7 @@ class CouponService
             $targetGrades = array_map('trim', explode(',', $coupon['target_grade']));
             if (! in_array($userGrade, $targetGrades, true)) {
                 $gradeLabels   = \App\Libraries\GradeService::LABELS;
-                $targetLabels  = array_map(fn($g) => $gradeLabels[$g] ?? $g, $targetGrades);
+                $targetLabels  = array_map(fn ($g) => $gradeLabels[$g] ?? $g, $targetGrades);
                 return $this->fail(implode('·', $targetLabels) . ' 등급 전용 쿠폰입니다.');
             }
         }

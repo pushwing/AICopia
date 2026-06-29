@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -27,7 +29,7 @@ class MediaController extends BaseController
         return $this->render('admin/media/index', [
             'mediaList'  => $this->mediaModel->getList($limit, $offset),
             'totalPages' => (int) ceil($total / $limit),
-            'currentPage'=> $page,
+            'currentPage' => $page,
         ]);
     }
 

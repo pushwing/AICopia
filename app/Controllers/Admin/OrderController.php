@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -89,7 +91,7 @@ class OrderController extends BaseController
             ->orderBy('o.id', 'DESC')
             ->get()->getResultArray();
 
-        $data = array_map(fn($r) => [
+        $data = array_map(fn ($r) => [
             'id'             => (int) $r['id'],
             'order_number'   => $r['order_number'],
             'created_at'     => $r['created_at'],
@@ -140,7 +142,7 @@ class OrderController extends BaseController
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
 
-        $col = fn(int $c, int $r): string =>
+        $col = fn (int $c, int $r): string =>
             \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r;
 
         $headers = ['주문번호', '주문일시', '수취인', '연락처', '우편번호', '주소', '상세주소', '상품명', '결제금액', '상태'];
@@ -163,15 +165,15 @@ class OrderController extends BaseController
             $productSummary = ($names[0] ?? '') . ($extra > 0 ? ' 외 ' . $extra . '건' : '');
             $rowNum         = $i + 2;
 
-            $sheet->setCellValue($col(1,  $rowNum), $order['order_number']);
-            $sheet->setCellValue($col(2,  $rowNum), $order['created_at']);
-            $sheet->setCellValue($col(3,  $rowNum), $order['receiver_name']);
-            $sheet->setCellValue($col(4,  $rowNum), $order['receiver_phone']);
-            $sheet->setCellValue($col(5,  $rowNum), $order['zipcode'] ?? '');
-            $sheet->setCellValue($col(6,  $rowNum), $order['address1'] ?? '');
-            $sheet->setCellValue($col(7,  $rowNum), $order['address2'] ?? '');
-            $sheet->setCellValue($col(8,  $rowNum), $productSummary);
-            $sheet->setCellValue($col(9,  $rowNum), (int) $order['total_amount']);
+            $sheet->setCellValue($col(1, $rowNum), $order['order_number']);
+            $sheet->setCellValue($col(2, $rowNum), $order['created_at']);
+            $sheet->setCellValue($col(3, $rowNum), $order['receiver_name']);
+            $sheet->setCellValue($col(4, $rowNum), $order['receiver_phone']);
+            $sheet->setCellValue($col(5, $rowNum), $order['zipcode'] ?? '');
+            $sheet->setCellValue($col(6, $rowNum), $order['address1'] ?? '');
+            $sheet->setCellValue($col(7, $rowNum), $order['address2'] ?? '');
+            $sheet->setCellValue($col(8, $rowNum), $productSummary);
+            $sheet->setCellValue($col(9, $rowNum), (int) $order['total_amount']);
             $sheet->setCellValue($col(10, $rowNum), self::STATUS_LABELS[$order['status']] ?? $order['status']);
         }
 
@@ -212,7 +214,10 @@ class OrderController extends BaseController
         $updated = 0;
         $failed  = 0;
         foreach ($orderIds as $id) {
-            if ($id <= 0) { $failed++; continue; }
+            if ($id <= 0) {
+                $failed++;
+                continue;
+            }
             $this->orderModel->updateStatus($id, $status) ? $updated++ : $failed++;
         }
 

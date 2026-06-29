@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 /**
@@ -65,9 +67,15 @@ class Mailer
         $adminUrl = $this->siteUrl . '/admin/inquiries';
 
         $rows = '';
-        if ($name)  $rows .= $this->row('이름',   $name);
-        if ($email) $rows .= $this->row('이메일', "<a href='mailto:{$email}' style='color:#3b82f6;text-decoration:none;'>{$email}</a>");
-        if ($phone) $rows .= $this->row('연락처', $phone);
+        if ($name) {
+            $rows .= $this->row('이름', $name);
+        }
+        if ($email) {
+            $rows .= $this->row('이메일', "<a href='mailto:{$email}' style='color:#3b82f6;text-decoration:none;'>{$email}</a>");
+        }
+        if ($phone) {
+            $rows .= $this->row('연락처', $phone);
+        }
 
         $body = $this->layout(
             title: '새 문의가 접수되었습니다',
@@ -203,16 +211,16 @@ HTML;
                "<a href='" . esc($url) . "' " .
                "style='display:inline-block;padding:13px 28px;font-size:14px;font-weight:600;" .
                "color:#ffffff;text-decoration:none;border-radius:8px;letter-spacing:.2px;'>" .
-               esc($label) . "</a>" .
-               "</td></tr></table>";
+               esc($label) . '</a>' .
+               '</td></tr></table>';
     }
 
     private function row(string $label, string $value): string
     {
-        return "<tr>" .
+        return '<tr>' .
                "<td style='padding:5px 0;font-size:13px;color:#9ca3af;white-space:nowrap;width:64px;'>{$label}</td>" .
                "<td style='padding:5px 0 5px 8px;font-size:13px;color:#374151;'>{$value}</td>" .
-               "</tr>";
+               '</tr>';
     }
 
     // ------------------------------------------------------------------ //

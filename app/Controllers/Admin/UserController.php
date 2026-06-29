@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -23,7 +25,7 @@ class UserController extends BaseController
             ->orderBy('id', 'DESC')
             ->get()->getResultArray();
 
-        $data = array_map(fn($u) => [
+        $data = array_map(fn ($u) => [
             'id'                 => (int) $u['id'],
             'nickname'           => $u['nickname'],
             'email'              => $u['email'],
@@ -204,14 +206,26 @@ class UserController extends BaseController
                 ->orLike('phone', $keyword)
                 ->groupEnd();
         }
-        if ($role  !== '') $builder->where('role', $role);
-        if ($grade !== '') $builder->where('grade', $grade);
-        if ($from  !== '') $builder->where('DATE(created_at) >=', $from);
-        if ($to    !== '') $builder->where('DATE(created_at) <=', $to);
+        if ($role  !== '') {
+            $builder->where('role', $role);
+        }
+        if ($grade !== '') {
+            $builder->where('grade', $grade);
+        }
+        if ($from  !== '') {
+            $builder->where('DATE(created_at) >=', $from);
+        }
+        if ($to    !== '') {
+            $builder->where('DATE(created_at) <=', $to);
+        }
 
-        if ($status === 'active')         $builder->where('is_active', 1);
-        elseif ($status === 'unverified') $builder->where('is_active', 0)->where('email_verify_token IS NOT NULL');
-        elseif ($status === 'inactive')   $builder->where('is_active', 0)->where('email_verify_token IS NULL');
+        if ($status === 'active') {
+            $builder->where('is_active', 1);
+        } elseif ($status === 'unverified') {
+            $builder->where('is_active', 0)->where('email_verify_token IS NOT NULL');
+        } elseif ($status === 'inactive') {
+            $builder->where('is_active', 0)->where('email_verify_token IS NULL');
+        }
 
         $users = $builder->orderBy('id', 'DESC')->get()->getResultArray();
 
@@ -220,7 +234,7 @@ class UserController extends BaseController
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
-        $col         = fn(int $c, int $r): string =>
+        $col         = fn (int $c, int $r): string =>
             \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r;
 
         $headers = ['ID', '닉네임', '이메일', '휴대폰', '역할', '등급', '소셜', '상태', '가입일', '최근 로그인'];
@@ -236,20 +250,24 @@ class UserController extends BaseController
 
         foreach ($users as $i => $u) {
             $rowNum = $i + 2;
-            if ($u['is_active'])              $stLabel = '활성';
-            elseif ($u['email_verify_token']) $stLabel = '이메일 미인증';
-            else                              $stLabel = '비활성';
+            if ($u['is_active']) {
+                $stLabel = '활성';
+            } elseif ($u['email_verify_token']) {
+                $stLabel = '이메일 미인증';
+            } else {
+                $stLabel = '비활성';
+            }
 
-            $sheet->setCellValue($col(1,  $rowNum), (int) $u['id']);
-            $sheet->setCellValue($col(2,  $rowNum), $u['nickname'] ?? '');
-            $sheet->setCellValue($col(3,  $rowNum), $u['email']);
-            $sheet->setCellValue($col(4,  $rowNum), $u['phone'] ?? '');
-            $sheet->setCellValue($col(5,  $rowNum), $roleLabels[$u['role']] ?? $u['role']);
-            $sheet->setCellValue($col(6,  $rowNum), $gradeLabels[$u['grade']] ?? ($u['grade'] ?? ''));
-            $sheet->setCellValue($col(7,  $rowNum), $u['social_provider'] ?? '');
-            $sheet->setCellValue($col(8,  $rowNum), $stLabel);
-            $sheet->setCellValue($col(9,  $rowNum), $u['created_at']  ? substr($u['created_at'],  0, 10) : '');
-            $sheet->setCellValue($col(10, $rowNum), $u['last_login']  ? substr($u['last_login'],  0, 10) : '');
+            $sheet->setCellValue($col(1, $rowNum), (int) $u['id']);
+            $sheet->setCellValue($col(2, $rowNum), $u['nickname'] ?? '');
+            $sheet->setCellValue($col(3, $rowNum), $u['email']);
+            $sheet->setCellValue($col(4, $rowNum), $u['phone'] ?? '');
+            $sheet->setCellValue($col(5, $rowNum), $roleLabels[$u['role']] ?? $u['role']);
+            $sheet->setCellValue($col(6, $rowNum), $gradeLabels[$u['grade']] ?? ($u['grade'] ?? ''));
+            $sheet->setCellValue($col(7, $rowNum), $u['social_provider'] ?? '');
+            $sheet->setCellValue($col(8, $rowNum), $stLabel);
+            $sheet->setCellValue($col(9, $rowNum), $u['created_at'] ? substr($u['created_at'], 0, 10) : '');
+            $sheet->setCellValue($col(10, $rowNum), $u['last_login'] ? substr($u['last_login'], 0, 10) : '');
         }
 
         foreach (range('A', 'J') as $c) {
@@ -316,4 +334,3 @@ class UserController extends BaseController
     }
 
 }
-

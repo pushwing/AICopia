@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\OrderMemoModel;
@@ -168,9 +170,9 @@ final class OrderMemoModelTest extends CIUnitTestCase
         $result = $this->model->getByOrder($orderId);
 
         $this->assertCount(3, $result);
-        $this->assertEquals('first',  $result[0]['content']);
+        $this->assertEquals('first', $result[0]['content']);
         $this->assertEquals('second', $result[1]['content']);
-        $this->assertEquals('third',  $result[2]['content']);
+        $this->assertEquals('third', $result[2]['content']);
         // ID 오름차순 확인: result[2]['id'] > result[1]['id']
         $this->assertGreaterThan((int) $result[1]['id'], (int) $result[2]['id']);
     }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductModel;
@@ -86,8 +88,8 @@ final class ProductAdminListTest extends CIUnitTestCase
 
         $ids = array_map('intval', array_column($this->query(['stock' => 'low', 'low_stock_threshold' => 5])['items'], 'id'));
 
-        $this->assertContains($low['id'],      $ids, '재고 3 (< 임계값 5) 상품이 포함되어야 한다');
-        $this->assertContains($exact['id'],    $ids, '재고 5 (= 임계값 5) 상품이 포함되어야 한다');
+        $this->assertContains($low['id'], $ids, '재고 3 (< 임계값 5) 상품이 포함되어야 한다');
+        $this->assertContains($exact['id'], $ids, '재고 5 (= 임계값 5) 상품이 포함되어야 한다');
         $this->assertNotContains($above['id'], $ids, '재고 6 (> 임계값 5) 상품이 포함되면 안 된다');
     }
 
@@ -107,7 +109,7 @@ final class ProductAdminListTest extends CIUnitTestCase
 
         $ids = array_map('intval', array_column($this->query()['items'], 'id'));
 
-        $this->assertContains($low['id'],  $ids);
+        $this->assertContains($low['id'], $ids);
         $this->assertContains($high['id'], $ids);
     }
 
@@ -118,7 +120,7 @@ final class ProductAdminListTest extends CIUnitTestCase
 
         $ids = array_map('intval', array_column($this->query(['stock' => 'low', 'low_stock_threshold' => 0])['items'], 'id'));
 
-        $this->assertContains($zero['id'],       $ids, '재고 0만 포함되어야 한다');
+        $this->assertContains($zero['id'], $ids, '재고 0만 포함되어야 한다');
         $this->assertNotContains($nonZero['id'], $ids, '재고 1은 포함되면 안 된다');
     }
 
@@ -155,7 +157,7 @@ final class ProductAdminListTest extends CIUnitTestCase
             'id'
         ));
 
-        $this->assertContains($target['id'],   $ids);
+        $this->assertContains($target['id'], $ids);
         $this->assertNotContains($other['id'], $ids);
     }
 }

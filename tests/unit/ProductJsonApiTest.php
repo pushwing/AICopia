@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -103,7 +105,7 @@ final class ProductJsonApiTest extends CIUnitTestCase
             unset($row);
         }
 
-        return array_map(fn($p) => [
+        return array_map(fn ($p) => [
             'id'             => (int) $p['id'],
             'name'           => $p['name'],
             'slug'           => $p['slug'],
@@ -139,8 +141,11 @@ final class ProductJsonApiTest extends CIUnitTestCase
         $id   = $this->insertProduct(['stock' => $this->threshold]);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame(1, $rows[0]['is_low_stock'],
-            'stock == threshold 이면 is_low_stock = 1 이어야 한다');
+        $this->assertSame(
+            1,
+            $rows[0]['is_low_stock'],
+            'stock == threshold 이면 is_low_stock = 1 이어야 한다'
+        );
     }
 
     public function testIsLowStockWhenStockBelowThreshold(): void
@@ -148,8 +153,11 @@ final class ProductJsonApiTest extends CIUnitTestCase
         $id   = $this->insertProduct(['stock' => 0]);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame(1, $rows[0]['is_low_stock'],
-            'stock = 0 이면 is_low_stock = 1 이어야 한다');
+        $this->assertSame(
+            1,
+            $rows[0]['is_low_stock'],
+            'stock = 0 이면 is_low_stock = 1 이어야 한다'
+        );
     }
 
     public function testNotLowStockWhenStockAboveThreshold(): void
@@ -157,8 +165,11 @@ final class ProductJsonApiTest extends CIUnitTestCase
         $id   = $this->insertProduct(['stock' => $this->threshold + 1]);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame(0, $rows[0]['is_low_stock'],
-            'stock > threshold 이면 is_low_stock = 0 이어야 한다');
+        $this->assertSame(
+            0,
+            $rows[0]['is_low_stock'],
+            'stock > threshold 이면 is_low_stock = 0 이어야 한다'
+        );
     }
 
     // ── discount_price null → 0 ───────────────────────────────────────────────
@@ -168,8 +179,11 @@ final class ProductJsonApiTest extends CIUnitTestCase
         $id   = $this->insertProduct(['discount_price' => null]);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame(0, $rows[0]['discount_price'],
-            'discount_price NULL → 0 이어야 한다');
+        $this->assertSame(
+            0,
+            $rows[0]['discount_price'],
+            'discount_price NULL → 0 이어야 한다'
+        );
     }
 
     public function testDiscountPriceIsIntWhenSet(): void
@@ -188,8 +202,11 @@ final class ProductJsonApiTest extends CIUnitTestCase
         $id   = $this->insertProduct();
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame('', $rows[0]['primary_image'],
-            '이미지 없는 상품의 primary_image 는 빈 문자열이어야 한다');
+        $this->assertSame(
+            '',
+            $rows[0]['primary_image'],
+            '이미지 없는 상품의 primary_image 는 빈 문자열이어야 한다'
+        );
     }
 
     // ── 타입 캐스팅 ───────────────────────────────────────────────────────────

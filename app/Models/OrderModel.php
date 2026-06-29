@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use App\Libraries\GradeService;
@@ -407,7 +409,9 @@ class OrderModel extends Model
         ];
 
         $order = $this->find($orderId);
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         if (($allowed[$order['status']] ?? null) !== $newStatus) {
             return false;
@@ -415,9 +419,13 @@ class OrderModel extends Model
 
         if ($newStatus !== 'delivered' || (int) $order['point_earned_amount'] === 0) {
             $fields = ['status' => $newStatus];
-            if ($newStatus === 'delivered') $fields['delivered_at'] = date('Y-m-d H:i:s');
+            if ($newStatus === 'delivered') {
+                $fields['delivered_at'] = date('Y-m-d H:i:s');
+            }
             $ok = (bool) $this->update($orderId, $fields);
-            if ($ok) $this->writeStatusLog($orderId, $order['status'], $newStatus);
+            if ($ok) {
+                $this->writeStatusLog($orderId, $order['status'], $newStatus);
+            }
             return $ok;
         }
 
@@ -439,8 +447,12 @@ class OrderModel extends Model
             'created_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->writeStatusLog($orderId, $order['status'], 'delivered',
-            '배송 완료 확인 · 포인트 ' . number_format((int) $order['point_earned_amount']) . '원 적립');
+        $this->writeStatusLog(
+            $orderId,
+            $order['status'],
+            'delivered',
+            '배송 완료 확인 · 포인트 ' . number_format((int) $order['point_earned_amount']) . '원 적립'
+        );
 
         $this->db->transComplete();
         $ok = $this->db->transStatus();
@@ -502,7 +514,9 @@ class OrderModel extends Model
     public function markRefunded(int $orderId): bool
     {
         $order = $this->where('id', $orderId)->where('status', 'refund_requested')->first();
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         $this->db->transStart();
 
@@ -581,7 +595,9 @@ class OrderModel extends Model
     /** 반품 요청 — delivered 상태 + 7일 이내에서만 가능 */
     public function requestReturn(int $orderId, int $userId, string $reasonCode, string $note = ''): bool
     {
-        if (! array_key_exists($reasonCode, self::RETURN_REASON_CODES)) return false;
+        if (! array_key_exists($reasonCode, self::RETURN_REASON_CODES)) {
+            return false;
+        }
 
         $order = $this->db->table('orders')
             ->where('id', $orderId)
@@ -589,7 +605,9 @@ class OrderModel extends Model
             ->where('status', 'delivered')
             ->get()->getRowArray();
 
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         // delivered_at 기준 7일 초과 시 거부 (컬럼이 없는 구 주문은 허용)
         if (! empty($order['delivered_at'])) {
@@ -620,7 +638,9 @@ class OrderModel extends Model
     public function approveReturn(int $orderId): bool
     {
         $order = $this->where('id', $orderId)->where('status', 'return_requested')->first();
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         $this->db->transStart();
 
@@ -667,7 +687,9 @@ class OrderModel extends Model
     public function rejectReturn(int $orderId): bool
     {
         $order = $this->where('id', $orderId)->where('status', 'return_requested')->first();
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         $this->db->transStart();
 
@@ -683,7 +705,9 @@ class OrderModel extends Model
     public function confirmReturnRefund(int $orderId): bool
     {
         $order = $this->where('id', $orderId)->where('status', 'return_approved')->first();
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         $this->db->transStart();
 
@@ -703,7 +727,9 @@ class OrderModel extends Model
     /** 교환 요청 — delivered + 7일 이내, 쿠폰·포인트 미변경 */
     public function requestExchange(int $orderId, int $userId, string $reasonCode, string $note = ''): bool
     {
-        if (! array_key_exists($reasonCode, self::EXCHANGE_REASON_CODES)) return false;
+        if (! array_key_exists($reasonCode, self::EXCHANGE_REASON_CODES)) {
+            return false;
+        }
 
         $order = $this->db->table('orders')
             ->where('id', $orderId)
@@ -711,7 +737,9 @@ class OrderModel extends Model
             ->where('status', 'delivered')
             ->get()->getRowArray();
 
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         if (! empty($order['delivered_at'])) {
             if (time() > strtotime($order['delivered_at']) + 7 * 24 * 3600) {
@@ -741,7 +769,9 @@ class OrderModel extends Model
     public function approveExchange(int $orderId): bool
     {
         $order = $this->where('id', $orderId)->where('status', 'exchange_requested')->first();
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         $this->db->transStart();
 
@@ -762,7 +792,9 @@ class OrderModel extends Model
     public function rejectExchange(int $orderId): bool
     {
         $order = $this->where('id', $orderId)->where('status', 'exchange_requested')->first();
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         $this->db->transStart();
 
@@ -785,9 +817,13 @@ class OrderModel extends Model
     public function completeExchange(int $orderId, array $exchangeItems, array $tracking = []): bool
     {
         $order = $this->where('id', $orderId)->where('status', 'exchange_approved')->first();
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
-        if (empty($exchangeItems)) return false;
+        if (empty($exchangeItems)) {
+            return false;
+        }
 
         // 원주문 금액과 대체품 금액 일치 검증
         $originalTotal = (int) $this->db->table('order_items')
@@ -800,7 +836,9 @@ class OrderModel extends Model
             $exchangeTotal += (int) $item['product_price'] * (int) $item['qty'];
         }
 
-        if ($originalTotal !== $exchangeTotal) return false;
+        if ($originalTotal !== $exchangeTotal) {
+            return false;
+        }
 
         $this->db->transStart();
 
@@ -857,7 +895,9 @@ class OrderModel extends Model
     public function getWithItems(int $orderId, int $userId): ?array
     {
         $order = $this->where('id', $orderId)->where('user_id', $userId)->first();
-        if (! $order) return null;
+        if (! $order) {
+            return null;
+        }
 
         $order['items']   = $this->fetchOrderItems($orderId);
         $order['payment'] = $this->db->table('payments')->where('order_id', $orderId)->orderBy('id', 'DESC')->get()->getRowArray();
@@ -974,7 +1014,9 @@ class OrderModel extends Model
             ->where('o.id', $orderId)
             ->get()->getRowArray();
 
-        if (! $order) return null;
+        if (! $order) {
+            return null;
+        }
 
         $order['items']         = $this->fetchOrderItems($orderId);
         try {
@@ -994,7 +1036,9 @@ class OrderModel extends Model
     public function updateTracking(int $orderId, string $company, string $number): bool
     {
         $order = $this->find($orderId);
-        if (! $order) return false;
+        if (! $order) {
+            return false;
+        }
 
         $ok = (bool) $this->update($orderId, [
             'tracking_company' => $company,
@@ -1002,8 +1046,12 @@ class OrderModel extends Model
         ]);
 
         if ($ok) {
-            $this->writeStatusLog($orderId, $order['status'], $order['status'],
-                '운송장 등록: ' . $company . ' ' . $number);
+            $this->writeStatusLog(
+                $orderId,
+                $order['status'],
+                $order['status'],
+                '운송장 등록: ' . $company . ' ' . $number
+            );
         }
 
         return $ok;
@@ -1078,7 +1126,9 @@ class OrderModel extends Model
     /** 쿠폰 복구 헬퍼 */
     private function restoreCoupon(array $order): void
     {
-        if (! $order['coupon_id'] || (int) $order['coupon_discount_amount'] === 0) return;
+        if (! $order['coupon_id'] || (int) $order['coupon_discount_amount'] === 0) {
+            return;
+        }
 
         $this->db->query(
             'UPDATE coupons SET used_count = GREATEST(0, used_count - 1) WHERE id = ?',
@@ -1091,7 +1141,9 @@ class OrderModel extends Model
             ->where('status', 'used')
             ->get()->getRowArray();
 
-        if (! $uc) return;
+        if (! $uc) {
+            return;
+        }
 
         if ($uc['source'] === 'code') {
             $this->db->table('user_coupons')->where('id', $uc['id'])->delete();
@@ -1108,7 +1160,9 @@ class OrderModel extends Model
     /** 포인트 환급 헬퍼 */
     private function restorePoints(array $order, string $reason = 'cancel'): void
     {
-        if ((int) $order['point_used_amount'] <= 0) return;
+        if ((int) $order['point_used_amount'] <= 0) {
+            return;
+        }
 
         $this->db->query(
             'UPDATE users SET point_balance = point_balance + ? WHERE id = ?',
@@ -1147,14 +1201,18 @@ class OrderModel extends Model
                 [$skuId]
             )->getRow();
 
-            if (! $row || (int) $row->stock < $qty) return false;
+            if (! $row || (int) $row->stock < $qty) {
+                return false;
+            }
 
             $this->db->query(
                 'UPDATE product_skus SET stock = stock - ? WHERE id = ? AND stock >= ?',
                 [$qty, $skuId, $qty]
             );
 
-            if ($this->db->affectedRows() === 0) return false;
+            if ($this->db->affectedRows() === 0) {
+                return false;
+            }
 
             // products.stock도 SKU 재고 차감분만큼 동기화
             $this->db->query(
@@ -1180,14 +1238,18 @@ class OrderModel extends Model
             [$productId]
         )->getRow();
 
-        if (! $row || (int) $row->stock < $qty) return false;
+        if (! $row || (int) $row->stock < $qty) {
+            return false;
+        }
 
         $this->db->query(
             'UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?',
             [$qty, $productId, $qty]
         );
 
-        if ($this->db->affectedRows() === 0) return false;
+        if ($this->db->affectedRows() === 0) {
+            return false;
+        }
 
         $this->db->query(
             'UPDATE products SET status = "sold_out" WHERE id = ? AND stock = 0 AND status = "on_sale"',

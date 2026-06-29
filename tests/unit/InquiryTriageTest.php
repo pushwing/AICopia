@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Libraries\AiProvider\AiJobRunner;
@@ -34,7 +36,9 @@ class InquiryTraitHost
 // ── callApi 모킹 Provider ───────────────────────────────────────────────────
 class MockGroqInquiryProvider extends GroqProvider
 {
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -44,7 +48,9 @@ class MockGroqInquiryProvider extends GroqProvider
 
 class MockClaudeInquiryProvider extends ClaudeProvider
 {
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -55,24 +61,58 @@ class MockClaudeInquiryProvider extends ClaudeProvider
 // ── 핸들러용 가짜 의존성 ─────────────────────────────────────────────────────
 class StubClassifyProvider implements \App\Libraries\AiProvider\AiProviderInterface
 {
-    public function __construct(private array $canned) {}
+    public function __construct(private array $canned)
+    {
+    }
 
-    public function suggestCategories(string $name, string $description, array $tree): array { return []; }
-    public function generateDescription(string $name, string $description): string { return ''; }
-    public function generateQnaAnswer(string $p, string $d, string $t, string $c): string { return ''; }
-    public function summarizeReviews(string $productName, array $reviews): array { return []; }
-    public function classifyInquiry(string $subject, string $message): array { return $this->canned; }
-    public function generateInquiryReply(string $name, string $subject, string $message): string { return ''; }
-    public function generateSalesReport(array $stats): string { return ''; }
-    public function generateRestockMessage(string $productName, string $productDescription): string { return ''; }
-    public function expandSearchQuery(string $query): array { return []; }
+    public function suggestCategories(string $name, string $description, array $tree): array
+    {
+        return [];
+    }
+    public function generateDescription(string $name, string $description): string
+    {
+        return '';
+    }
+    public function generateQnaAnswer(string $p, string $d, string $t, string $c): string
+    {
+        return '';
+    }
+    public function summarizeReviews(string $productName, array $reviews): array
+    {
+        return [];
+    }
+    public function classifyInquiry(string $subject, string $message): array
+    {
+        return $this->canned;
+    }
+    public function generateInquiryReply(string $name, string $subject, string $message): string
+    {
+        return '';
+    }
+    public function generateSalesReport(array $stats): string
+    {
+        return '';
+    }
+    public function generateRestockMessage(string $productName, string $productDescription): string
+    {
+        return '';
+    }
+    public function expandSearchQuery(string $query): array
+    {
+        return [];
+    }
 }
 
 class FakeInquiryModel extends InquiryModel
 {
     public array $applied = [];
-    public function __construct(private ?array $inquiry) {}
-    public function find($id = null) { return $this->inquiry; }
+    public function __construct(private ?array $inquiry)
+    {
+    }
+    public function find($id = null)
+    {
+        return $this->inquiry;
+    }
     public function applyClassification(int $id, array $classification): bool
     {
         $this->applied = $classification;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -47,7 +49,7 @@ class SettingController extends BaseController
                 'settings'     => $this->settingModel->getAllAsMap(),
                 'bankSettings' => array_filter(
                     $this->settingModel->getGroup('shop'),
-                    fn($s) => in_array($s['key'], ['bank_name', 'bank_account', 'bank_holder'])
+                    fn ($s) => in_array($s['key'], ['bank_name', 'bank_account', 'bank_holder'])
                 ),
             ]);
         }
@@ -61,7 +63,9 @@ class SettingController extends BaseController
         }
 
         $allowed = ['general', 'contact', 'sns', 'seo', 'footer', 'shop', 'grade'];
-        if (! in_array($group, $allowed)) $group = 'general';
+        if (! in_array($group, $allowed)) {
+            $group = 'general';
+        }
 
         return $this->render('admin/settings/index', [
             'group'    => $group,
@@ -111,7 +115,9 @@ class SettingController extends BaseController
                 return redirect()->back()->with('error', "보안 위험: 잘못된 경로 포함 ({$entry})");
             }
 
-            if (str_ends_with($entry, '/')) continue; // 디렉토리 엔트리 skip
+            if (str_ends_with($entry, '/')) {
+                continue;
+            } // 디렉토리 엔트리 skip
 
             $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
 
@@ -187,7 +193,9 @@ class SettingController extends BaseController
 
     private function deleteDirectory(string $dir): void
     {
-        if (! is_dir($dir)) return;
+        if (! is_dir($dir)) {
+            return;
+        }
         foreach (new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::CHILD_FIRST
@@ -312,7 +320,7 @@ class SettingController extends BaseController
                     'name'      => $name,
                     'label'     => ucfirst($name),
                     'has_css'   => is_file(FCPATH . "themes/{$name}/css/style.css"),
-                    'has_layout'=> is_file(APPPATH . "Views/themes/{$name}/layouts/main.php"),
+                    'has_layout' => is_file(APPPATH . "Views/themes/{$name}/layouts/main.php"),
                 ];
             }
         }

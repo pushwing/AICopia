@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -265,4 +267,3 @@ class AuthController extends BaseController
     // ─── 이메일 발송 (private) ────────────────────────────────────────────────────
 
 }
-

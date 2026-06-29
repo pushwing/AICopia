@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductModel;
@@ -67,7 +69,7 @@ final class UnassignedProductTest extends CIUnitTestCase
             'status'        => 'on_sale',
             'shipping_type' => 'free',
             'shipping_fee'  => 0,
-            'free_threshold'=> 0,
+            'free_threshold' => 0,
             'created_at'    => date('Y-m-d H:i:s'),
             'updated_at'    => date('Y-m-d H:i:s'),
         ], $overrides);
@@ -110,10 +112,10 @@ final class UnassignedProductTest extends CIUnitTestCase
             ->select('products.id')
             ->like('products.name', $this->prefix, 'after')
             ->where('products.deleted_at IS NULL', null, false)
-            ->where("NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id)", null, false)
+            ->where('NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.id)', null, false)
             ->orderBy('products.id', 'DESC')
             ->get()->getResultArray();
-        return array_map(fn($r) => (int) $r['id'], $rows);
+        return array_map(fn ($r) => (int) $r['id'], $rows);
     }
 
     /**
@@ -130,7 +132,7 @@ final class UnassignedProductTest extends CIUnitTestCase
         if ($keyword !== '') {
             $builder->like('products.name', $keyword);
         }
-        return array_map(fn($r) => (int) $r['id'], $builder->get()->getResultArray());
+        return array_map(fn ($r) => (int) $r['id'], $builder->get()->getResultArray());
     }
 
     /**
@@ -324,7 +326,7 @@ final class UnassignedProductTest extends CIUnitTestCase
         $ids = $this->fetchAllIds();
 
         $this->assertContains($idUnassigned, $ids, '미분류 상품도 전체 목록에 나타나야 한다');
-        $this->assertContains($idAssigned,   $ids, '배정된 상품도 전체 목록에 나타나야 한다');
+        $this->assertContains($idAssigned, $ids, '배정된 상품도 전체 목록에 나타나야 한다');
     }
 
     public function testKeywordFilterNarrowsResults(): void
@@ -334,7 +336,7 @@ final class UnassignedProductTest extends CIUnitTestCase
 
         $ids = $this->fetchAllIds('FINDME_');
 
-        $this->assertContains($match,   $ids, '키워드에 일치하는 상품이 포함되어야 한다');
+        $this->assertContains($match, $ids, '키워드에 일치하는 상품이 포함되어야 한다');
         $this->assertNotContains($noMatch, $ids, '키워드에 맞지 않는 상품은 제외되어야 한다');
     }
 
@@ -349,8 +351,11 @@ final class UnassignedProductTest extends CIUnitTestCase
         $this->productModel->setCategories($id, [$catId]);
 
         $rows = $this->fetchWithCategoryNames([$id]);
-        $this->assertSame($catName, $rows[0]['category_names'],
-            '배정 후 category_names 에 카테고리명이 표시되어야 한다');
+        $this->assertSame(
+            $catName,
+            $rows[0]['category_names'],
+            '배정 후 category_names 에 카테고리명이 표시되어야 한다'
+        );
     }
 
     public function testCategoryNamesNullWhenNoCategory(): void
@@ -358,8 +363,10 @@ final class UnassignedProductTest extends CIUnitTestCase
         $id   = $this->insertProduct();
         $rows = $this->fetchWithCategoryNames([$id]);
 
-        $this->assertNull($rows[0]['category_names'],
-            '카테고리 없는 상품의 category_names 는 NULL 이어야 한다');
+        $this->assertNull(
+            $rows[0]['category_names'],
+            '카테고리 없는 상품의 category_names 는 NULL 이어야 한다'
+        );
     }
 
     public function testCategoryNamesContainsMultipleCategories(): void
@@ -373,7 +380,10 @@ final class UnassignedProductTest extends CIUnitTestCase
         $names = $rows[0]['category_names'];
 
         $this->assertNotEmpty($names);
-        $this->assertStringContainsString(',', $names,
-            '여러 카테고리가 있으면 GROUP_CONCAT 으로 쉼표 구분되어야 한다');
+        $this->assertStringContainsString(
+            ',',
+            $names,
+            '여러 카테고리가 있으면 GROUP_CONCAT 으로 쉼표 구분되어야 한다'
+        );
     }
 }

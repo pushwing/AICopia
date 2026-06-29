@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -48,7 +50,9 @@ class CartModel extends Model
 
     private function getSkuLabels(array $skuIds): array
     {
-        if (empty($skuIds)) return [];
+        if (empty($skuIds)) {
+            return [];
+        }
 
         $rows = $this->db->table('product_sku_values sv')
             ->select('sv.sku_id, o.name as option_name, ov.value')
@@ -62,7 +66,7 @@ class CartModel extends Model
         foreach ($rows as $r) {
             $labels[$r['sku_id']][] = $r['option_name'] . ':' . $r['value'];
         }
-        return array_map(fn($parts) => implode('/', $parts), $labels);
+        return array_map(fn ($parts) => implode('/', $parts), $labels);
     }
 
     /**
@@ -130,14 +134,18 @@ class CartModel extends Model
      */
     public function mergeSession(int $userId, array $sessionCart, array $stockMap): void
     {
-        if (empty($sessionCart)) return;
+        if (empty($sessionCart)) {
+            return;
+        }
 
         $productIds = [];
         $skuIds     = [];
         foreach ($sessionCart as $key => $_) {
             [$pid, $sid] = $this->parseSessionKey((string) $key);
             $productIds[] = $pid;
-            if ($sid) $skuIds[] = $sid;
+            if ($sid) {
+                $skuIds[] = $sid;
+            }
         }
 
         // DB에 이미 있는 항목 조회 (클리핑 계산용)
@@ -153,11 +161,15 @@ class CartModel extends Model
         foreach ($sessionCart as $key => $sessionQty) {
             [$productId, $skuId] = $this->parseSessionKey((string) $key);
             $stock      = (int) ($stockMap[$key] ?? 0);
-            if ($stock < 1) continue;
+            if ($stock < 1) {
+                continue;
+            }
 
             $currentQty = (int) ($dbQtyMap[$key] ?? 0);
             $addQty     = min((int) $sessionQty, $stock - $currentQty);
-            if ($addQty < 1) continue;
+            if ($addQty < 1) {
+                continue;
+            }
 
             $this->upsert($userId, $productId, $addQty, $skuId ?: null);
         }
@@ -170,14 +182,18 @@ class CartModel extends Model
     public function mergeAndClear(int $userId): void
     {
         $sessionCart = session()->get('cart') ?? [];
-        if (empty($sessionCart)) return;
+        if (empty($sessionCart)) {
+            return;
+        }
 
         $productIds = [];
         $skuIds     = [];
         foreach ($sessionCart as $key => $_) {
             [$pid, $sid] = self::parseSessionKey((string) $key);
             $productIds[] = $pid;
-            if ($sid) $skuIds[] = $sid;
+            if ($sid) {
+                $skuIds[] = $sid;
+            }
         }
 
         $productStocks = [];

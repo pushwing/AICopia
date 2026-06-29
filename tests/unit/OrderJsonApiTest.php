@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -124,7 +126,7 @@ final class OrderJsonApiTest extends CIUnitTestCase
         }
 
         $rows = $builder->get()->getResultArray();
-        return array_map(fn($r) => [
+        return array_map(fn ($r) => [
             'id'             => (int) $r['id'],
             'order_number'   => $r['order_number'],
             'created_at'     => $r['created_at'],

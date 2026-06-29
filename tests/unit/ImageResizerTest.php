@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Libraries\ImageUploader;
@@ -17,7 +19,9 @@ final class ImageResizerTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         foreach ($this->tempFiles as $path) {
-            if (is_file($path)) unlink($path);
+            if (is_file($path)) {
+                unlink($path);
+            }
         }
         parent::tearDown();
     }

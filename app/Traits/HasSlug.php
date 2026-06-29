@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Traits;
 
 trait HasSlug
@@ -13,8 +15,12 @@ trait HasSlug
         $i = 1;
         while (true) {
             $q = $this->where('slug', $slug);
-            if ($excludeId) $q->where('id !=', $excludeId);
-            if (! $q->countAllResults()) break;
+            if ($excludeId) {
+                $q->where('id !=', $excludeId);
+            }
+            if (! $q->countAllResults()) {
+                break;
+            }
             $slug = $original . '-' . $i++;
         }
         return $slug;

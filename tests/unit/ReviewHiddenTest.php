@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductReviewModel;
@@ -231,6 +233,6 @@ final class ReviewHiddenTest extends CIUnitTestCase
         $ids    = array_column($result['items'], 'id');
 
         $this->assertContains((string) $visibleId, $ids, '관리자 목록에 노출 리뷰가 있어야 함');
-        $this->assertContains((string) $hiddenId,  $ids, '관리자 목록에 숨김 리뷰도 있어야 함');
+        $this->assertContains((string) $hiddenId, $ids, '관리자 목록에 숨김 리뷰도 있어야 함');
     }
 }

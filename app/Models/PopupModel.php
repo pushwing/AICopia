@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -51,8 +53,12 @@ class PopupModel extends Model
 
         $result = [];
         foreach ((array) ($cached['popups'] ?? []) as $popup) {
-            if ($popup['started_at'] !== null && $popup['started_at'] > $now) continue;
-            if ($popup['ended_at'] !== null && $popup['ended_at'] < $now) continue;
+            if ($popup['started_at'] !== null && $popup['started_at'] > $now) {
+                continue;
+            }
+            if ($popup['ended_at'] !== null && $popup['ended_at'] < $now) {
+                continue;
+            }
 
             $show = match ($popup['show_scope']) {
                 'all'       => true,
@@ -97,7 +103,7 @@ class PopupModel extends Model
         $db->table('popup_pages')->where('popup_id', $popupId)->delete();
 
         if (! empty($menuIds)) {
-            $rows = array_map(fn($menuId) => [
+            $rows = array_map(fn ($menuId) => [
                 'popup_id' => $popupId,
                 'menu_id'  => (int) $menuId,
             ], $menuIds);
@@ -112,11 +118,15 @@ class PopupModel extends Model
     public function deleteWithFile(int $id): bool
     {
         $popup = $this->db->table($this->table)->where('id', $id)->get()->getRowArray();
-        if (! $popup) return false;
+        if (! $popup) {
+            return false;
+        }
 
         if (! empty($popup['image_path'])) {
             $fullPath = FCPATH . $popup['image_path'];
-            if (file_exists($fullPath)) unlink($fullPath);
+            if (file_exists($fullPath)) {
+                unlink($fullPath);
+            }
         }
 
         \Config\Database::connect()->table('popup_pages')->where('popup_id', $id)->delete();

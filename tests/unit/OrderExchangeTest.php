@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\OrderModel;
@@ -215,7 +217,8 @@ final class OrderExchangeTest extends CIUnitTestCase
         $orderId = $this->insertOrder($userId, 'paid');
 
         $this->assertFalse($this->model->requestExchange($orderId, $userId, 'simple_change'));
-        $this->assertSame('paid',
+        $this->assertSame(
+            'paid',
             db_connect()->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }
@@ -237,7 +240,8 @@ final class OrderExchangeTest extends CIUnitTestCase
         ]);
 
         $this->assertFalse($this->model->requestExchange($orderId, $userId, 'simple_change'));
-        $this->assertSame('delivered',
+        $this->assertSame(
+            'delivered',
             db_connect()->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }
@@ -267,7 +271,8 @@ final class OrderExchangeTest extends CIUnitTestCase
         $stock = (int) $db->table('products')->where('id', $productId)->get()->getRowArray()['stock'];
         $this->assertSame(13, $stock);
 
-        $this->assertSame('exchange_approved',
+        $this->assertSame(
+            'exchange_approved',
             $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }
@@ -334,7 +339,8 @@ final class OrderExchangeTest extends CIUnitTestCase
 
         $this->assertTrue($this->model->rejectExchange($orderId));
 
-        $this->assertSame('delivered',
+        $this->assertSame(
+            'delivered',
             $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }
@@ -368,7 +374,8 @@ final class OrderExchangeTest extends CIUnitTestCase
 
         $this->assertTrue($this->model->completeExchange($orderId, $exchangeItems));
 
-        $this->assertSame('exchange_completed',
+        $this->assertSame(
+            'exchange_completed',
             $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status']
         );
     }

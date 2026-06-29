@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -39,8 +41,15 @@ class SalesController extends BaseController
         $pgLabels = self::PG_LABELS;
 
         return $this->render('admin/sales/index', compact(
-            'period', 'keyword', 'from', 'to',
-            'periodRows', 'methodRows', 'summary', 'orders', 'pgLabels'
+            'period',
+            'keyword',
+            'from',
+            'to',
+            'periodRows',
+            'methodRows',
+            'summary',
+            'orders',
+            'pgLabels'
         ));
     }
 
@@ -68,10 +77,10 @@ class SalesController extends BaseController
             ) latest_paid ON latest_paid.id = p1.id
         ";
         // 주문별 매입원가 집계 서브쿼리 (1:N 중복 합산 방지)
-        $costSubSql = "SELECT order_id, SUM(qty * cost_price) AS cost_total FROM order_items GROUP BY order_id";
+        $costSubSql = 'SELECT order_id, SUM(qty * cost_price) AS cost_total FROM order_items GROUP BY order_id';
 
         $base = $db->table('orders o')
-            ->join('users u',    'u.id = o.user_id', 'left')
+            ->join('users u', 'u.id = o.user_id', 'left')
             ->join("({$paidPaymentSql}) p", 'p.order_id = o.id', 'inner', false)
             ->join("({$costSubSql}) oc", 'oc.order_id = o.id', 'left', false)
             ->whereIn('o.status', ['paid', 'preparing', 'shipped', 'delivered', 'refund_requested', 'return_requested', 'return_approved'])
@@ -96,7 +105,7 @@ class SalesController extends BaseController
         $groupExpr = match ($period) {
             'weekly'  => "DATE_FORMAT(DATE_SUB(o.created_at, INTERVAL (DAYOFWEEK(o.created_at)-2+7)%7 DAY), '%Y-%m-%d')",
             'monthly' => "DATE_FORMAT(o.created_at, '%Y-%m')",
-            default   => "DATE(o.created_at)",
+            default   => 'DATE(o.created_at)',
         };
 
         return (clone $base)
@@ -177,7 +186,7 @@ class SalesController extends BaseController
                 'total_revenue' => (int) $summary['total_revenue'],
                 'total_gmv'     => (int) $summary['total_gmv'],
                 'avg_order'     => (int) $summary['avg_order'],
-                'total_discount'=> (int) $summary['total_discount'],
+                'total_discount' => (int) $summary['total_discount'],
                 'total_profit'  => (int) $summary['total_profit'],
             ],
             'periods' => $periods,
@@ -268,7 +277,7 @@ class SalesController extends BaseController
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
-        $col         = fn(int $c, int $r): string =>
+        $col         = fn (int $c, int $r): string =>
             \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r;
 
         $headers = ['주문일', '주문번호', '회원', '수취인', '상품(요약)', 'GMV', '실매출', '배송비', '할인', '결제수단'];
@@ -289,15 +298,15 @@ class SalesController extends BaseController
             $discount = (int) $o['coupon_discount_amount'] + (int) $o['point_used_amount'];
             $rowNum  = $i + 2;
 
-            $sheet->setCellValue($col(1,  $rowNum), substr((string) $o['created_at'], 0, 10));
-            $sheet->setCellValue($col(2,  $rowNum), $o['order_number']);
-            $sheet->setCellValue($col(3,  $rowNum), $o['user_nickname'] ?? '');
-            $sheet->setCellValue($col(4,  $rowNum), $o['receiver_name']);
-            $sheet->setCellValue($col(5,  $rowNum), $summary);
-            $sheet->setCellValue($col(6,  $rowNum), (int) $o['total_amount']);
-            $sheet->setCellValue($col(7,  $rowNum), (int) $o['payable_amount']);
-            $sheet->setCellValue($col(8,  $rowNum), (int) $o['shipping_fee']);
-            $sheet->setCellValue($col(9,  $rowNum), $discount);
+            $sheet->setCellValue($col(1, $rowNum), substr((string) $o['created_at'], 0, 10));
+            $sheet->setCellValue($col(2, $rowNum), $o['order_number']);
+            $sheet->setCellValue($col(3, $rowNum), $o['user_nickname'] ?? '');
+            $sheet->setCellValue($col(4, $rowNum), $o['receiver_name']);
+            $sheet->setCellValue($col(5, $rowNum), $summary);
+            $sheet->setCellValue($col(6, $rowNum), (int) $o['total_amount']);
+            $sheet->setCellValue($col(7, $rowNum), (int) $o['payable_amount']);
+            $sheet->setCellValue($col(8, $rowNum), (int) $o['shipping_fee']);
+            $sheet->setCellValue($col(9, $rowNum), $discount);
             $sheet->setCellValue($col(10, $rowNum), $pgLabels[$o['pg_provider']] ?? ($o['pg_provider'] ?? ''));
         }
 

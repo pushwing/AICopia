@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\OrderModel;
@@ -105,7 +107,7 @@ final class OrderExcelExportTest extends CIUnitTestCase
             'product_id'   => 0,
             'product_name' => $productName,
             'qty'          => $qty,
-            'product_price'=> 10000,
+            'product_price' => 10000,
             'subtotal'     => 10000 * $qty,
             'created_at'   => date('Y-m-d H:i:s'),
         ]);
@@ -177,7 +179,7 @@ final class OrderExcelExportTest extends CIUnitTestCase
         $spreadsheet = new Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
 
-        $col = fn(int $c, int $r): string => Coordinate::stringFromColumnIndex($c) . $r;
+        $col = fn (int $c, int $r): string => Coordinate::stringFromColumnIndex($c) . $r;
 
         $headers = ['주문번호', '주문일시', '수취인', '연락처', '우편번호', '주소', '상세주소', '상품명', '결제금액', '상태'];
         foreach ($headers as $idx => $header) {
@@ -185,27 +187,27 @@ final class OrderExcelExportTest extends CIUnitTestCase
         }
 
         $this->assertEquals('주문번호', $sheet->getCell('A1')->getValue());
-        $this->assertEquals('상태',    $sheet->getCell('J1')->getValue());
+        $this->assertEquals('상태', $sheet->getCell('J1')->getValue());
     }
 
     public function testSpreadsheetDataRowWriting(): void
     {
         $spreadsheet = new Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
-        $col         = fn(int $c, int $r): string => Coordinate::stringFromColumnIndex($c) . $r;
+        $col         = fn (int $c, int $r): string => Coordinate::stringFromColumnIndex($c) . $r;
 
         $sheet->setCellValue($col(1, 2), 'ORD-20240101-0001');
         $sheet->setCellValue($col(9, 2), 50000);
 
         $this->assertEquals('ORD-20240101-0001', $sheet->getCell('A2')->getValue());
-        $this->assertEquals(50000,               $sheet->getCell('I2')->getValue());
+        $this->assertEquals(50000, $sheet->getCell('I2')->getValue());
     }
 
     public function testSpreadsheetWriterGeneratesOutput(): void
     {
         $spreadsheet = new Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
-        $col         = fn(int $c, int $r): string => Coordinate::stringFromColumnIndex($c) . $r;
+        $col         = fn (int $c, int $r): string => Coordinate::stringFromColumnIndex($c) . $r;
         $sheet->setCellValue($col(1, 1), '테스트');
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
@@ -230,7 +232,7 @@ final class OrderExcelExportTest extends CIUnitTestCase
             ->whereIn('o.status', ['paid', 'preparing', 'shipped'])
             ->get()->getResultArray();
 
-        $found = array_filter($rows, fn($r) => $r['order_number'] === $orderNumber);
+        $found = array_filter($rows, fn ($r) => $r['order_number'] === $orderNumber);
         $this->assertNotEmpty($found, 'paid 상태 주문이 내보내기 목록에 포함돼야 한다');
     }
 
@@ -244,7 +246,7 @@ final class OrderExcelExportTest extends CIUnitTestCase
             ->whereIn('o.status', ['paid', 'preparing', 'shipped'])
             ->get()->getResultArray();
 
-        $found = array_filter($rows, fn($r) => $r['order_number'] === $orderNumber);
+        $found = array_filter($rows, fn ($r) => $r['order_number'] === $orderNumber);
         $this->assertEmpty($found, 'delivered 주문은 내보내기 목록에서 제외돼야 한다');
     }
 
@@ -252,7 +254,7 @@ final class OrderExcelExportTest extends CIUnitTestCase
     {
         $paidNum     = $this->prefix . 'P01';
         $preparingNum = $this->prefix . 'PR01';
-        $this->insertOrder('paid',      $paidNum);
+        $this->insertOrder('paid', $paidNum);
         $this->insertOrder('preparing', $preparingNum);
 
         $paidOnly = db_connect()->table('orders')
@@ -261,7 +263,7 @@ final class OrderExcelExportTest extends CIUnitTestCase
             ->get()->getResultArray();
 
         $numbers = array_column($paidOnly, 'order_number');
-        $this->assertContains($paidNum,      $numbers, 'paid 필터에 paid 주문 포함');
+        $this->assertContains($paidNum, $numbers, 'paid 필터에 paid 주문 포함');
         $this->assertNotContains($preparingNum, $numbers, 'paid 필터에 preparing 주문 미포함');
     }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductSkuModel;
@@ -311,7 +313,7 @@ final class ProductSkuTest extends CIUnitTestCase
         ]);
 
         $skus   = db_connect()->table('product_skus')->where('product_id', $productId)->orderBy('id', 'ASC')->get()->getResultArray();
-        $stocks = array_map(fn($s) => (int) $s['stock'], $skus);
+        $stocks = array_map(fn ($s) => (int) $s['stock'], $skus);
 
         $this->assertCount(2, $skus);
         $this->assertSame([5, 0], $stocks);

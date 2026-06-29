@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -122,7 +124,7 @@ class DashboardController extends BaseController
                 'total_posts'     => $postModel->countAll(),
                 'total_users'     => $userModel->countAll(),
                 'total_inquiries' => $inquiryModel->countAll(),
-                'unread_inquiries'=> $inquiryModel->getUnreadCount(),
+                'unread_inquiries' => $inquiryModel->getUnreadCount(),
             ],
             'salesStats' => [
                 'today' => (int) ($salesRow['today_sales'] ?? 0),

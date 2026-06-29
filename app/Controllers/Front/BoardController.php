@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -138,7 +140,7 @@ class BoardController extends BaseController
             'user_id'    => session()->get('user_id'),
             'title'      => $this->request->getPost('title'),
             'content'    => $this->sanitizeContent($this->request->getPost('content')),
-            'author_name'=> $isGuest
+            'author_name' => $isGuest
                             ? $this->request->getPost('author_name')
                             : session()->get('user_nickname'),
             'is_notice'  => $this->getUserRole() === 'admin' ? (int) $this->request->getPost('is_notice') : 0,
@@ -401,12 +403,18 @@ class BoardController extends BaseController
         $role   = $this->getUserRole();
         $userId = session()->get('user_id');
 
-        if ($role === 'admin') return true;
-        if ($userId && $post['user_id'] == $userId) return true;
+        if ($role === 'admin') {
+            return true;
+        }
+        if ($userId && $post['user_id'] == $userId) {
+            return true;
+        }
 
         // 비회원: 세션 인증 토큰 또는 POST 비밀번호 검증
         if (! $userId && $post['author_password']) {
-            if (session()->get('edit_auth_' . $post['id'])) return true;
+            if (session()->get('edit_auth_' . $post['id'])) {
+                return true;
+            }
             $inputPw = $this->request->getPost('author_password');
             return $inputPw && password_verify($inputPw, $post['author_password']);
         }

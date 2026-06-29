@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -81,7 +83,9 @@ class InquiryController extends BaseController
     public function view(int $id): \CodeIgniter\HTTP\RedirectResponse|string
     {
         $inquiry = $this->model->find($id);
-        if (! $inquiry) return redirect()->to('/admin/inquiries');
+        if (! $inquiry) {
+            return redirect()->to('/admin/inquiries');
+        }
 
         $this->model->markRead($id);
 

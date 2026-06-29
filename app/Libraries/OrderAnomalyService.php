@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 /**
@@ -80,8 +82,8 @@ class OrderAnomalyService
                 'id'           => (int) $o['id'],
                 'order_number' => $o['order_number'],
                 'user_id'      => $o['user_id'] !== null ? (int) $o['user_id'] : null,
-                'receiver_name'=> $o['receiver_name'],
-                'receiver_phone'=> $o['receiver_phone'],
+                'receiver_name' => $o['receiver_name'],
+                'receiver_phone' => $o['receiver_phone'],
                 'amount'       => (int) $o['payable_amount'],
                 'status'       => $o['status'],
                 'created_at'   => $o['created_at'],

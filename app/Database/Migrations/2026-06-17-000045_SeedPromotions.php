@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
@@ -27,7 +29,7 @@ class SeedPromotions extends Migration
                 'title'       => '여름 신상 기획전',
                 'slug'        => 'summer-new-arrivals',
                 'description' => '<p>시원하고 스타일리시한 여름 신상품을 모았습니다.</p>',
-                'grade_access'=> 'all',
+                'grade_access' => 'all',
                 'start_date'  => date('Y-m-d'),
                 'end_date'    => date('Y-m-d', strtotime('+30 days')),
                 'is_active'   => 1,
@@ -39,7 +41,7 @@ class SeedPromotions extends Migration
                 'title'       => 'VIP 단독 특가전',
                 'slug'        => 'vip-exclusive-sale',
                 'description' => '<p>VIP 회원만을 위한 특별 할인 상품입니다.</p>',
-                'grade_access'=> 'vip',
+                'grade_access' => 'vip',
                 'start_date'  => date('Y-m-d'),
                 'end_date'    => date('Y-m-d', strtotime('+14 days')),
                 'is_active'   => 1,
@@ -51,7 +53,7 @@ class SeedPromotions extends Migration
                 'title'       => '봄 시즌 오프',
                 'slug'        => 'spring-season-off',
                 'description' => '<p>봄 시즌 재고 정리 할인 이벤트입니다.</p>',
-                'grade_access'=> 'all',
+                'grade_access' => 'all',
                 'start_date'  => date('Y-m-d', strtotime('-60 days')),
                 'end_date'    => date('Y-m-d', strtotime('-1 day')),
                 'is_active'   => 0,

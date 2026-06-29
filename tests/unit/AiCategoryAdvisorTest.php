@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Exceptions\AiKeyMissingException;
@@ -54,7 +56,9 @@ class MockGroqProvider extends GroqProvider
 {
     public string $lastPayload = '';
 
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -72,7 +76,9 @@ class MockClaudeProvider extends ClaudeProvider
 {
     public string $lastPayload = '';
 
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -129,21 +135,21 @@ final class AiCategoryAdvisorTest extends CIUnitTestCase
             self::$tableCreated = true;
         }
 
-        $this->originalProvider      = $_ENV['AI_PROVIDER']        ?? getenv('AI_PROVIDER')        ?: '';
-        $this->originalGroqKey       = $_ENV['GROQ_API_KEY']       ?? getenv('GROQ_API_KEY')       ?: '';
-        $this->originalClaudeKey     = $_ENV['ANTHROPIC_API_KEY']  ?? getenv('ANTHROPIC_API_KEY')  ?: '';
+        $this->originalProvider      = $_ENV['AI_PROVIDER']        ?? getenv('AI_PROVIDER') ?: '';
+        $this->originalGroqKey       = $_ENV['GROQ_API_KEY']       ?? getenv('GROQ_API_KEY') ?: '';
+        $this->originalClaudeKey     = $_ENV['ANTHROPIC_API_KEY']  ?? getenv('ANTHROPIC_API_KEY') ?: '';
         $this->originalOpenRouterKey = $_ENV['OPENROUTER_API_KEY'] ?? getenv('OPENROUTER_API_KEY') ?: '';
         // factory 테스트가 AiKeyMissingException 없이 동작하도록 dummy key 설정
-        $this->setApiKey('GROQ_API_KEY',       'test_groq_dummy');
-        $this->setApiKey('ANTHROPIC_API_KEY',  'test_claude_dummy');
+        $this->setApiKey('GROQ_API_KEY', 'test_groq_dummy');
+        $this->setApiKey('ANTHROPIC_API_KEY', 'test_claude_dummy');
         $this->setApiKey('OPENROUTER_API_KEY', 'test_openrouter_dummy');
     }
 
     protected function tearDown(): void
     {
         $this->setProvider($this->originalProvider);
-        $this->setApiKey('GROQ_API_KEY',       $this->originalGroqKey);
-        $this->setApiKey('ANTHROPIC_API_KEY',  $this->originalClaudeKey);
+        $this->setApiKey('GROQ_API_KEY', $this->originalGroqKey);
+        $this->setApiKey('ANTHROPIC_API_KEY', $this->originalClaudeKey);
         $this->setApiKey('OPENROUTER_API_KEY', $this->originalOpenRouterKey);
         parent::tearDown();
     }

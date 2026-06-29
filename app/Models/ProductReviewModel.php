@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -123,7 +125,9 @@ class ProductReviewModel extends Model
             $builder->where('user_id', $userId);
         }
         $review = $builder->first();
-        if (! $review) return false;
+        if (! $review) {
+            return false;
+        }
 
         $images = $this->db->table('product_review_images')
             ->where('review_id', $reviewId)->get()->getResultArray();
@@ -159,7 +163,9 @@ class ProductReviewModel extends Model
     public function toggleHidden(int $reviewId): int
     {
         $review = $this->find($reviewId);
-        if (! $review) return -1;
+        if (! $review) {
+            return -1;
+        }
         $next = ((int) $review['is_hidden']) === 0 ? 1 : 0;
         $this->update($reviewId, ['is_hidden' => $next]);
         return $next;

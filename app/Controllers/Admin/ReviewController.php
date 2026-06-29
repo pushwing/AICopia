@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -48,7 +50,7 @@ class ReviewController extends BaseController
             }
         }
 
-        $data = array_map(fn($r) => [
+        $data = array_map(fn ($r) => [
             'id'           => (int) $r['id'],
             'product_name' => $r['product_name'],
             'product_slug' => $r['product_slug'],

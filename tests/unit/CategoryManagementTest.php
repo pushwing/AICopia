@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\CategoryModel;
@@ -106,7 +108,9 @@ final class CategoryManagementTest extends CIUnitTestCase
     {
         $db      = db_connect();
         $current = $db->table('categories')->where('id', $id)->get()->getRowArray();
-        if (! $current) return false;
+        if (! $current) {
+            return false;
+        }
 
         $builder = $db->table('categories');
         if ($current['parent_id'] === null) {
@@ -120,12 +124,19 @@ final class CategoryManagementTest extends CIUnitTestCase
 
         $currentIdx = null;
         foreach ($siblings as $i => $s) {
-            if ((int) $s['id'] === $id) { $currentIdx = $i; break; }
+            if ((int) $s['id'] === $id) {
+                $currentIdx = $i;
+                break;
+            }
         }
-        if ($currentIdx === null) return false;
+        if ($currentIdx === null) {
+            return false;
+        }
 
         $swapIdx = $direction === 'up' ? $currentIdx - 1 : $currentIdx + 1;
-        if ($swapIdx < 0 || $swapIdx >= count($siblings)) return false;
+        if ($swapIdx < 0 || $swapIdx >= count($siblings)) {
+            return false;
+        }
 
         [$siblings[$currentIdx], $siblings[$swapIdx]] = [$siblings[$swapIdx], $siblings[$currentIdx]];
 
@@ -144,13 +155,13 @@ final class CategoryManagementTest extends CIUnitTestCase
 
     public function testGetTreeDirect_returnsAllCategories_includingInactive(): void
     {
-        $active   = $this->insertCategory('ActiveCat',   0, 1);
+        $active   = $this->insertCategory('ActiveCat', 0, 1);
         $inactive = $this->insertCategory('InactiveCat', 1, 0);
 
         $tree = $this->model->getTreeDirect();
         $ids  = $this->collectAllIds($tree);
 
-        $this->assertContains($active,   $ids, 'active 카테고리가 포함되어야 함');
+        $this->assertContains($active, $ids, 'active 카테고리가 포함되어야 함');
         $this->assertContains($inactive, $ids, 'inactive 카테고리도 포함되어야 함');
     }
 

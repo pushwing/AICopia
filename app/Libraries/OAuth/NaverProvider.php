@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\OAuth;
 
 /**
@@ -20,7 +22,9 @@ class NaverProvider extends AbstractOAuthProvider
             'Authorization: Bearer ' . $token,
         ]);
 
-        if (empty($data['response'])) return null;
+        if (empty($data['response'])) {
+            return null;
+        }
 
         $r = $data['response'];
 
