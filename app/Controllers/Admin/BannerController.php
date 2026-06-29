@@ -102,6 +102,7 @@ class BannerController extends BaseController
         return redirect()->to('/admin/banners')->with('success', '삭제되었습니다.');
     }
 
+    /** @return array<string, mixed> */
     private function collectData(string $imagePath): array
     {
         $toDatetime = fn ($val) => $val

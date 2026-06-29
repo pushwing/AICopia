@@ -56,6 +56,7 @@ class RecommendationService
         }
     }
 
+    /** @return array<int, array<string, mixed>> */
     private function build(int $userId, int $limit): array
     {
         $db       = \Config\Database::connect();
@@ -102,7 +103,11 @@ class RecommendationService
         return $items;
     }
 
-    /** 사용자가 찜했거나 구매한 상품 id 집합. */
+    /**
+     * 사용자가 찜했거나 구매한 상품 id 집합.
+     *
+     * @return array<int, int>
+     */
     private function ownedProductIds(\CodeIgniter\Database\BaseConnection $db, int $userId): array
     {
         $wished = $db->table('wishlists')
@@ -125,7 +130,12 @@ class RecommendationService
         return array_values(array_unique(array_map('intval', $ids)));
     }
 
-    /** 보유 상품들의 카테고리 빈도 상위 5개. */
+    /**
+     * 보유 상품들의 카테고리 빈도 상위 5개.
+     *
+     * @param  array<int, int> $ownedIds
+     * @return array<int, int>
+     */
     private function preferredCategories(\CodeIgniter\Database\BaseConnection $db, array $ownedIds): array
     {
         if ($ownedIds === []) {

@@ -16,6 +16,7 @@ class NaverProvider extends AbstractOAuthProvider
         parent::__construct('naver');
     }
 
+    /** @return array<string, mixed>|null */
     public function getProfile(string $token): ?array
     {
         $data = $this->get($this->config['profile_url'], [

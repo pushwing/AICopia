@@ -14,6 +14,7 @@ class ProductImageModel extends Model
     protected $updatedField  = '';
     protected $allowedFields = ['product_id', 'media_id', 'is_primary', 'sort_order', 'created_at'];
 
+    /** @return array<int, array<string, mixed>> */
     public function getByProduct(int $productId): array
     {
         $rows = $this->select('product_images.*, media.file_path, media.alt')
@@ -29,6 +30,7 @@ class ProductImageModel extends Model
         return $rows;
     }
 
+    /** @return array<string, mixed>|null */
     public function getPrimary(int $productId): ?array
     {
         $row = $this->select('product_images.*, media.file_path, media.alt')
@@ -49,6 +51,7 @@ class ProductImageModel extends Model
         $this->where(['product_id' => $productId, 'media_id' => $mediaId])->set('is_primary', 1)->update();
     }
 
+    /** @param array<int, array<string, mixed>> $items */
     public function attachPrimaryImages(array &$items): void
     {
         if (empty($items)) {

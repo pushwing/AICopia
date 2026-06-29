@@ -99,7 +99,11 @@ class SalesController extends BaseController
         return $base;
     }
 
-    /** 기간별 매출 집계 (GMV = total_amount, 실매출 = payable_amount). */
+    /**
+     * 기간별 매출 집계 (GMV = total_amount, 실매출 = payable_amount).
+     *
+     * @return array<int, array<string, mixed>>
+     */
     private function salesPeriodRows(\CodeIgniter\Database\BaseBuilder $base, string $period): array
     {
         $groupExpr = match ($period) {
@@ -121,7 +125,11 @@ class SalesController extends BaseController
             ->get()->getResultArray();
     }
 
-    /** 결제수단별 집계. */
+    /**
+     * 결제수단별 집계.
+     *
+     * @return array<int, array<string, mixed>>
+     */
     private function salesMethodRows(\CodeIgniter\Database\BaseBuilder $base): array
     {
         return (clone $base)
@@ -132,7 +140,11 @@ class SalesController extends BaseController
             ->get()->getResultArray();
     }
 
-    /** 기간 요약 집계. */
+    /**
+     * 기간 요약 집계.
+     *
+     * @return array<string, mixed>
+     */
     private function salesSummary(\CodeIgniter\Database\BaseBuilder $base): array
     {
         return (clone $base)

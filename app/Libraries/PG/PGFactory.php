@@ -20,11 +20,13 @@ class PGFactory
         };
     }
 
+    /** @return array<int, string> */
     public static function providers(): array
     {
         return ['bank_transfer', 'toss', 'inicis', 'nicepay', 'kakaopay', 'naverpay', 'payco'];
     }
 
+    /** @return array<string, string> */
     public static function labels(): array
     {
         return [
@@ -40,6 +42,8 @@ class PGFactory
 
     /**
      * 운영자 설정에서 활성화된 PG만 반환
+     *
+     * @return array<string, string>
      */
     public static function enabledLabels(): array
     {

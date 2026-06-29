@@ -39,7 +39,11 @@ class WishlistModel extends Model
                            ->first();
     }
 
-    /** 마이페이지 찜 목록 (상품 정보 JOIN, 페이지네이션) */
+    /**
+     * 마이페이지 찜 목록 (상품 정보 JOIN, 페이지네이션)
+     *
+     * @return array{items: array<int, array<string, mixed>>, total: int, currentPage: int, perPage: int, totalPages: int}
+     */
     public function getByUser(int $userId, int $page = 1, int $perPage = 12): array
     {
         $db      = \Config\Database::connect();

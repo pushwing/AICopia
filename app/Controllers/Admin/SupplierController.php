@@ -111,6 +111,7 @@ class SupplierController extends BaseController
 
     // ── private ──────────────────────────────────────────────────────────────
 
+    /** @return array<string, string> */
     private function rules(): array
     {
         return [
@@ -122,6 +123,7 @@ class SupplierController extends BaseController
         ];
     }
 
+    /** @return array<string, mixed> */
     private function collectData(): array
     {
         return [

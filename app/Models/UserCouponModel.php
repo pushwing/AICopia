@@ -15,7 +15,11 @@ class UserCouponModel extends Model
         'user_id', 'coupon_id', 'order_id', 'source', 'status', 'issued_at', 'used_at',
     ];
 
-    /** 사용 가능한 쿠폰 목록 (issued 상태 + 쿠폰 유효성 체크) */
+    /**
+     * 사용 가능한 쿠폰 목록 (issued 상태 + 쿠폰 유효성 체크)
+     *
+     * @return array<int, array<string, mixed>>
+     */
     public function getAvailable(int $userId, int $orderAmount = 0): array
     {
         $now = date('Y-m-d H:i:s');
@@ -41,7 +45,11 @@ class UserCouponModel extends Model
             ->get()->getResultArray();
     }
 
-    /** 특정 user_coupon_id 조회 (user_id 소유 확인 포함) */
+    /**
+     * 특정 user_coupon_id 조회 (user_id 소유 확인 포함)
+     *
+     * @return array<string, mixed>|null
+     */
     public function getWithCoupon(int $userCouponId, int $userId): ?array
     {
         return $this->db->table('user_coupons uc')
@@ -54,7 +62,11 @@ class UserCouponModel extends Model
             ->get()->getRowArray() ?: null;
     }
 
-    /** 관리자: 쿠폰별 발급 내역 */
+    /**
+     * 관리자: 쿠폰별 발급 내역
+     *
+     * @return array{items: array<int, array<string, mixed>>, total: int, totalPages: int, currentPage: int, perPage: int}
+     */
     public function getByCoupon(int $couponId, int $page = 1, int $perPage = 20): array
     {
         $builder = $this->db->table('user_coupons uc')

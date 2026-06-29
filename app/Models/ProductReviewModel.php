@@ -15,7 +15,11 @@ class ProductReviewModel extends Model
         'product_id', 'order_id', 'user_id', 'content', 'is_rewarded', 'is_hidden', 'is_negative',
     ];
 
-    /** AI 요약용 — 노출 중인 리뷰의 id·content만 최신순으로 반환 */
+    /**
+     * AI 요약용 — 노출 중인 리뷰의 id·content만 최신순으로 반환
+     *
+     * @return array<int, array<string, mixed>>
+     */
     public function getForSummary(int $productId, int $limit = 50): array
     {
         return $this->db->table('product_reviews')
@@ -27,7 +31,11 @@ class ProductReviewModel extends Model
             ->get()->getResultArray();
     }
 
-    /** 상품의 부정 리뷰 표시를 갱신한다 (전체 0으로 리셋 후 지정 id만 1). */
+    /**
+     * 상품의 부정 리뷰 표시를 갱신한다 (전체 0으로 리셋 후 지정 id만 1).
+     *
+     * @param array<int, mixed> $negativeIds
+     */
     public function markNegative(int $productId, array $negativeIds): void
     {
         $this->db->table('product_reviews')
@@ -43,7 +51,11 @@ class ProductReviewModel extends Model
         }
     }
 
-    /** 상품별 리뷰 목록 (이미지 포함) */
+    /**
+     * 상품별 리뷰 목록 (이미지 포함)
+     *
+     * @return array{items: array<int, array<string, mixed>>, total: int}
+     */
     public function getByProduct(int $productId, int $page = 1, int $perPage = 10): array
     {
         $offset = ($page - 1) * $perPage;
@@ -171,6 +183,10 @@ class ProductReviewModel extends Model
         return $next;
     }
 
+    /**
+     * @param  array<string, mixed> $params
+     * @return array{items: array<int, array<string, mixed>>, total: int, page: int, perPage: int}
+     */
     public function adminGetAll(array $params = []): array
     {
         $keyword = trim($params['keyword'] ?? '');

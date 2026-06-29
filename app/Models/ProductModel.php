@@ -37,6 +37,8 @@ class ProductModel extends Model
 
     /**
      * 상품에 카테고리 배열을 저장 (기존 연결 전부 교체)
+     *
+     * @param array<int, mixed> $categoryIds
      */
     public function setCategories(int $productId, array $categoryIds): void
     {
@@ -53,6 +55,8 @@ class ProductModel extends Model
 
     /**
      * 상품의 카테고리 ID 배열 반환
+     *
+     * @return array<int, int>
      */
     public function getCategories(int $productId): array
     {
@@ -65,6 +69,9 @@ class ProductModel extends Model
 
     /**
      * 프론트 상품 목록: 숨김 제외, 검색·카테고리·정렬 지원
+     *
+     * @param  array<string, mixed> $params
+     * @return array<string, mixed>
      */
     public function getList(array $params = []): array
     {
@@ -138,6 +145,9 @@ class ProductModel extends Model
 
     /**
      * 관리자 상품 목록
+     *
+     * @param  array<string, mixed> $params
+     * @return array<string, mixed>
      */
     public function getAdminList(array $params = []): array
     {
@@ -167,6 +177,7 @@ class ProductModel extends Model
         return $this->buildPage($builder, $page, $perPage);
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getLatest(int $limit = 8): array
     {
         return $this->db->table('products')
@@ -178,6 +189,7 @@ class ProductModel extends Model
             ->get()->getResultArray();
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getDiscounted(int $limit = 8): array
     {
         return $this->db->table('products')
@@ -190,6 +202,7 @@ class ProductModel extends Model
             ->get()->getResultArray();
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getFeatured(int $limit = 8): array
     {
         return $this->db->table('products')
@@ -202,6 +215,7 @@ class ProductModel extends Model
             ->get()->getResultArray();
     }
 
+    /** @return array{items: array<int, array<string, mixed>>, total: int, totalPages: int, currentPage: int, perPage: int} */
     private function buildPage(\CodeIgniter\Database\BaseBuilder $builder, int $page, int $perPage): array
     {
         // DB Builder는 배열 기반 상태라 clone이 안전함 (Model clone과 달리 DB 커넥션을 통한 상태 공유 없음)

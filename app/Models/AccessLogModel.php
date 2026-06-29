@@ -13,7 +13,7 @@ class AccessLogModel extends Model
     protected $useTimestamps = false;
     protected $allowedFields = ['ip', 'page', 'url', 'user_id', 'user_agent', 'referer', 'created_at'];
 
-    /** 오늘 PV / UV — 대시보드·통계 공용 */
+    /** @return array{pv: int, uv: int} */
     public function getTodayStats(): array
     {
         $today = date('Y-m-d');

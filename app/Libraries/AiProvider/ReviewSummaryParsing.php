@@ -9,7 +9,11 @@ namespace App\Libraries\AiProvider;
  */
 trait ReviewSummaryParsing
 {
-    /** summarizeReviews 실패/빈 입력 시 반환할 기본 구조. */
+    /**
+     * summarizeReviews 실패/빈 입력 시 반환할 기본 구조.
+     *
+     * @return array{summary:string, pros:string[], cons:string[], sentiment:string, negative_review_ids:int[]}
+     */
     protected function emptySummary(): array
     {
         return ['summary' => '', 'pros' => [], 'cons' => [], 'sentiment' => 'mixed', 'negative_review_ids' => []];
@@ -18,7 +22,7 @@ trait ReviewSummaryParsing
     /**
      * 리뷰 배열을 AI에 전달할 사용자 메시지로 변환한다.
      *
-     * @param array $reviews [['id' => int, 'content' => string], ...]
+     * @param array<int, array<string, mixed>> $reviews [['id' => int, 'content' => string], ...]
      */
     protected function buildReviewMessage(string $productName, array $reviews): string
     {

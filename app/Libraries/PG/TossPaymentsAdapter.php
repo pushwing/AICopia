@@ -21,6 +21,10 @@ class TossPaymentsAdapter implements PGInterface
         $this->secretKey = $cfg->tossSecretKey;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         return [
@@ -34,6 +38,7 @@ class TossPaymentsAdapter implements PGInterface
         ];
     }
 
+    /** @return array<string, mixed> */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         // pgToken = paymentKey (토스페이먼츠 결제창에서 전달)
@@ -56,6 +61,7 @@ class TossPaymentsAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $response = $this->request('POST', "/payments/{$pgTid}/cancel", [
@@ -75,6 +81,10 @@ class TossPaymentsAdapter implements PGInterface
         return 'toss';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -106,6 +116,7 @@ class TossPaymentsAdapter implements PGInterface
         };
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];

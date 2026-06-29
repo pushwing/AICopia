@@ -13,8 +13,10 @@ class Mailer
 {
     private string $siteName;
     private string $siteUrl;
+    /** @var array<string, mixed> */
     private array  $settings;
 
+    /** @param array<string, mixed> $settings */
     public function __construct(array $settings = [])
     {
         $this->siteName = $settings['site_name'] ?? '쇼핑몰';
@@ -26,6 +28,7 @@ class Mailer
     //  Public senders
     // ------------------------------------------------------------------ //
 
+    /** @param array<string, mixed> $user */
     public function sendVerify(array $user, string $token): void
     {
         $verifyUrl = $this->siteUrl . '/auth/verify/' . $token;
@@ -57,6 +60,7 @@ class Mailer
         $this->dispatch($user['email'], $subject, $body, "VERIFY_EMAIL | to={$user['email']}");
     }
 
+    /** @param array<string, mixed> $form */
     public function sendInquiry(string $toEmail, array $form): void
     {
         $subject  = $form['subject'] ?: '새 문의가 도착했습니다';
@@ -104,6 +108,7 @@ class Mailer
         }
     }
 
+    /** @param array<string, mixed> $product */
     public function sendRestockAlert(string $toEmail, array $product, ?string $aiMessage = null): void
     {
         $productUrl = $this->siteUrl . '/shop/' . esc($product['slug']);

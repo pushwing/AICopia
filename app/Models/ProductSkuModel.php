@@ -28,6 +28,7 @@ class ProductSkuModel extends Model
      *   ],
      * ]
      */
+    /** @return array{options: array<int, array<string, mixed>>, skus: array<int, array<string, mixed>>} */
     public function getOptionsAndSkus(int $productId): array
     {
         $options = $this->db->table('product_options')
@@ -88,6 +89,7 @@ class ProductSkuModel extends Model
      * 옵션 + SKU를 일괄 저장 (상품 저장 후 호출)
      * $data 형태: ['options' => [...], 'skus' => [...]]
      */
+    /** @param array<string, mixed> $data */
     public function saveOptionsAndSkus(int $productId, array $data): void
     {
         $this->deleteByProduct($productId);
@@ -179,6 +181,7 @@ class ProductSkuModel extends Model
     /**
      * SKU 단건 조회 (product_id 소속 검증 포함)
      */
+    /** @return array<string, mixed>|null */
     public function findForProduct(int $skuId, int $productId): ?array
     {
         return $this->where('id', $skuId)->where('product_id', $productId)->first();

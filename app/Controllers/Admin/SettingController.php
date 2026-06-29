@@ -303,7 +303,11 @@ class SettingController extends BaseController
         }
     }
 
-    /** app/Views/themes/ 하위 폴더를 스캔해 테마 목록 반환 */
+    /**
+     * app/Views/themes/ 하위 폴더를 스캔해 테마 목록 반환
+     *
+     * @return array<string, array<string, mixed>>
+     */
     private function scanThemes(): array
     {
         $base   = APPPATH . 'Views/themes/';

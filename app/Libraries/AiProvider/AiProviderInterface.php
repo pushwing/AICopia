@@ -11,7 +11,7 @@ interface AiProviderInterface
      *
      * @param  string $name        상품명
      * @param  string $description 상품 설명
-     * @param  array  $tree        CategoryModel::getTree() 반환값
+     * @param  array<int, array<string, mixed>>  $tree        CategoryModel::getTree() 반환값
      * @return int[]               추천 카테고리 ID 배열 (최대 3개)
      */
     public function suggestCategories(string $name, string $description, array $tree): array;
@@ -40,7 +40,7 @@ interface AiProviderInterface
      * 상품 리뷰 목록을 요약하고 장단점·감성을 분석한다.
      *
      * @param  string $productName 상품명
-     * @param  array  $reviews     [['id' => int, 'content' => string], ...]
+     * @param  array<int, array<string, mixed>>  $reviews     [['id' => int, 'content' => string], ...]
      * @return array{summary:string, pros:string[], cons:string[], sentiment:string, negative_review_ids:int[]}
      *               실패 시 빈 요약(summary='')을 담은 기본 구조를 반환한다.
      *               sentiment: 'positive' | 'mixed' | 'negative'
@@ -67,7 +67,7 @@ interface AiProviderInterface
     /**
      * 매출 집계 데이터를 바탕으로 자연어 분석 리포트를 생성한다.
      *
-     * @param  array $stats 기간·요약·기간별·결제수단별 집계 (구조화된 배열)
+     * @param  array<string, mixed> $stats 기간·요약·기간별·결제수단별 집계 (구조화된 배열)
      * @return string 한국어 분석 텍스트 (실패 시 빈 문자열)
      */
     public function generateSalesReport(array $stats): string;

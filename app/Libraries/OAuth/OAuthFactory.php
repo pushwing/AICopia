@@ -16,6 +16,7 @@ class OAuthFactory
         };
     }
 
+    /** @return array<int, string> */
     public static function supported(): array
     {
         return ['naver', 'kakao', 'google'];

@@ -398,6 +398,7 @@ class BoardController extends BaseController
 
     // ─── 내부 헬퍼 ──────────────────────────────────────────────────────────
 
+    /** @param array<string, mixed> $post */
     private function canEditPost(array $post): bool
     {
         $role   = $this->getUserRole();
@@ -422,6 +423,7 @@ class BoardController extends BaseController
         return false;
     }
 
+    /** @param array<string, mixed> $post */
     private function canAccessSecret(array $post): bool
     {
         $role   = $this->getUserRole();

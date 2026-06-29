@@ -21,6 +21,7 @@ class ClaudeProvider implements AiProviderInterface
         $this->apiKey = ($settings['anthropic_api_key'] ?? '') ?: env('ANTHROPIC_API_KEY', '');
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     public function suggestCategories(string $name, string $description, array $tree): array
     {
         $list = $this->flattenTree($tree);
@@ -61,6 +62,9 @@ class ClaudeProvider implements AiProviderInterface
         return $this->parseResponse($response);
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $tree
+     */
     protected function flattenTree(array $tree): string
     {
         $lines = [];
@@ -73,6 +77,9 @@ class ClaudeProvider implements AiProviderInterface
         return implode("\n", $lines);
     }
 
+    /**
+     * @return array<int, int>
+     */
     protected function parseResponse(string $raw): array
     {
         $data    = json_decode($raw, true);
@@ -184,6 +191,7 @@ class ClaudeProvider implements AiProviderInterface
         return $data['content'][0]['text'] ?? '';
     }
 
+    /** @param array<int, array<string, mixed>> $reviews */
     public function summarizeReviews(string $productName, array $reviews): array
     {
         if ($reviews === []) {
@@ -292,6 +300,7 @@ class ClaudeProvider implements AiProviderInterface
         return trim((string) ($data['content'][0]['text'] ?? ''));
     }
 
+    /** @param array<string, mixed> $stats */
     public function generateSalesReport(array $stats): string
     {
         $payload = json_encode([

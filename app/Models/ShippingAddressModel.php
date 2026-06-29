@@ -15,11 +15,13 @@ class ShippingAddressModel extends Model
         'user_id', 'receiver_name', 'receiver_phone', 'zipcode', 'address1', 'address2', 'is_default',
     ];
 
+    /** @return array<int, array<string, mixed>> */
     public function getByUser(int $userId): array
     {
         return $this->where('user_id', $userId)->orderBy('is_default', 'DESC')->orderBy('id', 'DESC')->findAll();
     }
 
+    /** @return array<string, mixed>|null */
     public function getDefault(int $userId): ?array
     {
         return $this->where('user_id', $userId)->where('is_default', 1)->first();
@@ -46,7 +48,11 @@ class ShippingAddressModel extends Model
         return $this->where('id', $id)->where('user_id', $userId)->delete() > 0;
     }
 
-    /** 저장 또는 업데이트 — 동일 주소(zipcode + address1 + address2)면 덮어씀 */
+    /**
+     * 저장 또는 업데이트 — 동일 주소(zipcode + address1 + address2)면 덮어씀
+     *
+     * @param array<string, mixed> $data
+     */
     public function saveAddress(int $userId, array $data): int
     {
         $existing = $this->where('user_id', $userId)

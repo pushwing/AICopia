@@ -253,6 +253,7 @@ class CouponController extends BaseController
         return redirect()->to("/admin/coupons/{$id}/issue")->with('success', $msg);
     }
 
+    /** @return array<string, string> */
     private function validationRules(?int $excludeId = null): array
     {
         $uniqueCode = 'is_unique[coupons.code' . ($excludeId ? ",id,{$excludeId}" : '') . ']';
@@ -268,6 +269,7 @@ class CouponController extends BaseController
         ];
     }
 
+    /** @return array<string, mixed> */
     private function collectData(): array
     {
         $type         = $this->request->getPost('type');

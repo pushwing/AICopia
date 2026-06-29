@@ -21,6 +21,10 @@ class NicePayAdapter implements PGInterface
         $this->secretKey = $cfg->nicepaySecretKey;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         return [
@@ -33,6 +37,7 @@ class NicePayAdapter implements PGInterface
         ];
     }
 
+    /** @return array<string, mixed> */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         // pgToken = tid (나이스페이 결제 후 authResultCode=0000과 함께 전달)
@@ -58,6 +63,7 @@ class NicePayAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $response = $this->request('POST', "/payments/{$pgTid}/cancel", [
@@ -77,6 +83,10 @@ class NicePayAdapter implements PGInterface
         return 'nicepay';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -105,6 +115,7 @@ class NicePayAdapter implements PGInterface
         };
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];

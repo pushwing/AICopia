@@ -47,6 +47,10 @@ class OrderModel extends Model
     /**
      * 결제 대기 주문 생성 — 쿠폰 확정 + 포인트 차감까지 트랜잭션 내 처리
      */
+    /**
+     * @param array<string, mixed>          $shippingData
+     * @param array<int, array<string, mixed>> $cartItems
+     */
     public function createPending(
         int $userId,
         array $shippingData,
@@ -248,6 +252,7 @@ class OrderModel extends Model
     /**
      * 결제 확정 — PG 콜백 수신 후 호출
      */
+    /** @param array<string, mixed> $rawResponse */
     public function confirmPaid(int $orderId, string $pgProvider, string $pgTid, string $method, array $rawResponse): bool
     {
         $this->db->transStart();
@@ -814,6 +819,10 @@ class OrderModel extends Model
      *                              'exchange_return_tracking_company','exchange_return_tracking_number',
      *                              'exchange_seller_shipping_fee']
      */
+    /**
+     * @param array<int, array<string, mixed>> $exchangeItems
+     * @param array<string, mixed>             $tracking
+     */
     public function completeExchange(int $orderId, array $exchangeItems, array $tracking = []): bool
     {
         $order = $this->where('id', $orderId)->where('status', 'exchange_approved')->first();
@@ -891,7 +900,11 @@ class OrderModel extends Model
         return $this->db->transStatus();
     }
 
-    /** 주문 상세 */
+    /**
+     * 주문 상세
+     *
+     * @return array<string, mixed>|null
+     */
     public function getWithItems(int $orderId, int $userId): ?array
     {
         $order = $this->where('id', $orderId)->where('user_id', $userId)->first();
@@ -905,6 +918,7 @@ class OrderModel extends Model
         return $order;
     }
 
+    /** @return array<int, array<string, mixed>> */
     private function fetchOrderItems(int $orderId): array
     {
         return $this->db->table('order_items oi')
@@ -916,6 +930,10 @@ class OrderModel extends Model
             ->get()->getResultArray();
     }
 
+    /**
+     * @param  array<string, mixed> $params
+     * @return array{items: array<int, array<string, mixed>>, total: int, totalPages: int, currentPage: int, perPage: int}
+     */
     public function getByUser(int $userId, array $params = []): array
     {
         $period  = $params['period']  ?? 'all';
@@ -966,6 +984,10 @@ class OrderModel extends Model
         ];
     }
 
+    /**
+     * @param  array<string, mixed> $params
+     * @return array{items: array<int, array<string, mixed>>, total: int, totalPages: int, currentPage: int, perPage: int}
+     */
     public function adminGetAll(array $params = []): array
     {
         $keyword = trim($params['keyword'] ?? '');
@@ -1006,6 +1028,7 @@ class OrderModel extends Model
         ];
     }
 
+    /** @return array<string, mixed>|null */
     public function adminGetWithItems(int $orderId): ?array
     {
         $order = $this->db->table('orders o')
@@ -1057,7 +1080,11 @@ class OrderModel extends Model
         return $ok;
     }
 
-    /** 세션에서 현재 작업자 정보 추출 */
+    /**
+     * 세션에서 현재 작업자 정보 추출
+     *
+     * @return array{0: string, 1: int|null, 2: string}
+     */
     private function resolveActor(): array
     {
         $session = session();
@@ -1098,6 +1125,7 @@ class OrderModel extends Model
         return $prefix . $seq;
     }
 
+    /** @param array<int, array<string, mixed>> $items */
     public function calculateShippingFee(array $items, int $totalProduct): int
     {
         // 조건부 무료 기준 충족 시 전체 주문 무료배송
@@ -1123,7 +1151,11 @@ class OrderModel extends Model
         return $fee;
     }
 
-    /** 쿠폰 복구 헬퍼 */
+    /**
+     * 쿠폰 복구 헬퍼
+     *
+     * @param array<string, mixed> $order
+     */
     private function restoreCoupon(array $order): void
     {
         if (! $order['coupon_id'] || (int) $order['coupon_discount_amount'] === 0) {
@@ -1157,7 +1189,11 @@ class OrderModel extends Model
         }
     }
 
-    /** 포인트 환급 헬퍼 */
+    /**
+     * 포인트 환급 헬퍼
+     *
+     * @param array<string, mixed> $order
+     */
     private function restorePoints(array $order, string $reason = 'cancel'): void
     {
         if ((int) $order['point_used_amount'] <= 0) {
@@ -1187,6 +1223,9 @@ class OrderModel extends Model
     /**
      * 재고 차감 헬퍼 (SKU 있으면 product_skus, 없으면 products)
      * FOR UPDATE 락 + 조건부 UPDATE 패턴 유지
+     */
+    /**
+     * @param array<string, mixed> $item
      */
     private function deductItemStock(array $item): bool
     {
@@ -1261,6 +1300,8 @@ class OrderModel extends Model
 
     /**
      * 재고 복구 헬퍼 (SKU 있으면 product_skus, 없으면 products)
+     *
+     * @param array<string, mixed> $item
      */
     private function restoreItemStock(array $item): void
     {

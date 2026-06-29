@@ -9,13 +9,16 @@ namespace App\Libraries;
  */
 class SeoHelper
 {
+    /** @var array<string, mixed> */
     private array $settings;
 
+    /** @param array<string, mixed> $settings */
     public function __construct(array $settings)
     {
         $this->settings = $settings;
     }
 
+    /** @param array<string, mixed>|null $page */
     public function render(?array $page = null): string
     {
         $siteName = $this->settings['site_name'] ?? '';

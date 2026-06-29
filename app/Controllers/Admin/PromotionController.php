@@ -142,6 +142,7 @@ class PromotionController extends BaseController
 
     // ── private ──────────────────────────────────────────────────────────────
 
+    /** @return array<string, mixed> */
     private function buildData(): array
     {
         $startDate = $this->request->getPost('start_date');
@@ -159,7 +160,11 @@ class PromotionController extends BaseController
         ];
     }
 
-    /** products_json → array of {product_id, sort_order} */
+    /**
+     * products_json → array of {product_id, sort_order}
+     *
+     * @return array<int, array<string, mixed>>
+     */
     private function parseProducts(): array
     {
         $json = $this->request->getPost('products_json') ?? '[]';
