@@ -1,2 +1,7 @@
 User-agent: *
-Disallow: 
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /cart/
+Disallow: /order/
+Disallow: /mypage/
+Disallow: /index.php

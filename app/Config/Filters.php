@@ -14,6 +14,7 @@ class Filters extends BaseConfig
         'honeypot' => \CodeIgniter\Filters\Honeypot::class,
         'auth'     => \App\Filters\AuthFilter::class,
         'stats'    => \App\Filters\StatsFilter::class,
+        'secheaders' => \App\Filters\SecurityHeadersFilter::class,
     ];
 
     public array $globals = [
@@ -21,7 +22,7 @@ class Filters extends BaseConfig
             // payment/callback/* — PG 서버에서 직접 POST 요청 (CSRF 토큰 없음)
             'csrf' => ['except' => ['api/*', 'board/image-upload', 'admin/media/upload', 'payment/callback/*']],
         ],
-        'after'  => ['toolbar', 'stats'],
+        'after'  => ['toolbar', 'stats', 'secheaders'],
     ];
 
     public array $methods = [];
