@@ -97,11 +97,13 @@ class BoardController extends BaseController
         $comments = $this->commentModel->getByPost($postId);
 
         // ── SEO 메타 (게시판 글은 og:type=article) ──────────────────────────
+        $postUrl = base_url('board/' . $boardSlug . '/' . $postId);
         $page = [
             'meta_title' => (string) $post['title'],
             'meta_desc'  => mb_substr(trim(strip_tags((string) ($post['content'] ?? ''))), 0, 155),
             'og_type'    => 'article',
-            'canonical'  => base_url('board/' . $boardSlug . '/' . $postId),
+            'canonical'  => $postUrl,
+            'jsonld'     => [\App\Libraries\SeoHelper::articleSchema($post, $postUrl)],
         ];
 
         return $this->render('board/view', compact('board', 'post', 'files', 'comments', 'page'));

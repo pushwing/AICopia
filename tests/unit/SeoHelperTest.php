@@ -80,4 +80,41 @@ final class SeoHelperTest extends CIUnitTestCase
         $this->assertSame(3, $schema['itemListElement'][2]['position']);
         $this->assertSame('티셔츠', $schema['itemListElement'][2]['name']);
     }
+
+    public function testFaqSchemaSkipsIncompleteEntries(): void
+    {
+        $schema = SeoHelper::faqSchema([
+            ['question' => '배송 얼마나 걸리나요?', 'answer' => '2~3일 소요됩니다.'],
+            ['question' => '교환 되나요?', 'answer' => ''],   // 답변 없음 → 제외
+            ['question' => '', 'answer' => '질문 없음'],       // 질문 없음 → 제외
+        ]);
+
+        $this->assertSame('FAQPage', $schema['@type']);
+        $this->assertCount(1, $schema['mainEntity']);
+        $this->assertSame('배송 얼마나 걸리나요?', $schema['mainEntity'][0]['name']);
+        $this->assertSame('2~3일 소요됩니다.', $schema['mainEntity'][0]['acceptedAnswer']['text']);
+    }
+
+    public function testFaqSchemaReturnsEmptyWhenNoValidEntries(): void
+    {
+        $this->assertSame([], SeoHelper::faqSchema([]));
+        $this->assertSame([], SeoHelper::faqSchema([['question' => 'q', 'answer' => '']]));
+    }
+
+    public function testArticleSchemaIncludesAuthorAndDates(): void
+    {
+        $schema = SeoHelper::articleSchema([
+            'title'         => '공지사항',
+            'user_nickname' => '관리자',
+            'created_at'    => '2026-06-01 10:00:00',
+            'updated_at'    => '2026-06-02 11:00:00',
+        ], 'https://test/board/notice/3');
+
+        $this->assertSame('Article', $schema['@type']);
+        $this->assertSame('공지사항', $schema['headline']);
+        $this->assertSame('관리자', $schema['author']['name']);
+        $this->assertSame('https://test/board/notice/3', $schema['mainEntityOfPage']);
+        $this->assertArrayHasKey('datePublished', $schema);
+        $this->assertArrayHasKey('dateModified', $schema);
+    }
 }

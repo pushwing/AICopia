@@ -189,6 +189,8 @@ class ShopController extends BaseController
                     ['name' => '상품', 'url' => base_url('shop')],
                     ['name' => (string) $product['name'], 'url' => $canonical],
                 ]),
+                // 답변 완료된 공개 Q&A → FAQPage (없으면 빈 배열 → 렌더 시 생략)
+                \App\Libraries\SeoHelper::faqSchema($this->qnaModel->getPublicAnswered($productId)),
             ],
         ];
 

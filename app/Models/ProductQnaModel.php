@@ -35,6 +35,30 @@ class ProductQnaModel extends Model
     }
 
     /**
+     * FAQPage 구조화 데이터용 — 답변 완료된 공개(비밀 아님) Q&A의 질문·답변만 반환.
+     *
+     * @return array<int, array{question: string, answer: string}>
+     */
+    public function getPublicAnswered(int $productId, int $limit = 20): array
+    {
+        $rows = $this->select('title, answer')
+            ->where('product_id', $productId)
+            ->where('is_answered', 1)
+            ->where('is_secret', 0)
+            ->where('answer IS NOT NULL')
+            ->orderBy('answered_at', 'DESC')
+            ->findAll($limit);
+
+        return array_map(
+            static fn (array $r): array => [
+                'question' => (string) $r['title'],
+                'answer'   => (string) ($r['answer'] ?? ''),
+            ],
+            $rows
+        );
+    }
+
+    /**
      * @param  array<string, mixed> $params
      * @return array{items: array<int, array<string, mixed>>, total: int, page: int, perPage: int}
      */
