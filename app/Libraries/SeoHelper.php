@@ -51,6 +51,14 @@ class SeoHelper
             $html .= '<meta property="og:image" content="' . esc(base_url($ogImage)) . "\">\n";
         }
 
+        // 트위터 카드 (이미지가 있으면 large summary)
+        $html .= '<meta name="twitter:card" content="' . ($ogImage ? 'summary_large_image' : 'summary') . "\">\n";
+        $html .= '<meta name="twitter:title" content="' . esc($title) . "\">\n";
+        $html .= '<meta name="twitter:description" content="' . esc($desc) . "\">\n";
+        if ($ogImage) {
+            $html .= '<meta name="twitter:image" content="' . esc(base_url($ogImage)) . "\">\n";
+        }
+
         // 네이버 웹마스터 인증
         if (! empty($this->settings['naver_verify'])) {
             $html .= '<meta name="naver-site-verification" content="' . esc($this->settings['naver_verify']) . "\">\n";
@@ -214,6 +222,74 @@ HTML;
             '@type'           => 'BreadcrumbList',
             'itemListElement' => $elements,
         ];
+    }
+
+    /**
+     * FAQPage 스키마. 답변이 달린 공개 Q&A만 넘길 것.
+     *
+     * @param array<int, array{question: string, answer: string}> $qnas
+     *
+     * @return array<string, mixed>
+     */
+    public static function faqSchema(array $qnas): array
+    {
+        $entities = [];
+        foreach ($qnas as $qna) {
+            $question = trim(strip_tags($qna['question']));
+            $answer   = trim(strip_tags($qna['answer']));
+            if ($question === '' || $answer === '') {
+                continue;
+            }
+            $entities[] = [
+                '@type'          => 'Question',
+                'name'           => $question,
+                'acceptedAnswer' => [
+                    '@type' => 'Answer',
+                    'text'  => $answer,
+                ],
+            ];
+        }
+
+        if ($entities === []) {
+            return [];
+        }
+
+        return [
+            '@context'   => 'https://schema.org',
+            '@type'      => 'FAQPage',
+            'mainEntity' => $entities,
+        ];
+    }
+
+    /**
+     * 게시판 글용 Article 스키마.
+     *
+     * @param array<string, mixed> $post posts 행(user_nickname/author_name, created_at, updated_at 포함)
+     *
+     * @return array<string, mixed>
+     */
+    public static function articleSchema(array $post, string $url): array
+    {
+        $author = (string) ($post['user_nickname'] ?? ($post['author_name'] ?? ''));
+
+        $schema = [
+            '@context'         => 'https://schema.org',
+            '@type'            => 'Article',
+            'headline'         => (string) ($post['title'] ?? ''),
+            'mainEntityOfPage' => $url,
+        ];
+
+        if ($author !== '') {
+            $schema['author'] = ['@type' => 'Person', 'name' => $author];
+        }
+        if (! empty($post['created_at'])) {
+            $schema['datePublished'] = date('c', strtotime((string) $post['created_at']));
+        }
+        if (! empty($post['updated_at'])) {
+            $schema['dateModified'] = date('c', strtotime((string) $post['updated_at']));
+        }
+
+        return $schema;
     }
 
     // ─── 내부 헬퍼 ──────────────────────────────────────────────────────────
