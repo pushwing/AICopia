@@ -52,6 +52,43 @@ final class SeoHelperTest extends CIUnitTestCase
         $this->assertSame('https://schema.org/OutOfStock', $schema['offers']['availability']);
     }
 
+    public function testProductSchemaAddsAggregateRatingAndReviews(): void
+    {
+        $schema = SeoHelper::productSchema(
+            ['id' => 3, 'name' => 'p', 'slug' => 'p', 'price' => 1000, 'stock' => 5, 'status' => 'on_sale'],
+            [],
+            ['count' => 12, 'average' => 4.5],
+            [
+                ['author' => '김**', 'rating' => 5, 'body' => '좋아요', 'date' => '2026-06-01 09:00:00'],
+                ['author' => '이**', 'rating' => 0, 'body' => '별점없음', 'date' => null], // rating 0 → 제외
+            ]
+        );
+
+        $this->assertSame('AggregateRating', $schema['aggregateRating']['@type']);
+        $this->assertSame('4.5', $schema['aggregateRating']['ratingValue']);
+        $this->assertSame(12, $schema['aggregateRating']['reviewCount']);
+
+        // rating 0인 리뷰는 제외되어 1건만 남음
+        $this->assertCount(1, $schema['review']);
+        $this->assertSame('5', $schema['review'][0]['reviewRating']['ratingValue']);
+        $this->assertSame('김**', $schema['review'][0]['author']['name']);
+        $this->assertArrayHasKey('datePublished', $schema['review'][0]);
+    }
+
+    public function testProductSchemaOmitsRatingWhenNoRatedReviews(): void
+    {
+        $schema = SeoHelper::productSchema(
+            ['id' => 3, 'name' => 'p', 'slug' => 'p', 'price' => 1000, 'stock' => 5, 'status' => 'on_sale'],
+            [],
+            ['count' => 0, 'average' => 0.0],
+            []
+        );
+
+        // 별점 데이터가 없으면 aggregateRating·review 키 자체가 없어야 함(빈 값 금지)
+        $this->assertArrayNotHasKey('aggregateRating', $schema);
+        $this->assertArrayNotHasKey('review', $schema);
+    }
+
     public function testProductSchemaAttachesImages(): void
     {
         $schema = SeoHelper::productSchema(

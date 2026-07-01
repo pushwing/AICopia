@@ -131,6 +131,7 @@ class ShopController extends BaseController
         $reviewPerPage = 10;
         $reviewPage    = max(1, (int) ($this->request->getGet('review_page') ?? 1));
         $reviewData    = $this->reviewModel->getByProduct($productId, $reviewPage, $reviewPerPage);
+        $ratingSummary = $this->reviewModel->getRatingSummary($productId);
 
         $canWriteReview = false;
         $reviewOrderId  = null;
@@ -176,6 +177,20 @@ class ShopController extends BaseController
         // ── SEO 메타 · 구조화 데이터(JSON-LD) ────────────────────────────────
         $siteName = (string) ($this->viewData['settings']['site_name'] ?? '');
         $canonical = base_url('shop/' . $product['slug']);
+        // 스키마용 개별 리뷰(별점 매겨진 것만, 표시명은 마스킹)
+        $schemaReviews = [];
+        foreach ($reviewData['items'] as $r) {
+            if ((int) ($r['rating'] ?? 0) < 1) {
+                continue;
+            }
+            $name = (string) ($r['nickname'] ?: $r['username']);
+            $schemaReviews[] = [
+                'author' => mb_substr($name, 0, 1) . str_repeat('*', min(max(mb_strlen($name) - 1, 0), 2)),
+                'rating' => (int) $r['rating'],
+                'body'   => (string) $r['content'],
+                'date'   => $r['created_at'] ?? null,
+            ];
+        }
         $seoPage = [
             'meta_title' => trim($product['name'] . ($siteName !== '' ? ' | ' . $siteName : '')),
             'meta_desc'  => mb_substr(trim(strip_tags((string) ($product['description'] ?? ''))), 0, 155),
@@ -183,7 +198,7 @@ class ShopController extends BaseController
             'og_type'    => 'product',
             'canonical'  => $canonical,
             'jsonld'     => [
-                \App\Libraries\SeoHelper::productSchema($product, $images),
+                \App\Libraries\SeoHelper::productSchema($product, $images, $ratingSummary, $schemaReviews),
                 \App\Libraries\SeoHelper::breadcrumbSchema([
                     ['name' => '홈', 'url' => base_url('/')],
                     ['name' => '상품', 'url' => base_url('shop')],
@@ -212,6 +227,7 @@ class ShopController extends BaseController
             'reviewTotal'     => $reviewData['total'],
             'reviewPage'      => $reviewPage,
             'reviewPerPage'   => $reviewPerPage,
+            'ratingSummary'   => $ratingSummary,
             'canWriteReview'  => $canWriteReview,
             'reviewOrderId'   => $reviewOrderId,
             'reviewSummary'   => \App\Libraries\AiProvider\AiCache::get(
@@ -310,6 +326,11 @@ class ShopController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => '리뷰 내용을 입력해주세요.']);
         }
 
+        $rating = (int) $this->request->getPost('rating');
+        if ($rating < 1 || $rating > 5) {
+            return $this->response->setJSON(['success' => false, 'message' => '별점을 선택해주세요. (1~5)']);
+        }
+
         // 이미지 업로드 (최대 3장)
         $uploadedImages = [];
         $uploadFiles    = $this->request->getFiles();
@@ -344,6 +365,7 @@ class ShopController extends BaseController
             'order_id'    => $orderId,
             'user_id'     => $userId,
             'content'     => $content,
+            'rating'      => $rating,
             'is_rewarded' => 0,
         ]);
 
