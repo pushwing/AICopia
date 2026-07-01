@@ -10,10 +10,10 @@ use App\Models\OrderModel;
 
 class OrderController extends BaseController
 {
-    private OrderModel     $orderModel;
-    private OrderMemoModel $memoModel;
+    private readonly OrderModel     $orderModel;
+    private readonly OrderMemoModel $memoModel;
 
-    private const STATUS_LABELS = [
+    private const array STATUS_LABELS = [
         'pending'           => '결제 대기',
         'awaiting_payment'  => '입금 대기',
         'paid'              => '결제 완료',
@@ -31,7 +31,7 @@ class OrderController extends BaseController
         'exchange_completed' => '교환 완료',
     ];
 
-    private const NEXT_STATUS = [
+    private const array NEXT_STATUS = [
         'paid'             => 'preparing',
         'preparing'        => 'shipped',
         'shipped'          => 'delivered',
@@ -55,7 +55,7 @@ class OrderController extends BaseController
             $status = '';
         }
 
-        $result = $this->orderModel->adminGetAll(compact('keyword', 'status', 'page'));
+        $result = $this->orderModel->adminGetAll(['keyword' => $keyword, 'status' => $status, 'page' => $page]);
 
         return $this->render('admin/orders/list', array_merge($result, [
             'keyword'      => $keyword,
@@ -68,7 +68,7 @@ class OrderController extends BaseController
     public function anomalies(): string
     {
         $days    = min(\App\Libraries\OrderAnomalyService::MAX_DAYS, max(1, (int) ($this->request->getGet('days') ?: 7)));
-        $flagged = (new \App\Libraries\OrderAnomalyService())->flagged($days);
+        $flagged = new \App\Libraries\OrderAnomalyService()->flagged($days);
 
         return $this->render('admin/orders/anomalies', [
             'flagged'      => $flagged,
@@ -91,7 +91,7 @@ class OrderController extends BaseController
             ->orderBy('o.id', 'DESC')
             ->get()->getResultArray();
 
-        $data = array_map(fn ($r) => [
+        $data = array_map(fn (array $r): array => [
             'id'             => (int) $r['id'],
             'order_number'   => $r['order_number'],
             'created_at'     => $r['created_at'],
@@ -128,7 +128,7 @@ class OrderController extends BaseController
 
         $orderIds = array_column($orders, 'id');
         $nameMap  = [];
-        if ($orderIds) {
+        if ($orderIds !== []) {
             $rows = \Config\Database::connect()->table('order_items')
                 ->select('order_id, product_name, qty')
                 ->whereIn('order_id', $orderIds)
@@ -205,11 +205,11 @@ class OrderController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => '잘못된 상태값입니다.']);
         }
 
-        if (! is_array($orderIds) || empty($orderIds)) {
+        if (! is_array($orderIds) || $orderIds === []) {
             return $this->response->setJSON(['success' => false, 'message' => '주문을 선택해주세요.']);
         }
 
-        $orderIds = array_slice(array_map('intval', $orderIds), 0, 100);
+        $orderIds = array_slice(array_map(intval(...), $orderIds), 0, 100);
 
         $updated = 0;
         $failed  = 0;
@@ -525,7 +525,7 @@ class OrderController extends BaseController
         $content = ltrim($raw, "\xEF\xBB\xBF");  // BOM 제거
         $content = str_replace("\r\n", "\n", $content);
         $content = str_replace("\r", "\n", $content);
-        $lines   = array_values(array_filter(array_map('trim', explode("\n", $content))));
+        $lines   = array_values(array_filter(array_map(trim(...), explode("\n", $content))));
 
         $successCount = 0;
         $skippedCount = 0;
@@ -539,13 +539,13 @@ class OrderController extends BaseController
                 continue;
             }
 
-            $cols = str_getcsv($line);
+            $cols = str_getcsv($line, escape: '\\');
             if (count($cols) < 3) {
                 $errorRows[] = ['line' => $lineNum, 'raw' => $line, 'reason' => '컬럼 수 부족 (최소 3개 필요)'];
                 continue;
             }
 
-            [$orderNumber, $carrier, $trackingNumber] = array_map('trim', array_slice($cols, 0, 3));
+            [$orderNumber, $carrier, $trackingNumber] = array_map(trim(...), array_slice($cols, 0, 3));
 
             if ($orderNumber === '' || $trackingNumber === '') {
                 $skippedCount++;

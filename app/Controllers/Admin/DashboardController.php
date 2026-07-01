@@ -58,7 +58,7 @@ class DashboardController extends BaseController
             'sales'   => ['labels' => $salesLabels, 'data' => $salesData],
             'top'     => [
                 'labels' => array_column($topProducts, 'product_name'),
-                'data'   => array_map('intval', array_column($topProducts, 'total_qty')),
+                'data'   => array_map(intval(...), array_column($topProducts, 'total_qty')),
             ],
         ]);
     }
@@ -68,7 +68,7 @@ class DashboardController extends BaseController
         $postModel    = new PostModel();
         $userModel    = new UserModel();
         $inquiryModel = new InquiryModel();
-        $orderModel   = new OrderModel();
+        new OrderModel();
         $productModel = new ProductModel();
 
         $db = \Config\Database::connect();
@@ -95,7 +95,6 @@ class DashboardController extends BaseController
         $todayStart = date('Y-m-d') . ' 00:00:00';
         $weekStart  = date('Y-m-d', strtotime('monday this week')) . ' 00:00:00';
         $monthStart = date('Y-m-01') . ' 00:00:00';
-        $excludedStatuses = ['pending', 'expired', 'cancelled', 'refunded'];
 
         $salesRow = $db->query("
             SELECT

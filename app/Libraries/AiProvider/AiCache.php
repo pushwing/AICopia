@@ -46,7 +46,7 @@ class AiCache
 
         $value = $callback();
 
-        if ($value !== null && $value !== [] && $value !== '') {
+        if (!in_array($value, [null, [], ''], true)) {
             $cache->save($key, $value, $ttl);
         }
 

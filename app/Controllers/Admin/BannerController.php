@@ -10,7 +10,7 @@ use App\Models\BannerModel;
 
 class BannerController extends BaseController
 {
-    private BannerModel $bannerModel;
+    private readonly BannerModel $bannerModel;
 
     public function __construct()
     {
@@ -48,7 +48,7 @@ class BannerController extends BaseController
             return redirect()->back()->withInput()->with('error', '배너 이미지를 선택해주세요.');
         }
 
-        $result = (new ImageUploader('banners'))->upload($file);
+        $result = new ImageUploader('banners')->upload($file);
         if (! $result['success']) {
             return redirect()->back()->withInput()->with('error', $result['error']);
         }
@@ -81,7 +81,7 @@ class BannerController extends BaseController
 
         $file = $this->request->getFile('image');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('banners'))->upload($file);
+            $result = new ImageUploader('banners')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
@@ -106,9 +106,9 @@ class BannerController extends BaseController
     private function collectData(string $imagePath): array
     {
         $toDatetime = fn ($val) => $val
-            ? (strlen($val) <= 16
+            ? (strlen((string) $val) <= 16
                 ? str_replace('T', ' ', $val) . ':00'
-                : str_replace('T', ' ', substr($val, 0, 19)))
+                : str_replace('T', ' ', substr((string) $val, 0, 19)))
             : null;
 
         return [

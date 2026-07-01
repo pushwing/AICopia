@@ -11,14 +11,17 @@ use CodeIgniter\CLI\CLI;
 
 class UpgradeGrades extends BaseCommand
 {
+    #[\Override]
     protected $group       = 'Members';
+    #[\Override]
     protected $name        = 'grades:upgrade';
+    #[\Override]
     protected $description = '누적 구매 조건을 충족한 회원을 자동 승급합니다 (bronze→silver, silver→gold).';
 
     public function run(array $params): void
     {
         $db       = \Config\Database::connect();
-        $settings = (new SettingModel())->getAllAsMap();
+        $settings = new SettingModel()->getAllAsMap();
 
         if (! (bool) ($settings['schedule_grades_upgrade_enabled'] ?? 1)) {
             CLI::write('[grades:upgrade] 비활성화됨 — 스킵', 'yellow');

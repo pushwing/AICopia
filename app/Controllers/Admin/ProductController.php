@@ -21,10 +21,10 @@ use Config\Database;
 
 class ProductController extends BaseController
 {
-    private ProductModel      $productModel;
-    private CategoryModel     $categoryModel;
-    private ProductImageModel $imageModel;
-    private ProductSkuModel   $skuModel;
+    private readonly ProductModel      $productModel;
+    private readonly CategoryModel     $categoryModel;
+    private readonly ProductImageModel $imageModel;
+    private readonly ProductSkuModel   $skuModel;
 
     public function __construct()
     {
@@ -87,7 +87,7 @@ class ProductController extends BaseController
         $this->imageModel->attachPrimaryImages($rows);
         $threshold = (int) ($this->viewData['settings']['low_stock_threshold'] ?? 5);
 
-        $data = array_map(fn ($p) => [
+        $data = array_map(fn (array $p): array => [
             'id'             => (int) $p['id'],
             'name'           => $p['name'],
             'slug'           => $p['slug'],
@@ -108,10 +108,10 @@ class ProductController extends BaseController
     /** POST /admin/products/bulk — 상품 일괄 편집 (상태·재고·삭제) */
     public function bulk(): \CodeIgniter\HTTP\RedirectResponse
     {
-        $ids    = array_values(array_filter(array_map('intval', (array) $this->request->getPost('ids'))));
+        $ids    = array_values(array_filter(array_map(intval(...), (array) $this->request->getPost('ids'))));
         $action = $this->request->getPost('action');
 
-        if (empty($ids)) {
+        if ($ids === []) {
             return redirect()->back()->with('error', '상품을 선택해주세요.');
         }
 
@@ -208,7 +208,7 @@ class ProductController extends BaseController
 
         $this->productModel->update($id, ['stock' => $newStock]);
 
-        (new StockLogModel())->record(
+        new StockLogModel()->record(
             $id,
             'adjust',
             abs($newStock - $oldStock),
@@ -318,7 +318,7 @@ class ProductController extends BaseController
     {
         $alertModel = new RestockAlertModel();
         $pending    = $alertModel->getPending((int) $product['id']);
-        if (! $pending) {
+        if ($pending === []) {
             return;
         }
 
@@ -349,7 +349,7 @@ class ProductController extends BaseController
             );
             $message = \App\Libraries\AiProvider\AiCache::remember(
                 $key,
-                fn () => AiCategoryAdvisor::create()->generateRestockMessage(
+                fn (): string => AiCategoryAdvisor::create()->generateRestockMessage(
                     (string) ($product['name'] ?? ''),
                     (string) ($product['description'] ?? '')
                 ),
@@ -499,13 +499,13 @@ class ProductController extends BaseController
 
     public function assignCategory(): \CodeIgniter\HTTP\RedirectResponse
     {
-        $productIds  = array_values(array_filter(array_map('intval', (array) $this->request->getPost('product_ids'))));
-        $categoryIds = array_values(array_filter(array_map('intval', (array) $this->request->getPost('category_ids'))));
+        $productIds  = array_values(array_filter(array_map(intval(...), (array) $this->request->getPost('product_ids'))));
+        $categoryIds = array_values(array_filter(array_map(intval(...), (array) $this->request->getPost('category_ids'))));
 
-        if (empty($productIds)) {
+        if ($productIds === []) {
             return redirect()->back()->with('error', '상품을 선택해주세요.');
         }
-        if (empty($categoryIds)) {
+        if ($categoryIds === []) {
             return redirect()->back()->with('error', '카테고리를 선택해주세요.');
         }
 
@@ -535,7 +535,7 @@ class ProductController extends BaseController
             // 동일 상품명·설명 재요청 시 캐시 사용 (카테고리 구조 변경도 키에 반영)
             $ids  = \App\Libraries\AiProvider\AiCache::remember(
                 \App\Libraries\AiProvider\AiCache::key('category', $name, $description, md5(json_encode($tree))),
-                fn () => AiCategoryAdvisor::create()->suggestCategories($name, $description, $tree)
+                fn (): array => AiCategoryAdvisor::create()->suggestCategories($name, $description, $tree)
             );
             return $this->response->setJSON(['category_ids' => $ids]);
         } catch (AiKeyMissingException $e) {
@@ -568,7 +568,6 @@ class ProductController extends BaseController
         $raw      = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $mimeType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        curl_close($ch);
 
         if ($raw === false || $httpCode !== 200) {
             return $this->response->setJSON(['error' => '이미지 다운로드에 실패했습니다.'])->setStatusCode(500);
@@ -602,7 +601,7 @@ class ProductController extends BaseController
             return $this->response->setJSON(['error' => '이미지 저장에 실패했습니다.'])->setStatusCode(500);
         }
 
-        $mediaId = (new MediaModel())->insert([
+        $mediaId = new MediaModel()->insert([
             'original_name' => $storedName,
             'stored_name'   => $storedName,
             'file_path'     => $relativePath,
@@ -644,7 +643,7 @@ class ProductController extends BaseController
         $start   = ($page - 1) * $display + 1;
 
         try {
-            $result = (new NaverShoppingProvider())->search($keyword, $display, $start);
+            $result = new NaverShoppingProvider()->search($keyword, $display, $start);
             return $this->response->setJSON($result);
         } catch (\Throwable $e) {
             log_message('error', 'NaverShopping: ' . $e->getMessage());
@@ -712,7 +711,7 @@ class ProductController extends BaseController
                 return $this->response->setJSON(['error' => '이미지를 읽을 수 없습니다.'])->setStatusCode(500);
             }
 
-            $result = (new \App\Libraries\AiProvider\ClaudeProvider())
+            $result = new \App\Libraries\AiProvider\ClaudeProvider()
                 ->extractProductInfo(base64_encode($bytes), $mime);
 
             if ($result['name'] === '') {
@@ -897,7 +896,6 @@ class ProductController extends BaseController
         ]);
         $result   = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($httpCode !== 200 || $result === false) {
             // API 오류 응답 파싱 시도
@@ -932,7 +930,7 @@ class ProductController extends BaseController
         $relPath           = $subDir . $newFileName;
 
         $newMediaId = $mediaModel->insert([
-            'original_name' => pathinfo($media['original_name'], PATHINFO_FILENAME) . '_rmbg.png',
+            'original_name' => pathinfo((string) $media['original_name'], PATHINFO_FILENAME) . '_rmbg.png',
             'stored_name'   => $newFileName,
             'file_path'     => $relPath,
             'mime_type'     => 'image/png',
@@ -1004,7 +1002,7 @@ class ProductController extends BaseController
 
     private function handleCategories(int $productId): void
     {
-        $ids = array_filter(array_map('intval', (array) $this->request->getPost('category_ids')));
+        $ids = array_filter(array_map(intval(...), (array) $this->request->getPost('category_ids')));
         $this->productModel->setCategories($productId, array_values($ids));
     }
 
@@ -1034,7 +1032,7 @@ class ProductController extends BaseController
 
         // 네이버 검색 등 외부 임포트 이미지 (media_id 직접 지정)
         $importedIds = array_values(array_filter(
-            array_map('intval', (array) $this->request->getPost('imported_media_ids'))
+            array_map(intval(...), (array) $this->request->getPost('imported_media_ids'))
         ));
         foreach ($importedIds as $mediaId) {
             $this->imageModel->insert([
@@ -1048,10 +1046,12 @@ class ProductController extends BaseController
         }
 
         foreach ($newImages as $file) {
-            if (! $file->isValid() || $file->hasMoved()) {
+            if (! $file->isValid()) {
                 continue;
             }
-
+            if ($file->hasMoved()) {
+                continue;
+            }
             $result = $uploader->upload($file, $this->request->getPost('name'));
             if (! $result['success']) {
                 continue;
@@ -1153,7 +1153,7 @@ class ProductController extends BaseController
         $catRows = Database::connect()->table('categories')->select('id, name')->get()->getResultArray();
         $catMap  = [];
         foreach ($catRows as $c) {
-            $catMap[trim($c['name'])] = (int) $c['id'];
+            $catMap[trim((string) $c['name'])] = (int) $c['id'];
         }
 
         $valid       = [];
@@ -1177,7 +1177,7 @@ class ProductController extends BaseController
             }
         }
 
-        if (empty($valid) && empty($importErrors)) {
+        if ($valid === [] && $importErrors === []) {
             return redirect()->back()->with('error', '데이터가 없습니다. 2행부터 입력해주세요.');
         }
 
@@ -1305,6 +1305,6 @@ class ProductController extends BaseController
         // 설명
         $data['description'] = $description;
 
-        return ['errors' => $errors, 'data' => $errors ? [] : $data];
+        return ['errors' => $errors, 'data' => $errors !== [] ? [] : $data];
     }
 }

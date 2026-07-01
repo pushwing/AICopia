@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class PageModel extends Model
 {
+    #[\Override]
     protected $table      = 'pages';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $useTimestamps = true;
+    #[\Override]
     protected $allowedFields = [
         'slug', 'title', 'content', 'layout',
         'meta_title', 'meta_desc', 'og_image', 'sort_order', 'status',

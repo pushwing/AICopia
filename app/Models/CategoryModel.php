@@ -10,9 +10,13 @@ use CodeIgniter\Model;
 class CategoryModel extends Model
 {
     use HasSlug;
+    #[\Override]
     protected $table      = 'categories';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $useTimestamps = true;
+    #[\Override]
     protected $allowedFields = ['parent_id', 'name', 'description', 'faq', 'slug', 'sort_order', 'is_active'];
 
     /**
@@ -58,7 +62,7 @@ class CategoryModel extends Model
             if (! str_contains($line, '||')) {
                 continue;
             }
-            [$q, $a] = array_map('trim', explode('||', $line, 2));
+            [$q, $a] = array_map(trim(...), explode('||', $line, 2));
             if ($q !== '' && $a !== '') {
                 $items[] = ['question' => $q, 'answer' => $a];
             }
@@ -90,7 +94,7 @@ class CategoryModel extends Model
      */
     public function getTree(): array
     {
-        return (array) cache()->remember('category_tree', 0, function () {
+        return (array) cache()->remember('category_tree', 0, function (): array {
             $all = $this->db->table($this->table)->where('is_active', 1)->orderBy('sort_order')->get()->getResultArray();
 
             $parents = [];

@@ -17,9 +17,9 @@ class NotificationController extends BaseController
         $settings          = $this->viewData['settings'] ?? [];
         $lowStockThreshold = (int) ($settings['low_stock_threshold'] ?? $settings['stock_alert_threshold'] ?? 5);
 
-        $unreadInquiries = (new InquiryModel())->getUnreadCount();
-        $unansweredQna   = (new ProductQnaModel())->getUnansweredCount();
-        $lowStock        = (new ProductModel())
+        $unreadInquiries = new InquiryModel()->getUnreadCount();
+        $unansweredQna   = new ProductQnaModel()->getUnansweredCount();
+        $lowStock        = new ProductModel()
             ->where('stock <=', $lowStockThreshold)
             ->where('status !=', 'hidden')
             ->countAllResults();

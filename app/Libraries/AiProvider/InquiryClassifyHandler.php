@@ -16,10 +16,10 @@ use App\Models\InquiryModel;
  */
 class InquiryClassifyHandler
 {
-    private InquiryModel $inquiryModel;
+    private readonly InquiryModel $inquiryModel;
 
     public function __construct(
-        private ?AiProviderInterface $provider = null,
+        private readonly ?AiProviderInterface $provider = null,
         ?InquiryModel $inquiryModel = null
     ) {
         $this->inquiryModel = $inquiryModel ?? new InquiryModel();

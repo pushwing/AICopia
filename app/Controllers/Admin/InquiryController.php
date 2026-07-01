@@ -12,7 +12,7 @@ use App\Models\InquiryModel;
 
 class InquiryController extends BaseController
 {
-    private InquiryModel $model;
+    private readonly InquiryModel $model;
 
     public function __construct()
     {

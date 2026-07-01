@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class PopupModel extends Model
 {
+    #[\Override]
     protected $table         = 'popups';
+    #[\Override]
     protected $primaryKey    = 'id';
+    #[\Override]
     protected $useTimestamps = true;
+    #[\Override]
     protected $allowedFields = [
         'title', 'image_path', 'content', 'show_scope',
         'pos_x', 'pos_y', 'priority', 'is_active', 'started_at', 'ended_at',
@@ -22,8 +26,11 @@ class PopupModel extends Model
         'specific'  => '특정 페이지',
     ];
 
+    #[\Override]
     protected $afterInsert = ['clearCacheCallback'];
+    #[\Override]
     protected $afterUpdate = ['clearCacheCallback'];
+    #[\Override]
     protected $afterDelete = ['clearCacheCallback'];
 
     /**
@@ -34,7 +41,7 @@ class PopupModel extends Model
      */
     public function getActiveForPage(string $uri): array
     {
-        $cached = (array) cache()->remember('active_popups', 3600, function () {
+        $cached = (array) cache()->remember('active_popups', 3600, function (): array {
             $popups = $this->where('is_active', 1)->orderBy('priority', 'ASC')->findAll();
 
             $pageUrls = [];
@@ -112,8 +119,8 @@ class PopupModel extends Model
 
         $db->table('popup_pages')->where('popup_id', $popupId)->delete();
 
-        if (! empty($menuIds)) {
-            $rows = array_map(fn ($menuId) => [
+        if ($menuIds !== []) {
+            $rows = array_map(fn ($menuId): array => [
                 'popup_id' => $popupId,
                 'menu_id'  => (int) $menuId,
             ], $menuIds);

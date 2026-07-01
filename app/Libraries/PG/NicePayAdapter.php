@@ -10,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class NicePayAdapter implements PGInterface
 {
-    private string $clientId;
-    private string $secretKey;
+    private readonly string $clientId;
+    private readonly string $secretKey;
     private string $apiBase = 'https://api.nicepay.co.kr/v1';
 
     public function __construct()
@@ -100,7 +100,6 @@ class NicePayAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 

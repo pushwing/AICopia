@@ -11,9 +11,9 @@ use App\Models\StockLogModel;
 
 class InventoryController extends BaseController
 {
-    private ProductModel      $productModel;
-    private ProductImageModel $imageModel;
-    private StockLogModel     $logModel;
+    private readonly ProductModel      $productModel;
+    private readonly ProductImageModel $imageModel;
+    private readonly StockLogModel     $logModel;
 
     public function __construct()
     {
@@ -79,7 +79,7 @@ class InventoryController extends BaseController
     {
         $windowDays  = max(7, (int) ($this->request->getGet('window') ?: \App\Libraries\RestockSuggestionService::WINDOW_DAYS));
         $coverDays   = max(7, (int) ($this->request->getGet('cover') ?: \App\Libraries\RestockSuggestionService::COVER_DAYS));
-        $suggestions = (new \App\Libraries\RestockSuggestionService())->suggestions($windowDays, $coverDays);
+        $suggestions = new \App\Libraries\RestockSuggestionService()->suggestions($windowDays, $coverDays);
 
         return $this->render('admin/inventory/suggestions', [
             'suggestions' => $suggestions,

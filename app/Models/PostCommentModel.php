@@ -8,11 +8,17 @@ use CodeIgniter\Model;
 
 class PostCommentModel extends Model
 {
+    #[\Override]
     protected $table      = 'post_comments';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $useTimestamps  = true;
+    #[\Override]
     protected $updatedField   = '';
+    #[\Override]
     protected $useSoftDeletes = true;
+    #[\Override]
     protected $allowedFields  = [
         'post_id', 'user_id', 'content',
         'author_name', 'author_password', 'ip_address',

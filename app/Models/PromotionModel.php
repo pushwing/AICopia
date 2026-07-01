@@ -8,15 +8,19 @@ use CodeIgniter\Model;
 
 class PromotionModel extends Model
 {
+    #[\Override]
     protected $table         = 'promotions';
+    #[\Override]
     protected $primaryKey    = 'id';
+    #[\Override]
     protected $useTimestamps = true;
+    #[\Override]
     protected $allowedFields = [
         'title', 'slug', 'description', 'banner_image',
         'grade_access', 'start_date', 'end_date', 'is_active', 'sort_order',
     ];
 
-    private const GRADE_ORDER = [
+    private const array GRADE_ORDER = [
         'all' => 0, 'bronze' => 1, 'silver' => 2, 'gold' => 3, 'platinum' => 4,
     ];
 

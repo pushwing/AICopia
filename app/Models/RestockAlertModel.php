@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class RestockAlertModel extends Model
 {
+    #[\Override]
     protected $table      = 'restock_alerts';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $allowedFields = ['product_id', 'user_id', 'email', 'notified_at', 'created_at'];
+    #[\Override]
     protected $useTimestamps = false;
 
     public function exists(int $productId, string $email): bool

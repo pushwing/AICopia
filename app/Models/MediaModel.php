@@ -8,10 +8,15 @@ use CodeIgniter\Model;
 
 class MediaModel extends Model
 {
+    #[\Override]
     protected $table      = 'media';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $useTimestamps  = true;
+    #[\Override]
     protected $updatedField   = '';
+    #[\Override]
     protected $allowedFields  = [
         'original_name', 'stored_name', 'file_path', 'file_size', 'mime_type', 'alt',
     ];

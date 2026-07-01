@@ -66,8 +66,8 @@ trait ReviewSummaryParsing
         }
 
         $toStringList = static fn ($v): array => array_values(array_filter(
-            array_map(static fn ($i) => trim((string) $i), is_array($v) ? $v : []),
-            static fn ($i) => $i !== ''
+            array_map(static fn ($i): string => trim((string) $i), is_array($v) ? $v : []),
+            static fn (string $i): bool => $i !== ''
         ));
 
         $sentiment = (string) ($parsed['sentiment'] ?? 'mixed');
@@ -76,7 +76,7 @@ trait ReviewSummaryParsing
         }
 
         $negativeIds = array_values(array_filter(array_map(
-            'intval',
+            intval(...),
             (array) ($parsed['negative_review_ids'] ?? [])
         )));
 

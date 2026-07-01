@@ -8,10 +8,15 @@ use CodeIgniter\Model;
 
 class InquiryModel extends Model
 {
+    #[\Override]
     protected $table      = 'inquiries';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $useTimestamps  = true;
+    #[\Override]
     protected $updatedField   = '';
+    #[\Override]
     protected $allowedFields  = [
         'name', 'email', 'phone', 'subject', 'message', 'ip_address', 'is_read',
         'category', 'priority', 'sentiment',

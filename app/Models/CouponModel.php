@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class CouponModel extends Model
 {
+    #[\Override]
     protected $table         = 'coupons';
+    #[\Override]
     protected $primaryKey    = 'id';
+    #[\Override]
     protected $useTimestamps = true;
+    #[\Override]
     protected $allowedFields = [
         'code', 'name', 'type', 'target_grade', 'discount_value', 'min_order_amount',
         'max_discount_amount', 'total_qty', 'used_count', 'per_user_limit',

@@ -12,17 +12,15 @@ abstract class AbstractOAuthProvider
 {
     /** @var array<string, mixed> */
     protected array $config;
-    protected string $providerName;
 
-    public function __construct(string $providerName)
+    public function __construct(protected string $providerName)
     {
-        $this->providerName = $providerName;
-        $cfg = config(\Config\OAuth::class)->{$providerName};
+        $cfg = config(\Config\OAuth::class)->{$this->providerName};
 
         // .env 우선 적용
-        $cfg['client_id']     = env("oauth.{$providerName}.client_id", $cfg['client_id']);
-        $cfg['client_secret'] = env("oauth.{$providerName}.client_secret", $cfg['client_secret']);
-        $cfg['redirect_uri']  = base_url("auth/social/{$providerName}/callback");
+        $cfg['client_id']     = env("oauth.{$this->providerName}.client_id", $cfg['client_id']);
+        $cfg['client_secret'] = env("oauth.{$this->providerName}.client_secret", $cfg['client_secret']);
+        $cfg['redirect_uri']  = base_url("auth/social/{$this->providerName}/callback");
 
         $this->config = $cfg;
     }
@@ -87,7 +85,6 @@ abstract class AbstractOAuthProvider
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $body = curl_exec($ch);
-        curl_close($ch);
         return json_decode($body, true) ?? [];
     }
 
@@ -108,7 +105,6 @@ abstract class AbstractOAuthProvider
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $body = curl_exec($ch);
-        curl_close($ch);
         return json_decode($body, true) ?? [];
     }
 }

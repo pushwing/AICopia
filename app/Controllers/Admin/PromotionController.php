@@ -11,7 +11,7 @@ use App\Models\PromotionModel;
 
 class PromotionController extends BaseController
 {
-    private PromotionModel $model;
+    private readonly PromotionModel $model;
 
     public function __construct()
     {
@@ -32,7 +32,7 @@ class PromotionController extends BaseController
         return $this->render('admin/promotions/form', [
             'promotion'  => null,
             'products'   => [],
-            'categories' => (new CategoryModel())->findAll(),
+            'categories' => new CategoryModel()->findAll(),
         ]);
     }
 
@@ -43,7 +43,7 @@ class PromotionController extends BaseController
 
         $file = $this->request->getFile('banner_image_file');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('promotions'))->upload($file);
+            $result = new ImageUploader('promotions')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
@@ -67,7 +67,7 @@ class PromotionController extends BaseController
         return $this->render('admin/promotions/form', [
             'promotion'  => $promotion,
             'products'   => $this->model->getProducts($id),
-            'categories' => (new CategoryModel())->findAll(),
+            'categories' => new CategoryModel()->findAll(),
         ]);
     }
 
@@ -84,7 +84,7 @@ class PromotionController extends BaseController
 
         $file = $this->request->getFile('banner_image_file');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('promotions'))->upload($file);
+            $result = new ImageUploader('promotions')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }

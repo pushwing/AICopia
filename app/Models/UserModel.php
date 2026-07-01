@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class UserModel extends Model
 {
+    #[\Override]
     protected $table      = 'users';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $useTimestamps = true;
+    #[\Override]
     protected $allowedFields = [
         'username', 'email', 'password', 'nickname', 'role', 'grade', 'is_active', 'last_login',
         'social_provider', 'social_id', 'social_token', 'avatar',

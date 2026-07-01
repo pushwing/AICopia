@@ -10,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class KakaoPayAdapter implements PGInterface
 {
-    private string $secretKey;
-    private string $cid;
+    private readonly string $secretKey;
+    private readonly string $cid;
     private string $apiBase = 'https://open-api.kakaopay.com/online/v1/payment';
 
     public function __construct()
@@ -139,7 +139,6 @@ class KakaoPayAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 

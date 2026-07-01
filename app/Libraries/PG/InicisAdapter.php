@@ -10,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class InicisAdapter implements PGInterface
 {
-    private string $merchantId;
-    private string $signKey;
+    private readonly string $merchantId;
+    private readonly string $signKey;
     private string $apiBase = 'https://iniapi.inicis.com/api/v1';
 
     public function __construct()
@@ -120,7 +120,6 @@ class InicisAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => http_build_query($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 

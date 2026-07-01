@@ -25,7 +25,7 @@ class RestockSuggestionService
     public const COVER_DAYS = 30;
 
     /** 판매(수요)로 인정할 주문 상태 */
-    private const SOLD_STATUSES = ['paid', 'preparing', 'shipped', 'delivered'];
+    private const array SOLD_STATUSES = ['paid', 'preparing', 'shipped', 'delivered'];
 
     /**
      * 발주가 필요한 상품 제안 목록 (권장 발주량 > 0).
@@ -83,12 +83,10 @@ class RestockSuggestionService
         }
 
         // 소진 임박(잔여일 적은) 순 → 판매량 많은 순
-        usort($suggestions, function ($a, $b) {
-            return [$a['days_remaining'], -$a['sold']] <=> [$b['days_remaining'], -$b['sold']];
-        });
+        usort($suggestions, fn (array $a, array $b) => [$a['days_remaining'], -$a['sold']] <=> [$b['days_remaining'], -$b['sold']]);
 
         if ($suggestions !== []) {
-            (new ProductImageModel())->attachPrimaryImages($suggestions);
+            new ProductImageModel()->attachPrimaryImages($suggestions);
         }
 
         return $suggestions;

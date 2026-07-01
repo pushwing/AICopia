@@ -146,9 +146,9 @@ class StatsController extends BaseController
             [$fromDt, $toDt]
         )->getResultArray();
         $hourlyMap  = array_column($hourlyRaw, 'hits', 'hour');
-        $hourlyData = array_map(fn ($h) => (int) ($hourlyMap[$h] ?? 0), range(0, 23));
+        $hourlyData = array_map(fn (int $h): int => (int) ($hourlyMap[$h] ?? 0), range(0, 23));
 
-        $todayStats = (new AccessLogModel())->getTodayStats();
+        $todayStats = new AccessLogModel()->getTodayStats();
 
         return $this->render('admin/stats/index', [
             'from'             => $from,

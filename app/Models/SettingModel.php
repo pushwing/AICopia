@@ -8,8 +8,11 @@ use CodeIgniter\Model;
 
 class SettingModel extends Model
 {
+    #[\Override]
     protected $table      = 'settings';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $allowedFields = ['group', 'key', 'value', 'label', 'type', 'updated_at'];
 
     /**
@@ -19,7 +22,7 @@ class SettingModel extends Model
      */
     public function getAllAsMap(): array
     {
-        return (array) cache()->remember('site_settings', 3600, function () {
+        return (array) cache()->remember('site_settings', 3600, function (): array {
             $rows = $this->findAll();
             $map  = [];
             foreach ($rows as $row) {

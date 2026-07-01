@@ -8,8 +8,11 @@ use CodeIgniter\Model;
 
 class MenuModel extends Model
 {
+    #[\Override]
     protected $table      = 'menus';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $allowedFields = ['parent_id', 'title', 'url', 'target', 'sort_order', 'is_active'];
 
     /**
@@ -19,7 +22,7 @@ class MenuModel extends Model
      */
     public function getTree(): array
     {
-        return (array) cache()->remember('nav_menus', 3600, function () {
+        return (array) cache()->remember('nav_menus', 3600, function (): array {
             $all    = $this->db->table($this->table)->where('is_active', 1)->orderBy('sort_order')->get()->getResultArray();
             $tree   = [];
             $map    = [];

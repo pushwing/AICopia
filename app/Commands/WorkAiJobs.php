@@ -12,14 +12,18 @@ use CodeIgniter\CLI\CLI;
 
 class WorkAiJobs extends BaseCommand
 {
+    #[\Override]
     protected $group       = 'AI';
+    #[\Override]
     protected $name        = 'ai:work';
+    #[\Override]
     protected $description = '대기 중인 AI 작업 큐(ai_jobs)를 백그라운드에서 처리합니다.';
+    #[\Override]
     protected $usage       = 'ai:work [limit]';
 
     public function run(array $params): void
     {
-        $settings = (new SettingModel())->getAllAsMap();
+        $settings = new SettingModel()->getAllAsMap();
         if (! (bool) ($settings['schedule_ai_work_enabled'] ?? 1)) {
             CLI::write('[ai:work] 비활성화됨 — 스킵', 'yellow');
             return;

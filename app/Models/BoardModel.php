@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class BoardModel extends Model
 {
+    #[\Override]
     protected $table      = 'boards';
+    #[\Override]
     protected $primaryKey = 'id';
+    #[\Override]
     protected $useTimestamps = true;
+    #[\Override]
     protected $allowedFields = [
         'slug', 'name', 'description',
         'read_permission', 'write_permission',

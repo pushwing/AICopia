@@ -18,14 +18,14 @@ use App\Models\WishlistModel;
 
 class ShopController extends BaseController
 {
-    private ProductModel       $productModel;
-    private CategoryModel      $categoryModel;
-    private ProductImageModel  $imageModel;
-    private ProductQnaModel    $qnaModel;
-    private ProductReviewModel $reviewModel;
-    private ProductSkuModel    $skuModel;
-    private WishlistModel      $wishlistModel;
-    private RestockAlertModel  $restockModel;
+    private readonly ProductModel       $productModel;
+    private readonly CategoryModel      $categoryModel;
+    private readonly ProductImageModel  $imageModel;
+    private readonly ProductQnaModel    $qnaModel;
+    private readonly ProductReviewModel $reviewModel;
+    private readonly ProductSkuModel    $skuModel;
+    private readonly WishlistModel      $wishlistModel;
+    private readonly RestockAlertModel  $restockModel;
 
     public function __construct()
     {
@@ -52,7 +52,7 @@ class ShopController extends BaseController
         $discountedProducts = $this->productModel->getDiscounted(8);
         $this->imageModel->attachPrimaryImages($discountedProducts);
 
-        $promotions = (new PromotionModel())->getActiveFrontList();
+        $promotions = new PromotionModel()->getActiveFrontList();
 
         return $this->render('shop/home', [
             'mainTopBanners'     => $bannerModel->getActiveByPosition('main_top'),
@@ -73,17 +73,17 @@ class ShopController extends BaseController
         $featuredCount = max(1, (int) ($s['welcome_featured_count'] ?? 8));
 
         $newProducts = ($s['welcome_show_new'] ?? '1') ? $this->productModel->getLatest($newCount) : [];
-        if ($newProducts) {
+        if ($newProducts !== []) {
             $this->imageModel->attachPrimaryImages($newProducts);
         }
 
         $discountedProducts = ($s['welcome_show_discount'] ?? '1') ? $this->productModel->getDiscounted($discountCount) : [];
-        if ($discountedProducts) {
+        if ($discountedProducts !== []) {
             $this->imageModel->attachPrimaryImages($discountedProducts);
         }
 
         $featuredProducts = ($s['welcome_show_featured'] ?? '1') ? $this->productModel->getFeatured($featuredCount) : [];
-        if ($featuredProducts) {
+        if ($featuredProducts !== []) {
             $this->imageModel->attachPrimaryImages($featuredProducts);
         }
 
@@ -144,24 +144,22 @@ class ShopController extends BaseController
         $optionsAndSkus = $this->skuModel->getOptionsAndSkus($productId);
 
         // 찜 여부
-        $isWished = $userId > 0
-            ? $this->wishlistModel->isWished($userId, (int) $product['id'])
-            : false;
+        $isWished = $userId > 0 && $this->wishlistModel->isWished($userId, (int) $product['id']);
 
         // 최근 본 상품 쿠키 업데이트
         $viewed = json_decode($this->request->getCookie('recently_viewed') ?? '[]', true);
         if (! is_array($viewed)) {
             $viewed = [];
         }
-        $viewed = array_values(array_filter($viewed, fn ($s) => $s !== $slug));
+        $viewed = array_values(array_filter($viewed, fn ($s): bool => $s !== $slug));
         array_unshift($viewed, $slug);
         $viewed = array_slice($viewed, 0, 11);
         $this->response->setCookie('recently_viewed', json_encode($viewed), 30 * 24 * 3600);
 
         // 최근 본 상품 목록 (현재 상품 제외, 최대 10개)
-        $recentSlugs    = array_values(array_filter($viewed, fn ($s) => $s !== $slug));
+        $recentSlugs    = array_values(array_filter($viewed, fn ($s): bool => $s !== $slug));
         $recentProducts = [];
-        if ($recentSlugs) {
+        if ($recentSlugs !== []) {
             $recentProducts = $this->productModel
                 ->whereIn('slug', $recentSlugs)
                 ->whereIn('status', ['on_sale', 'sold_out'])
@@ -169,7 +167,7 @@ class ShopController extends BaseController
             $this->imageModel->attachPrimaryImages($recentProducts);
             usort(
                 $recentProducts,
-                fn ($a, $b) =>
+                fn (array $a, array $b): int =>
                 array_search($a['slug'], $recentSlugs) <=> array_search($b['slug'], $recentSlugs)
             );
         }
@@ -243,7 +241,7 @@ class ShopController extends BaseController
     public function wishToggle(string $slug): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -260,7 +258,7 @@ class ShopController extends BaseController
     public function qnaStore(string $slug): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -290,7 +288,7 @@ class ShopController extends BaseController
     public function qnaDelete(string $slug, int $id): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -307,7 +305,7 @@ class ShopController extends BaseController
     public function reviewStore(string $slug): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -340,7 +338,10 @@ class ShopController extends BaseController
                 if (! ($file instanceof \CodeIgniter\HTTP\Files\UploadedFile)) {
                     continue;
                 }
-                if (! $file->isValid() || $file->hasMoved()) {
+                if (! $file->isValid()) {
+                    continue;
+                }
+                if ($file->hasMoved()) {
                     continue;
                 }
                 if (! in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
@@ -399,7 +400,7 @@ class ShopController extends BaseController
     public function reviewDelete(string $slug, int $id): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -432,7 +433,7 @@ class ShopController extends BaseController
         // 시맨틱 검색: 검색어를 AI로 확장해 재현율 향상 (AI 미설정 시 일반 검색)
         $expandedTerms = [];
         if (! empty($params['keyword'])) {
-            $expandedTerms = (new \App\Libraries\SemanticSearchService())->expand((string) $params['keyword']);
+            $expandedTerms = new \App\Libraries\SemanticSearchService()->expand((string) $params['keyword']);
             $params['expanded_terms'] = $expandedTerms;
         }
 
@@ -443,21 +444,21 @@ class ShopController extends BaseController
         // 현재 페이지 상품에 대한 찜 여부 (로그인 사용자)
         $wishedIds = [];
         $userId    = (int) session()->get('user_id');
-        if ($userId > 0 && ! empty($result['items'])) {
+        if ($userId > 0 && $result['items'] !== []) {
             $productIds = array_column($result['items'], 'id');
             $rows       = $this->wishlistModel
                 ->select('product_id')
                 ->where('user_id', $userId)
                 ->whereIn('product_id', $productIds)
                 ->findAll();
-            $wishedIds = array_map('intval', array_column($rows, 'product_id'));
+            $wishedIds = array_map(intval(...), array_column($rows, 'product_id'));
         }
 
         // 로그인 회원 개인화 추천 (필터·검색 없는 목록 1페이지에서만)
         $recommended = [];
         $noFilter    = empty($params['keyword']) && (int) $params['category_id'] === 0 && empty($params['only_discount']);
         if ($userId > 0 && (int) ($params['page'] ?? 1) <= 1 && $noFilter) {
-            $recommended = (new \App\Libraries\RecommendationService())->forUser($userId, 8);
+            $recommended = new \App\Libraries\RecommendationService()->forUser($userId, 8);
         }
 
         // 카테고리 랜딩(소개 카피 + FAQ) — 단일 카테고리 선택 시 SEO 강화

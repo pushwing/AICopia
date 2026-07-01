@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class ProductSkuModel extends Model
 {
+    #[\Override]
     protected $table         = 'product_skus';
+    #[\Override]
     protected $primaryKey    = 'id';
+    #[\Override]
     protected $useTimestamps = false;
+    #[\Override]
     protected $allowedFields = ['product_id', 'price_diff', 'stock', 'sku_code'];
 
     /**
@@ -103,12 +107,7 @@ class ProductSkuModel extends Model
 
         // 옵션 그룹 + 값 저장, 클라이언트의 임시 ID → DB ID 매핑
         $valueIdMap = []; // 클라이언트 임시 value_id => 실제 DB id
-        foreach ($options as $sortIdx => $opt) {
-            $optionId = (int) $this->db->table('product_options')->insert([
-                'product_id' => $productId,
-                'name'       => $opt['name'],
-                'sort_order' => $sortIdx,
-            ]);
+        foreach ($options as $opt) {
             $optionId = (int) $this->db->insertID();
 
             foreach ($opt['values'] as $valSortIdx => $val) {

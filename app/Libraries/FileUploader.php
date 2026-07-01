@@ -9,14 +9,14 @@ use CodeIgniter\HTTP\Files\UploadedFile;
 
 class FileUploader
 {
-    private const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    private const ALLOWED_EXTS = [
+    private const array IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    private const array ALLOWED_EXTS = [
         'jpg', 'jpeg', 'png', 'gif', 'webp',
         'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
         'zip', 'txt', 'hwp',
     ];
     // 확장자 → 허용 MIME 매핑 (서버사이드 검증용)
-    private const EXT_MIME_MAP = [
+    private const array EXT_MIME_MAP = [
         'jpg'  => ['image/jpeg'],
         'jpeg' => ['image/jpeg'],
         'png'  => ['image/png'],
@@ -35,7 +35,7 @@ class FileUploader
     ];
     private const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
-    private PostFileModel $fileModel;
+    private readonly PostFileModel $fileModel;
 
     public function __construct()
     {

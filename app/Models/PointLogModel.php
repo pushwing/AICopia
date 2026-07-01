@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class PointLogModel extends Model
 {
+    #[\Override]
     protected $table         = 'point_logs';
+    #[\Override]
     protected $primaryKey    = 'id';
+    #[\Override]
     protected $useTimestamps = false;
+    #[\Override]
     protected $allowedFields = [
         'user_id', 'type', 'amount', 'order_id', 'note', 'created_at',
     ];

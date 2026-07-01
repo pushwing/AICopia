@@ -11,10 +11,10 @@ namespace App\Libraries;
  */
 class Mailer
 {
-    private string $siteName;
-    private string $siteUrl;
+    private readonly string $siteName;
+    private readonly string $siteUrl;
     /** @var array<string, mixed> */
-    private array  $settings;
+    private readonly array  $settings;
 
     /** @param array<string, mixed> $settings */
     public function __construct(array $settings = [])

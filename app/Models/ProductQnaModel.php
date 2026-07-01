@@ -8,9 +8,13 @@ use CodeIgniter\Model;
 
 class ProductQnaModel extends Model
 {
+    #[\Override]
     protected $table         = 'product_qnas';
+    #[\Override]
     protected $primaryKey    = 'id';
+    #[\Override]
     protected $useTimestamps = true;
+    #[\Override]
     protected $allowedFields = [
         'product_id', 'user_id', 'title', 'content',
         'is_secret', 'is_answered', 'answer', 'answered_at', 'answered_by',
@@ -31,7 +35,7 @@ class ProductQnaModel extends Model
 
         $total = $this->where('product_id', $productId)->countAllResults();
 
-        return compact('items', 'total');
+        return ['items' => $items, 'total' => $total];
     }
 
     /**
@@ -93,7 +97,7 @@ class ProductQnaModel extends Model
             ->limit($perPage, ($page - 1) * $perPage)
             ->get()->getResultArray();
 
-        return compact('items', 'total', 'page', 'perPage');
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'perPage' => $perPage];
     }
 
     public function getUnansweredCount(): int

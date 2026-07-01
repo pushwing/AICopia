@@ -9,7 +9,7 @@ use App\Models\SettingModel;
 
 class WelcomeController extends BaseController
 {
-    private SettingModel $settingModel;
+    private readonly SettingModel $settingModel;
 
     public function __construct()
     {
@@ -34,7 +34,7 @@ class WelcomeController extends BaseController
             'welcome_show_new', 'welcome_show_discount', 'welcome_show_bottom_banner',
         ];
         foreach ($boolKeys as $k) {
-            $post[$k] = isset($post[$k]) ? $post[$k] : '0';
+            $post[$k] ??= '0';
         }
 
         $this->settingModel->saveSettings($post);

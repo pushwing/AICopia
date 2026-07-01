@@ -10,8 +10,8 @@ class GroqProvider implements AiProviderInterface
     use InquiryParsing;
     use SearchExpandParsing;
 
-    private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-    private const MODEL   = 'llama-3.1-8b-instant';
+    private const string API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+    private const string MODEL   = 'llama-3.1-8b-instant';
 
     private string $apiKey;
 
@@ -51,7 +51,6 @@ class GroqProvider implements AiProviderInterface
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($httpCode !== 200 || $response === false) {
             return [];
@@ -91,9 +90,9 @@ class GroqProvider implements AiProviderInterface
     {
         $data = json_decode($raw, true);
         $content = $data['choices'][0]['message']['content'] ?? '';
-        $parsed  = json_decode($content, true);
+        $parsed  = json_decode((string) $content, true);
         $ids     = $parsed['category_ids'] ?? [];
-        return array_values(array_filter(array_map('intval', (array) $ids)));
+        return array_values(array_filter(array_map(intval(...), (array) $ids)));
     }
 
     public function generateDescription(string $name, string $description): string
@@ -288,16 +287,16 @@ class GroqProvider implements AiProviderInterface
         $text = preg_replace('/```[\s\S]*?```/', '', $text);
 
         // **bold** / __bold__ → <strong>
-        $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $text);
-        $text = preg_replace('/__(.+?)__/u', '<strong>$1</strong>', $text);
+        $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', (string) $text);
+        $text = preg_replace('/__(.+?)__/u', '<strong>$1</strong>', (string) $text);
 
-        $lines      = explode("\n", $text);
+        $lines      = explode("\n", (string) $text);
         $result     = [];
         $listItems  = [];
 
         $flushList = static function (array &$items, array &$out): void {
             if ($items !== []) {
-                $out[]  = '<ul>' . implode('', array_map(fn ($i) => "<li>{$i}</li>", $items)) . '</ul>';
+                $out[]  = '<ul>' . implode('', array_map(fn ($i): string => "<li>{$i}</li>", $items)) . '</ul>';
                 $items  = [];
             }
         };
@@ -325,11 +324,7 @@ class GroqProvider implements AiProviderInterface
             $flushList($listItems, $result);
 
             // 이미 HTML 태그가 있으면 그대로
-            if (preg_match('/<(p|ul|li|strong|br)[^>]*>/i', $line)) {
-                $result[] = $line;
-            } else {
-                $result[] = "<p>{$line}</p>";
-            }
+            $result[] = preg_match('/<(p|ul|li|strong|br)[^>]*>/i', $line) ? $line : "<p>{$line}</p>";
         }
 
         $flushList($listItems, $result);
@@ -352,7 +347,6 @@ class GroqProvider implements AiProviderInterface
         ]);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         return ($httpCode === 200 && $response !== false) ? $response : false;
     }

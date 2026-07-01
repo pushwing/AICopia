@@ -10,8 +10,8 @@ use App\Models\UserCouponModel;
 
 class CouponController extends BaseController
 {
-    private CouponModel     $couponModel;
-    private UserCouponModel $userCouponModel;
+    private readonly CouponModel     $couponModel;
+    private readonly UserCouponModel $userCouponModel;
 
     public function __construct()
     {
@@ -40,7 +40,7 @@ class CouponController extends BaseController
             ->orderBy('id', 'DESC')
             ->get()->getResultArray();
 
-        $data = array_map(fn ($c) => [
+        $data = array_map(fn (array $c): array => [
             'id'                  => (int) $c['id'],
             'name'                => $c['name'],
             'code'                => $c['code'],
@@ -136,7 +136,7 @@ class CouponController extends BaseController
         $page   = max(1, (int) ($this->request->getGet('page') ?? 1));
         $result = $this->userCouponModel->getByCoupon($id, $page);
 
-        return $this->render('admin/coupons/issue', array_merge($result, compact('coupon')));
+        return $this->render('admin/coupons/issue', array_merge($result, ['coupon' => $coupon]));
     }
 
     /** POST /admin/coupons/:id/issue */
@@ -147,8 +147,8 @@ class CouponController extends BaseController
             return redirect()->to('/admin/coupons')->with('error', '쿠폰을 찾을 수 없습니다.');
         }
 
-        $userIds = array_filter(array_map('intval', explode(',', $this->request->getPost('user_ids') ?? '')));
-        if (empty($userIds)) {
+        $userIds = array_filter(array_map(intval(...), explode(',', $this->request->getPost('user_ids') ?? '')));
+        if ($userIds === []) {
             return redirect()->back()->with('error', '발급할 회원 ID를 입력해주세요.');
         }
 
@@ -160,7 +160,7 @@ class CouponController extends BaseController
             ->whereIn('user_id', array_values($userIds))
             ->where('coupon_id', $id)
             ->get()->getResultArray();
-        $alreadyHas = array_map('intval', array_column($existingRows, 'user_id'));
+        $alreadyHas = array_map(intval(...), array_column($existingRows, 'user_id'));
         $skipped    = count($alreadyHas);
 
         $toInsert = [];
@@ -179,7 +179,7 @@ class CouponController extends BaseController
             ];
         }
         $issued = count($toInsert);
-        if ($toInsert) {
+        if ($toInsert !== []) {
             $db->table('user_coupons')->insertBatch($toInsert);
         }
 
@@ -215,14 +215,14 @@ class CouponController extends BaseController
         }
 
         $now       = date('Y-m-d H:i:s');
-        $memberIds = array_map(fn (array $m) => (int) $m['id'], $members);
+        $memberIds = array_map(fn (array $m): int => (int) $m['id'], $members);
 
         $existingRows = $db->table('user_coupons')
             ->select('user_id')
             ->whereIn('user_id', $memberIds)
             ->where('coupon_id', $id)
             ->get()->getResultArray();
-        $alreadyHas = array_map('intval', array_column($existingRows, 'user_id'));
+        $alreadyHas = array_map(intval(...), array_column($existingRows, 'user_id'));
         $skipped    = count($alreadyHas);
 
         $toInsert = [];
@@ -241,7 +241,7 @@ class CouponController extends BaseController
             ];
         }
         $issued = count($toInsert);
-        if ($toInsert) {
+        if ($toInsert !== []) {
             $db->table('user_coupons')->insertBatch($toInsert);
         }
 
@@ -275,8 +275,8 @@ class CouponController extends BaseController
         $type         = $this->request->getPost('type');
         $gradeRaw     = $this->request->getPost('target_grade') ?? [];
         $validGrades  = ['bronze', 'silver', 'gold', 'platinum'];
-        $selectedGrades = array_values(array_filter((array) $gradeRaw, fn ($g) => in_array($g, $validGrades, true)));
-        $targetGrade  = empty($selectedGrades) ? null : implode(',', $selectedGrades);
+        $selectedGrades = array_values(array_filter((array) $gradeRaw, fn ($g): bool => in_array($g, $validGrades, true)));
+        $targetGrade  = $selectedGrades === [] ? null : implode(',', $selectedGrades);
 
         return [
             'code'                => strtoupper(trim($this->request->getPost('code'))),

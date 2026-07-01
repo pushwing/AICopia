@@ -27,7 +27,7 @@ class OrderAnomalyService
     public const MAX_DAYS = 365;
 
     /** 탐지 대상 주문 상태 (취소·만료 제외한 유효 주문) */
-    private const ACTIVE_STATUSES = [
+    private const array ACTIVE_STATUSES = [
         'pending', 'awaiting_payment', 'paid', 'preparing', 'shipped', 'delivered',
         'refund_requested', 'return_requested',
     ];
@@ -93,7 +93,7 @@ class OrderAnomalyService
         }
 
         // 위험도 높은 순 → 최신 순
-        usort($flagged, fn ($a, $b) => [$b['risk'], $b['created_at']] <=> [$a['risk'], $a['created_at']]);
+        usort($flagged, fn (array $a, array $b): int => [$b['risk'], $b['created_at']] <=> [$a['risk'], $a['created_at']]);
 
         return $flagged;
     }
@@ -114,7 +114,7 @@ class OrderAnomalyService
             if ($o['user_id'] === null) {
                 continue;
             }
-            $byUser[(int) $o['user_id']][] = ['id' => (int) $o['id'], 't' => strtotime($o['created_at'])];
+            $byUser[(int) $o['user_id']][] = ['id' => (int) $o['id'], 't' => strtotime((string) $o['created_at'])];
         }
 
         $flagged = [];
@@ -157,7 +157,10 @@ class OrderAnomalyService
         foreach ($orders as $o) {
             // 하이픈·공백 등 표기 차이로 우회/오탐되지 않도록 숫자만 남겨 비교
             $phone = preg_replace('/\D/', '', (string) $o['receiver_phone']);
-            if ($phone === '' || $o['user_id'] === null) {
+            if ($phone === '') {
+                continue;
+            }
+            if ($o['user_id'] === null) {
                 continue;
             }
             $usersByPhone[$phone][(int) $o['user_id']] = true;

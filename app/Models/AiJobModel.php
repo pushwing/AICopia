@@ -17,9 +17,13 @@ use CodeIgniter\Model;
  */
 class AiJobModel extends Model
 {
+    #[\Override]
     protected $table         = 'ai_jobs';
+    #[\Override]
     protected $primaryKey    = 'id';
+    #[\Override]
     protected $useTimestamps = false; // 직접 관리 (worker_token·processed_at 등과 함께)
+    #[\Override]
     protected $allowedFields = [
         'type', 'payload', 'status', 'result', 'attempts', 'max_attempts',
         'error', 'worker_token', 'available_at', 'created_at', 'updated_at', 'processed_at',
