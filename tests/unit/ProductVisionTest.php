@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Libraries\AiProvider\ClaudeProvider;
@@ -14,7 +16,9 @@ class MockClaudeVisionProvider extends ClaudeProvider
 {
     public string $lastPayload = '';
 
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {

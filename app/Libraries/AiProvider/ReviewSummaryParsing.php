@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\AiProvider;
 
 /**
@@ -7,7 +9,11 @@ namespace App\Libraries\AiProvider;
  */
 trait ReviewSummaryParsing
 {
-    /** summarizeReviews 실패/빈 입력 시 반환할 기본 구조. */
+    /**
+     * summarizeReviews 실패/빈 입력 시 반환할 기본 구조.
+     *
+     * @return array{summary:string, pros:string[], cons:string[], sentiment:string, negative_review_ids:int[]}
+     */
     protected function emptySummary(): array
     {
         return ['summary' => '', 'pros' => [], 'cons' => [], 'sentiment' => 'mixed', 'negative_review_ids' => []];
@@ -16,7 +22,7 @@ trait ReviewSummaryParsing
     /**
      * 리뷰 배열을 AI에 전달할 사용자 메시지로 변환한다.
      *
-     * @param array $reviews [['id' => int, 'content' => string], ...]
+     * @param array<int, array<string, mixed>> $reviews [['id' => int, 'content' => string], ...]
      */
     protected function buildReviewMessage(string $productName, array $reviews): string
     {
@@ -60,8 +66,8 @@ trait ReviewSummaryParsing
         }
 
         $toStringList = static fn ($v): array => array_values(array_filter(
-            array_map(static fn ($i) => trim((string) $i), is_array($v) ? $v : []),
-            static fn ($i) => $i !== ''
+            array_map(static fn ($i): string => trim((string) $i), is_array($v) ? $v : []),
+            static fn (string $i): bool => $i !== ''
         ));
 
         $sentiment = (string) ($parsed['sentiment'] ?? 'mixed');
@@ -70,7 +76,7 @@ trait ReviewSummaryParsing
         }
 
         $negativeIds = array_values(array_filter(array_map(
-            'intval',
+            intval(...),
             (array) ($parsed['negative_review_ids'] ?? [])
         )));
 

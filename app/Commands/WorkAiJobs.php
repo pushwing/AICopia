@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Commands;
 
 use App\Libraries\AiProvider\AiJobRunner;
@@ -17,7 +19,7 @@ class WorkAiJobs extends BaseCommand
 
     public function run(array $params): void
     {
-        $settings = (new SettingModel())->getAllAsMap();
+        $settings = new SettingModel()->getAllAsMap();
         if (! (bool) ($settings['schedule_ai_work_enabled'] ?? 1)) {
             CLI::write('[ai:work] 비활성화됨 — 스킵', 'yellow');
             return;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -10,10 +12,14 @@ class ProductReviewModel extends Model
     protected $primaryKey    = 'id';
     protected $useTimestamps = true;
     protected $allowedFields = [
-        'product_id', 'order_id', 'user_id', 'content', 'is_rewarded', 'is_hidden', 'is_negative',
+        'product_id', 'order_id', 'user_id', 'content', 'rating', 'is_rewarded', 'is_hidden', 'is_negative',
     ];
 
-    /** AI 요약용 — 노출 중인 리뷰의 id·content만 최신순으로 반환 */
+    /**
+     * AI 요약용 — 노출 중인 리뷰의 id·content만 최신순으로 반환
+     *
+     * @return array<int, array<string, mixed>>
+     */
     public function getForSummary(int $productId, int $limit = 50): array
     {
         return $this->db->table('product_reviews')
@@ -25,14 +31,18 @@ class ProductReviewModel extends Model
             ->get()->getResultArray();
     }
 
-    /** 상품의 부정 리뷰 표시를 갱신한다 (전체 0으로 리셋 후 지정 id만 1). */
+    /**
+     * 상품의 부정 리뷰 표시를 갱신한다 (전체 0으로 리셋 후 지정 id만 1).
+     *
+     * @param array<int, mixed> $negativeIds
+     */
     public function markNegative(int $productId, array $negativeIds): void
     {
         $this->db->table('product_reviews')
             ->where('product_id', $productId)
             ->update(['is_negative' => 0]);
 
-        $negativeIds = array_values(array_filter(array_map('intval', $negativeIds)));
+        $negativeIds = array_values(array_filter(array_map(intval(...), $negativeIds)));
         if ($negativeIds !== []) {
             $this->db->table('product_reviews')
                 ->where('product_id', $productId)
@@ -41,7 +51,11 @@ class ProductReviewModel extends Model
         }
     }
 
-    /** 상품별 리뷰 목록 (이미지 포함) */
+    /**
+     * 상품별 리뷰 목록 (이미지 포함)
+     *
+     * @return array{items: array<int, array<string, mixed>>, total: int}
+     */
     public function getByProduct(int $productId, int $page = 1, int $perPage = 10): array
     {
         $offset = ($page - 1) * $perPage;
@@ -73,7 +87,30 @@ class ProductReviewModel extends Model
             unset($item);
         }
 
-        return compact('items', 'total');
+        return ['items' => $items, 'total' => $total];
+    }
+
+    /**
+     * 상품의 평균 평점·리뷰 수 집계 (별점이 매겨진 노출 리뷰만, rating 1~5).
+     * 별점 없는 레거시 리뷰(rating=0)와 숨김 리뷰는 제외한다.
+     *
+     * @return array{count: int, average: float}
+     */
+    public function getRatingSummary(int $productId): array
+    {
+        $row = $this->db->table('product_reviews')
+            ->select('COUNT(*) AS cnt, AVG(rating) AS avg_rating')
+            ->where('product_id', $productId)
+            ->where('is_hidden', 0)
+            ->where('rating >', 0)
+            ->get()->getRowArray();
+
+        $count = (int) ($row['cnt'] ?? 0);
+
+        return [
+            'count'   => $count,
+            'average' => $count > 0 ? round((float) $row['avg_rating'], 1) : 0.0,
+        ];
     }
 
     /**
@@ -123,13 +160,15 @@ class ProductReviewModel extends Model
             $builder->where('user_id', $userId);
         }
         $review = $builder->first();
-        if (! $review) return false;
+        if (! $review) {
+            return false;
+        }
 
         $images = $this->db->table('product_review_images')
             ->where('review_id', $reviewId)->get()->getResultArray();
 
         foreach ($images as $img) {
-            $path = FCPATH . ltrim($img['image_path'], '/');
+            $path = FCPATH . ltrim((string) $img['image_path'], '/');
             if (is_file($path)) {
                 unlink($path);
             }
@@ -159,12 +198,18 @@ class ProductReviewModel extends Model
     public function toggleHidden(int $reviewId): int
     {
         $review = $this->find($reviewId);
-        if (! $review) return -1;
+        if (! $review) {
+            return -1;
+        }
         $next = ((int) $review['is_hidden']) === 0 ? 1 : 0;
         $this->update($reviewId, ['is_hidden' => $next]);
         return $next;
     }
 
+    /**
+     * @param  array<string, mixed> $params
+     * @return array{items: array<int, array<string, mixed>>, total: int, page: int, perPage: int}
+     */
     public function adminGetAll(array $params = []): array
     {
         $keyword = trim($params['keyword'] ?? '');
@@ -203,6 +248,6 @@ class ProductReviewModel extends Model
             unset($item);
         }
 
-        return compact('items', 'total', 'page', 'perPage');
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'perPage' => $perPage];
     }
 }

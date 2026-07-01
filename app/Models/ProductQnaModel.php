@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -14,6 +16,7 @@ class ProductQnaModel extends Model
         'is_secret', 'is_answered', 'answer', 'answered_at', 'answered_by',
     ];
 
+    /** @return array{items: array<int, array<string, mixed>>, total: int} */
     public function getByProduct(int $productId, int $page = 1, int $perPage = 10): array
     {
         $offset = ($page - 1) * $perPage;
@@ -28,9 +31,37 @@ class ProductQnaModel extends Model
 
         $total = $this->where('product_id', $productId)->countAllResults();
 
-        return compact('items', 'total');
+        return ['items' => $items, 'total' => $total];
     }
 
+    /**
+     * FAQPage 구조화 데이터용 — 답변 완료된 공개(비밀 아님) Q&A의 질문·답변만 반환.
+     *
+     * @return array<int, array{question: string, answer: string}>
+     */
+    public function getPublicAnswered(int $productId, int $limit = 20): array
+    {
+        $rows = $this->select('title, answer')
+            ->where('product_id', $productId)
+            ->where('is_answered', 1)
+            ->where('is_secret', 0)
+            ->where('answer IS NOT NULL')
+            ->orderBy('answered_at', 'DESC')
+            ->findAll($limit);
+
+        return array_map(
+            static fn (array $r): array => [
+                'question' => (string) $r['title'],
+                'answer'   => (string) ($r['answer'] ?? ''),
+            ],
+            $rows
+        );
+    }
+
+    /**
+     * @param  array<string, mixed> $params
+     * @return array{items: array<int, array<string, mixed>>, total: int, page: int, perPage: int}
+     */
     public function adminGetAll(array $params = []): array
     {
         $keyword  = trim($params['keyword'] ?? '');
@@ -62,7 +93,7 @@ class ProductQnaModel extends Model
             ->limit($perPage, ($page - 1) * $perPage)
             ->get()->getResultArray();
 
-        return compact('items', 'total', 'page', 'perPage');
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'perPage' => $perPage];
     }
 
     public function getUnansweredCount(): int

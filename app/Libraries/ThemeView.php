@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Models\SettingModel;
@@ -18,7 +20,7 @@ class ThemeView extends View
     private function activeTheme(): string
     {
         if ($this->resolvedTheme === null) {
-            $this->resolvedTheme = (new SettingModel())->getAllAsMap()['active_theme'] ?? 'default';
+            $this->resolvedTheme = new SettingModel()->getAllAsMap()['active_theme'] ?? 'default';
         }
         return $this->resolvedTheme;
     }

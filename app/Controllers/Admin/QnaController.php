@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -10,7 +12,7 @@ use App\Models\ProductQnaModel;
 
 class QnaController extends BaseController
 {
-    private ProductQnaModel $model;
+    private readonly ProductQnaModel $model;
 
     public function __construct()
     {
@@ -63,7 +65,7 @@ class QnaController extends BaseController
             return $this->response->setJSON(['error' => '문의를 찾을 수 없습니다.'])->setStatusCode(404);
         }
 
-        $product     = (new ProductModel())->find((int) $qna['product_id']);
+        $product     = new ProductModel()->find((int) $qna['product_id']);
         $productName = $product['name'] ?? '';
         $productDesc = $product['description'] ?? '';
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\OAuth;
 
 class OAuthFactory
@@ -14,6 +16,7 @@ class OAuthFactory
         };
     }
 
+    /** @return array<int, string> */
     public static function supported(): array
     {
         return ['naver', 'kakao', 'google'];

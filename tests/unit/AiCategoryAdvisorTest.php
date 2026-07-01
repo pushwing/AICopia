@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Exceptions\AiKeyMissingException;
@@ -54,7 +56,9 @@ class MockGroqProvider extends GroqProvider
 {
     public string $lastPayload = '';
 
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -72,7 +76,9 @@ class MockClaudeProvider extends ClaudeProvider
 {
     public string $lastPayload = '';
 
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -113,37 +119,40 @@ final class AiCategoryAdvisorTest extends CIUnitTestCase
     {
         parent::setUp();
 
-        // SQLite in-memory 테스트 DB에 settings 테이블 생성 (한 번만)
+        // settings 테이블 확보 (한 번만). MySQL 등에서 마이그레이션으로 이미 존재하면 건너뛴다.
+        // 미존재 시(SQLite in-memory 등)에만 최소 스키마를 생성한다.
         if (! self::$tableCreated) {
-            $db    = \Config\Database::connect();
-            $table = $db->getPrefix() . 'settings';
-            $db->query("CREATE TABLE IF NOT EXISTS {$table} (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                \"group\" VARCHAR(30)  NOT NULL DEFAULT 'general',
-                key      VARCHAR(100) NOT NULL,
-                value    TEXT,
-                label    VARCHAR(255) DEFAULT NULL,
-                type     VARCHAR(50)  DEFAULT 'text',
-                updated_at DATETIME   DEFAULT NULL
-            )");
+            $db = \Config\Database::connect();
+            if (! $db->tableExists('settings')) {
+                $table = $db->getPrefix() . 'settings';
+                $db->query("CREATE TABLE IF NOT EXISTS {$table} (
+                    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                    \"group\" VARCHAR(30)  NOT NULL DEFAULT 'general',
+                    key      VARCHAR(100) NOT NULL,
+                    value    TEXT,
+                    label    VARCHAR(255) DEFAULT NULL,
+                    type     VARCHAR(50)  DEFAULT 'text',
+                    updated_at DATETIME   DEFAULT NULL
+                )");
+            }
             self::$tableCreated = true;
         }
 
-        $this->originalProvider      = $_ENV['AI_PROVIDER']        ?? getenv('AI_PROVIDER')        ?: '';
-        $this->originalGroqKey       = $_ENV['GROQ_API_KEY']       ?? getenv('GROQ_API_KEY')       ?: '';
-        $this->originalClaudeKey     = $_ENV['ANTHROPIC_API_KEY']  ?? getenv('ANTHROPIC_API_KEY')  ?: '';
+        $this->originalProvider      = $_ENV['AI_PROVIDER']        ?? getenv('AI_PROVIDER') ?: '';
+        $this->originalGroqKey       = $_ENV['GROQ_API_KEY']       ?? getenv('GROQ_API_KEY') ?: '';
+        $this->originalClaudeKey     = $_ENV['ANTHROPIC_API_KEY']  ?? getenv('ANTHROPIC_API_KEY') ?: '';
         $this->originalOpenRouterKey = $_ENV['OPENROUTER_API_KEY'] ?? getenv('OPENROUTER_API_KEY') ?: '';
         // factory 테스트가 AiKeyMissingException 없이 동작하도록 dummy key 설정
-        $this->setApiKey('GROQ_API_KEY',       'test_groq_dummy');
-        $this->setApiKey('ANTHROPIC_API_KEY',  'test_claude_dummy');
+        $this->setApiKey('GROQ_API_KEY', 'test_groq_dummy');
+        $this->setApiKey('ANTHROPIC_API_KEY', 'test_claude_dummy');
         $this->setApiKey('OPENROUTER_API_KEY', 'test_openrouter_dummy');
     }
 
     protected function tearDown(): void
     {
         $this->setProvider($this->originalProvider);
-        $this->setApiKey('GROQ_API_KEY',       $this->originalGroqKey);
-        $this->setApiKey('ANTHROPIC_API_KEY',  $this->originalClaudeKey);
+        $this->setApiKey('GROQ_API_KEY', $this->originalGroqKey);
+        $this->setApiKey('ANTHROPIC_API_KEY', $this->originalClaudeKey);
         $this->setApiKey('OPENROUTER_API_KEY', $this->originalOpenRouterKey);
         parent::tearDown();
     }

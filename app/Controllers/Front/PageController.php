@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -9,7 +11,7 @@ use App\Models\PageModel;
 
 class PageController extends BaseController
 {
-    private PageModel $pageModel;
+    private readonly PageModel $pageModel;
 
     public function __construct()
     {
@@ -52,7 +54,7 @@ class PageController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $inquiryId = (int) (new InquiryModel())->insert([
+        $inquiryId = (int) new InquiryModel()->insert([
             'name'       => $this->request->getPost('name'),
             'email'      => $this->request->getPost('email'),
             'phone'      => $this->request->getPost('phone'),
@@ -67,7 +69,7 @@ class PageController extends BaseController
         // 관리자 이메일 발송 (설정에서 수신 이메일 읽기)
         $toEmail = $this->viewData['settings']['email'] ?? '';
         if ($toEmail) {
-            (new Mailer($this->viewData['settings'] ?? []))->sendInquiry($toEmail, [
+            new Mailer($this->viewData['settings'] ?? [])->sendInquiry($toEmail, [
                 'name'    => $this->request->getPost('name'),
                 'email'   => $this->request->getPost('email'),
                 'phone'   => $this->request->getPost('phone'),
@@ -80,4 +82,3 @@ class PageController extends BaseController
     }
 
 }
-

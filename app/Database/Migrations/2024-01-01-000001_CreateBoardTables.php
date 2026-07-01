@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
@@ -76,7 +78,7 @@ class CreateBoardTables extends Migration
             'file_size'     => ['type' => 'INT', 'unsigned' => true],
             'mime_type'     => ['type' => 'VARCHAR', 'constraint' => 100],
             'is_image'      => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0],
-            'download_count'=> ['type' => 'INT', 'default' => 0],
+            'download_count' => ['type' => 'INT', 'default' => 0],
             'created_at'    => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);

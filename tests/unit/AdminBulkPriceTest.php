@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductModel;
@@ -74,7 +76,9 @@ final class AdminBulkPriceTest extends CIUnitTestCase
 
         foreach ($ids as $id) {
             $product = $this->model->find($id);
-            if (! $product) continue;
+            if (! $product) {
+                continue;
+            }
             $price = (int) $product['price'];
             $discountPrice = $discountType === 'percent'
                 ? (int) round($price * (1 - $discountValue / 100))
@@ -142,7 +146,7 @@ final class AdminBulkPriceTest extends CIUnitTestCase
 
         $this->applyBulkPrice([$p1, $p2], 'percent', 50);
 
-        $this->assertSame(5000,  (int) $this->model->find($p1)['discount_price']);
+        $this->assertSame(5000, (int) $this->model->find($p1)['discount_price']);
         $this->assertSame(10000, (int) $this->model->find($p2)['discount_price']);
     }
 

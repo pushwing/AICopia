@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\OAuth;
 
 /**
@@ -8,18 +10,17 @@ namespace App\Libraries\OAuth;
  */
 abstract class AbstractOAuthProvider
 {
+    /** @var array<string, mixed> */
     protected array $config;
-    protected string $providerName;
 
-    public function __construct(string $providerName)
+    public function __construct(protected string $providerName)
     {
-        $this->providerName = $providerName;
-        $cfg = config(\Config\OAuth::class)->{$providerName};
+        $cfg = config(\Config\OAuth::class)->{$this->providerName};
 
         // .env 우선 적용
-        $cfg['client_id']     = env("oauth.{$providerName}.client_id",     $cfg['client_id']);
-        $cfg['client_secret'] = env("oauth.{$providerName}.client_secret", $cfg['client_secret']);
-        $cfg['redirect_uri']  = base_url("auth/social/{$providerName}/callback");
+        $cfg['client_id']     = env("oauth.{$this->providerName}.client_id", $cfg['client_id']);
+        $cfg['client_secret'] = env("oauth.{$this->providerName}.client_secret", $cfg['client_secret']);
+        $cfg['redirect_uri']  = base_url("auth/social/{$this->providerName}/callback");
 
         $this->config = $cfg;
     }
@@ -63,11 +64,17 @@ abstract class AbstractOAuthProvider
     /**
      * access_token → 사용자 정보
      * 반환: ['social_id', 'email', 'nickname', 'avatar']
+     *
+     * @return array<string, mixed>|null
      */
     abstract public function getProfile(string $token): ?array;
 
     // ─── HTTP 헬퍼 ────────────────────────────────────────────────────────
 
+    /**
+     * @param  array<int, string>  $headers
+     * @return array<string, mixed>
+     */
     protected function get(string $url, array $headers = []): array
     {
         $ch = curl_init($url);
@@ -78,10 +85,14 @@ abstract class AbstractOAuthProvider
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $body = curl_exec($ch);
-        curl_close($ch);
         return json_decode($body, true) ?? [];
     }
 
+    /**
+     * @param  array<string, mixed> $data
+     * @param  array<int, string>   $headers
+     * @return array<string, mixed>
+     */
     protected function post(string $url, array $data, array $headers = []): array
     {
         $ch = curl_init($url);
@@ -94,7 +105,6 @@ abstract class AbstractOAuthProvider
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
         $body = curl_exec($ch);
-        curl_close($ch);
         return json_decode($body, true) ?? [];
     }
 }

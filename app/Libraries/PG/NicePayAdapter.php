@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\PG;
 
 /**
@@ -8,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class NicePayAdapter implements PGInterface
 {
-    private string $clientId;
-    private string $secretKey;
+    private readonly string $clientId;
+    private readonly string $secretKey;
     private string $apiBase = 'https://api.nicepay.co.kr/v1';
 
     public function __construct()
@@ -19,6 +21,10 @@ class NicePayAdapter implements PGInterface
         $this->secretKey = $cfg->nicepaySecretKey;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         return [
@@ -31,6 +37,7 @@ class NicePayAdapter implements PGInterface
         ];
     }
 
+    /** @return array<string, mixed> */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         // pgToken = tid (나이스페이 결제 후 authResultCode=0000과 함께 전달)
@@ -56,6 +63,7 @@ class NicePayAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $response = $this->request('POST', "/payments/{$pgTid}/cancel", [
@@ -75,6 +83,10 @@ class NicePayAdapter implements PGInterface
         return 'nicepay';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -88,7 +100,6 @@ class NicePayAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 
@@ -103,10 +114,13 @@ class NicePayAdapter implements PGInterface
         };
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];
-        if (empty($items)) return '주문 ' . $order['order_number'];
+        if (empty($items)) {
+            return '주문 ' . $order['order_number'];
+        }
         $first = $items[0]['product_name'] ?? '';
         $extra = count($items) > 1 ? ' 외 ' . (count($items) - 1) . '건' : '';
         return $first . $extra;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -38,13 +40,10 @@ class SalesController extends BaseController
 
         $pgLabels = self::PG_LABELS;
 
-        return $this->render('admin/sales/index', compact(
-            'period', 'keyword', 'from', 'to',
-            'periodRows', 'methodRows', 'summary', 'orders', 'pgLabels'
-        ));
+        return $this->render('admin/sales/index', ['period' => $period, 'keyword' => $keyword, 'from' => $from, 'to' => $to, 'periodRows' => $periodRows, 'methodRows' => $methodRows, 'summary' => $summary, 'orders' => $orders, 'pgLabels' => $pgLabels]);
     }
 
-    private const PG_LABELS = [
+    private const array PG_LABELS = [
         'bank_transfer' => '무통장입금',
         'toss'          => '토스페이먼츠',
         'inicis'        => 'KG이니시스',
@@ -55,7 +54,7 @@ class SalesController extends BaseController
     ];
 
     /** 매출 집계 공통 base 쿼리 (결제완료 주문 + 매입원가 조인). */
-    private function baseSalesQuery($db, string $from, string $to, string $keyword = '')
+    private function baseSalesQuery(\CodeIgniter\Database\BaseConnection $db, string $from, string $to, string $keyword = ''): \CodeIgniter\Database\BaseBuilder
     {
         $paidPaymentSql = "
             SELECT p1.*
@@ -68,10 +67,10 @@ class SalesController extends BaseController
             ) latest_paid ON latest_paid.id = p1.id
         ";
         // 주문별 매입원가 집계 서브쿼리 (1:N 중복 합산 방지)
-        $costSubSql = "SELECT order_id, SUM(qty * cost_price) AS cost_total FROM order_items GROUP BY order_id";
+        $costSubSql = 'SELECT order_id, SUM(qty * cost_price) AS cost_total FROM order_items GROUP BY order_id';
 
         $base = $db->table('orders o')
-            ->join('users u',    'u.id = o.user_id', 'left')
+            ->join('users u', 'u.id = o.user_id', 'left')
             ->join("({$paidPaymentSql}) p", 'p.order_id = o.id', 'inner', false)
             ->join("({$costSubSql}) oc", 'oc.order_id = o.id', 'left', false)
             ->whereIn('o.status', ['paid', 'preparing', 'shipped', 'delivered', 'refund_requested', 'return_requested', 'return_approved'])
@@ -90,13 +89,17 @@ class SalesController extends BaseController
         return $base;
     }
 
-    /** 기간별 매출 집계 (GMV = total_amount, 실매출 = payable_amount). */
-    private function salesPeriodRows($base, string $period): array
+    /**
+     * 기간별 매출 집계 (GMV = total_amount, 실매출 = payable_amount).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function salesPeriodRows(\CodeIgniter\Database\BaseBuilder $base, string $period): array
     {
         $groupExpr = match ($period) {
             'weekly'  => "DATE_FORMAT(DATE_SUB(o.created_at, INTERVAL (DAYOFWEEK(o.created_at)-2+7)%7 DAY), '%Y-%m-%d')",
             'monthly' => "DATE_FORMAT(o.created_at, '%Y-%m')",
-            default   => "DATE(o.created_at)",
+            default   => 'DATE(o.created_at)',
         };
 
         return (clone $base)
@@ -112,8 +115,12 @@ class SalesController extends BaseController
             ->get()->getResultArray();
     }
 
-    /** 결제수단별 집계. */
-    private function salesMethodRows($base): array
+    /**
+     * 결제수단별 집계.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function salesMethodRows(\CodeIgniter\Database\BaseBuilder $base): array
     {
         return (clone $base)
             ->select('p.pg_provider, p.method, COUNT(o.id) AS order_count,
@@ -123,8 +130,12 @@ class SalesController extends BaseController
             ->get()->getResultArray();
     }
 
-    /** 기간 요약 집계. */
-    private function salesSummary($base): array
+    /**
+     * 기간 요약 집계.
+     *
+     * @return array<string, mixed>
+     */
+    private function salesSummary(\CodeIgniter\Database\BaseBuilder $base): array
     {
         return (clone $base)
             ->select('COUNT(o.id) AS total_orders,
@@ -155,13 +166,13 @@ class SalesController extends BaseController
             return $this->response->setJSON(['error' => '해당 기간에 매출 데이터가 없습니다.'])->setStatusCode(422);
         }
 
-        $methodRows = array_map(fn ($m) => [
+        $methodRows = array_map(fn (array $m): array => [
             'label'   => self::PG_LABELS[$m['pg_provider']] ?? $m['pg_provider'],
             'orders'  => (int) $m['order_count'],
             'revenue' => (int) $m['revenue'],
         ], $this->salesMethodRows($base));
 
-        $periods = array_map(fn ($r) => [
+        $periods = array_map(fn (array $r): array => [
             'period'  => $r['period_key'],
             'orders'  => (int) $r['order_count'],
             'revenue' => (int) $r['revenue'],
@@ -177,7 +188,7 @@ class SalesController extends BaseController
                 'total_revenue' => (int) $summary['total_revenue'],
                 'total_gmv'     => (int) $summary['total_gmv'],
                 'avg_order'     => (int) $summary['avg_order'],
-                'total_discount'=> (int) $summary['total_discount'],
+                'total_discount' => (int) $summary['total_discount'],
                 'total_profit'  => (int) $summary['total_profit'],
             ],
             'periods' => $periods,
@@ -189,7 +200,7 @@ class SalesController extends BaseController
             $key    = \App\Libraries\AiProvider\AiCache::key('sales_report', $from, $to, $period, md5(json_encode($stats['summary'])));
             $report = \App\Libraries\AiProvider\AiCache::remember(
                 $key,
-                fn () => \App\Libraries\AiCategoryAdvisor::create()->generateSalesReport($stats),
+                fn (): string => \App\Libraries\AiCategoryAdvisor::create()->generateSalesReport($stats),
                 3600
             );
             if ($report === '') {
@@ -249,7 +260,7 @@ class SalesController extends BaseController
 
         $orderIds = array_column($orders, 'id');
         $nameMap  = [];
-        if ($orderIds) {
+        if ($orderIds !== []) {
             $rows = $db->table('order_items')
                 ->select('order_id, product_name, qty')
                 ->whereIn('order_id', $orderIds)
@@ -268,7 +279,7 @@ class SalesController extends BaseController
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
-        $col         = fn(int $c, int $r): string =>
+        $col         = fn (int $c, int $r): string =>
             \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r;
 
         $headers = ['주문일', '주문번호', '회원', '수취인', '상품(요약)', 'GMV', '실매출', '배송비', '할인', '결제수단'];
@@ -289,15 +300,15 @@ class SalesController extends BaseController
             $discount = (int) $o['coupon_discount_amount'] + (int) $o['point_used_amount'];
             $rowNum  = $i + 2;
 
-            $sheet->setCellValue($col(1,  $rowNum), substr((string) $o['created_at'], 0, 10));
-            $sheet->setCellValue($col(2,  $rowNum), $o['order_number']);
-            $sheet->setCellValue($col(3,  $rowNum), $o['user_nickname'] ?? '');
-            $sheet->setCellValue($col(4,  $rowNum), $o['receiver_name']);
-            $sheet->setCellValue($col(5,  $rowNum), $summary);
-            $sheet->setCellValue($col(6,  $rowNum), (int) $o['total_amount']);
-            $sheet->setCellValue($col(7,  $rowNum), (int) $o['payable_amount']);
-            $sheet->setCellValue($col(8,  $rowNum), (int) $o['shipping_fee']);
-            $sheet->setCellValue($col(9,  $rowNum), $discount);
+            $sheet->setCellValue($col(1, $rowNum), substr((string) $o['created_at'], 0, 10));
+            $sheet->setCellValue($col(2, $rowNum), $o['order_number']);
+            $sheet->setCellValue($col(3, $rowNum), $o['user_nickname'] ?? '');
+            $sheet->setCellValue($col(4, $rowNum), $o['receiver_name']);
+            $sheet->setCellValue($col(5, $rowNum), $summary);
+            $sheet->setCellValue($col(6, $rowNum), (int) $o['total_amount']);
+            $sheet->setCellValue($col(7, $rowNum), (int) $o['payable_amount']);
+            $sheet->setCellValue($col(8, $rowNum), (int) $o['shipping_fee']);
+            $sheet->setCellValue($col(9, $rowNum), $discount);
             $sheet->setCellValue($col(10, $rowNum), $pgLabels[$o['pg_provider']] ?? ($o['pg_provider'] ?? ''));
         }
 

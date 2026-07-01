@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -9,7 +11,7 @@ use App\Models\PopupModel;
 
 class PopupController extends BaseController
 {
-    private PopupModel $popupModel;
+    private readonly PopupModel $popupModel;
 
     public function __construct()
     {
@@ -29,7 +31,7 @@ class PopupController extends BaseController
         return $this->render('admin/popups/form', [
             'popup'    => null,
             'scopes'   => PopupModel::SCOPES,
-            'allMenus' => (new MenuModel())->where('is_active', 1)->orderBy('sort_order')->findAll(),
+            'allMenus' => new MenuModel()->where('is_active', 1)->orderBy('sort_order')->findAll(),
             'pageIds'  => [],
         ]);
     }
@@ -44,7 +46,7 @@ class PopupController extends BaseController
         $imagePath = null;
         $file      = $this->request->getFile('image');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('popups'))->upload($file);
+            $result = new ImageUploader('popups')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
@@ -63,12 +65,14 @@ class PopupController extends BaseController
     public function edit(int $id): \CodeIgniter\HTTP\RedirectResponse|string
     {
         $popup = $this->popupModel->find($id);
-        if (! $popup) return redirect()->to('/admin/popups')->with('error', '팝업을 찾을 수 없습니다.');
+        if (! $popup) {
+            return redirect()->to('/admin/popups')->with('error', '팝업을 찾을 수 없습니다.');
+        }
 
         return $this->render('admin/popups/form', [
             'popup'    => $popup,
             'scopes'   => PopupModel::SCOPES,
-            'allMenus' => (new MenuModel())->where('is_active', 1)->orderBy('sort_order')->findAll(),
+            'allMenus' => new MenuModel()->where('is_active', 1)->orderBy('sort_order')->findAll(),
             'pageIds'  => $this->popupModel->getPageIds($id),
         ]);
     }
@@ -76,7 +80,9 @@ class PopupController extends BaseController
     public function update(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $popup = $this->popupModel->find($id);
-        if (! $popup) return redirect()->to('/admin/popups')->with('error', '팝업을 찾을 수 없습니다.');
+        if (! $popup) {
+            return redirect()->to('/admin/popups')->with('error', '팝업을 찾을 수 없습니다.');
+        }
 
         $rules = ['title' => 'required|max_length[200]'];
         if (! $this->validate($rules)) {
@@ -86,13 +92,15 @@ class PopupController extends BaseController
         $imagePath = $popup['image_path'];
         $file      = $this->request->getFile('image');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('popups'))->upload($file);
+            $result = new ImageUploader('popups')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
             if ($imagePath) {
                 $oldPath = FCPATH . $imagePath;
-                if (file_exists($oldPath)) unlink($oldPath);
+                if (file_exists($oldPath)) {
+                    unlink($oldPath);
+                }
             }
             $imagePath = $result['path'];
         }
@@ -109,12 +117,13 @@ class PopupController extends BaseController
         return redirect()->to('/admin/popups')->with('success', '삭제되었습니다.');
     }
 
+    /** @return array<string, mixed> */
     private function collectData(?string $imagePath): array
     {
-        $toDatetime = fn($val) => $val
-            ? (strlen($val) <= 16
+        $toDatetime = fn ($val) => $val
+            ? (strlen((string) $val) <= 16
                 ? str_replace('T', ' ', $val) . ':00'
-                : str_replace('T', ' ', substr($val, 0, 19)))
+                : str_replace('T', ' ', substr((string) $val, 0, 19)))
             : null;
 
         return [

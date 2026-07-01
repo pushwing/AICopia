@@ -1,10 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\SettingModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * 배치 작업 실행 주기(크론) 업데이트 로직 검증
@@ -165,9 +168,7 @@ final class ScheduleCronUpdateTest extends CIUnitTestCase
 
     // ── 크론 표현식 프리셋 유효성 ─────────────────────────────────────────────
 
-    /**
-     * @dataProvider validCronProvider
-     */
+    #[DataProvider('validCronProvider')]
     public function test_preset_cron_expressions_pass_validation(string $cron): void
     {
         $result = $this->doUpdateCron('schedule_orders_expire', $cron);
@@ -194,9 +195,7 @@ final class ScheduleCronUpdateTest extends CIUnitTestCase
 
     // ── 모든 유효 베이스 키 허용 확인 ────────────────────────────────────────
 
-    /**
-     * @dataProvider validBaseKeyProvider
-     */
+    #[DataProvider('validBaseKeyProvider')]
     public function test_all_registered_base_keys_are_accepted(string $baseKey): void
     {
         $result = $this->doUpdateCron($baseKey, '0 1 * * *');

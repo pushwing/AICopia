@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 /**
@@ -9,10 +11,12 @@ namespace App\Libraries;
  */
 class Mailer
 {
-    private string $siteName;
-    private string $siteUrl;
-    private array  $settings;
+    private readonly string $siteName;
+    private readonly string $siteUrl;
+    /** @var array<string, mixed> */
+    private readonly array  $settings;
 
+    /** @param array<string, mixed> $settings */
     public function __construct(array $settings = [])
     {
         $this->siteName = $settings['site_name'] ?? '쇼핑몰';
@@ -24,6 +28,7 @@ class Mailer
     //  Public senders
     // ------------------------------------------------------------------ //
 
+    /** @param array<string, mixed> $user */
     public function sendVerify(array $user, string $token): void
     {
         $verifyUrl = $this->siteUrl . '/auth/verify/' . $token;
@@ -55,6 +60,7 @@ class Mailer
         $this->dispatch($user['email'], $subject, $body, "VERIFY_EMAIL | to={$user['email']}");
     }
 
+    /** @param array<string, mixed> $form */
     public function sendInquiry(string $toEmail, array $form): void
     {
         $subject  = $form['subject'] ?: '새 문의가 도착했습니다';
@@ -65,9 +71,15 @@ class Mailer
         $adminUrl = $this->siteUrl . '/admin/inquiries';
 
         $rows = '';
-        if ($name)  $rows .= $this->row('이름',   $name);
-        if ($email) $rows .= $this->row('이메일', "<a href='mailto:{$email}' style='color:#3b82f6;text-decoration:none;'>{$email}</a>");
-        if ($phone) $rows .= $this->row('연락처', $phone);
+        if ($name) {
+            $rows .= $this->row('이름', $name);
+        }
+        if ($email) {
+            $rows .= $this->row('이메일', "<a href='mailto:{$email}' style='color:#3b82f6;text-decoration:none;'>{$email}</a>");
+        }
+        if ($phone) {
+            $rows .= $this->row('연락처', $phone);
+        }
 
         $body = $this->layout(
             title: '새 문의가 접수되었습니다',
@@ -96,6 +108,7 @@ class Mailer
         }
     }
 
+    /** @param array<string, mixed> $product */
     public function sendRestockAlert(string $toEmail, array $product, ?string $aiMessage = null): void
     {
         $productUrl = $this->siteUrl . '/shop/' . esc($product['slug']);
@@ -203,16 +216,16 @@ HTML;
                "<a href='" . esc($url) . "' " .
                "style='display:inline-block;padding:13px 28px;font-size:14px;font-weight:600;" .
                "color:#ffffff;text-decoration:none;border-radius:8px;letter-spacing:.2px;'>" .
-               esc($label) . "</a>" .
-               "</td></tr></table>";
+               esc($label) . '</a>' .
+               '</td></tr></table>';
     }
 
     private function row(string $label, string $value): string
     {
-        return "<tr>" .
+        return '<tr>' .
                "<td style='padding:5px 0;font-size:13px;color:#9ca3af;white-space:nowrap;width:64px;'>{$label}</td>" .
                "<td style='padding:5px 0 5px 8px;font-size:13px;color:#374151;'>{$value}</td>" .
-               "</tr>";
+               '</tr>';
     }
 
     // ------------------------------------------------------------------ //

@@ -1,16 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Libraries\ImageUploader;
 use App\Models\CategoryModel;
-use App\Models\ProductModel;
 use App\Models\PromotionModel;
 
 class PromotionController extends BaseController
 {
-    private PromotionModel $model;
+    private readonly PromotionModel $model;
 
     public function __construct()
     {
@@ -31,7 +32,7 @@ class PromotionController extends BaseController
         return $this->render('admin/promotions/form', [
             'promotion'  => null,
             'products'   => [],
-            'categories' => (new CategoryModel())->findAll(),
+            'categories' => new CategoryModel()->findAll(),
         ]);
     }
 
@@ -42,7 +43,7 @@ class PromotionController extends BaseController
 
         $file = $this->request->getFile('banner_image_file');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('promotions'))->upload($file);
+            $result = new ImageUploader('promotions')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
@@ -66,7 +67,7 @@ class PromotionController extends BaseController
         return $this->render('admin/promotions/form', [
             'promotion'  => $promotion,
             'products'   => $this->model->getProducts($id),
-            'categories' => (new CategoryModel())->findAll(),
+            'categories' => new CategoryModel()->findAll(),
         ]);
     }
 
@@ -83,7 +84,7 @@ class PromotionController extends BaseController
 
         $file = $this->request->getFile('banner_image_file');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('promotions'))->upload($file);
+            $result = new ImageUploader('promotions')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
@@ -141,6 +142,7 @@ class PromotionController extends BaseController
 
     // ── private ──────────────────────────────────────────────────────────────
 
+    /** @return array<string, mixed> */
     private function buildData(): array
     {
         $startDate = $this->request->getPost('start_date');
@@ -152,13 +154,17 @@ class PromotionController extends BaseController
             'banner_image' => null,
             'grade_access' => $this->request->getPost('grade_access') ?? 'all',
             'start_date'   => $startDate !== '' ? $startDate : null,
-            'end_date'     => $endDate   !== '' ? $endDate   : null,
+            'end_date'     => $endDate   !== '' ? $endDate : null,
             'is_active'    => (int) $this->request->getPost('is_active'),
             'sort_order'   => (int) $this->request->getPost('sort_order'),
         ];
     }
 
-    /** products_json → array of {product_id, sort_order} */
+    /**
+     * products_json → array of {product_id, sort_order}
+     *
+     * @return array<int, array<string, mixed>>
+     */
     private function parseProducts(): array
     {
         $json = $this->request->getPost('products_json') ?? '[]';

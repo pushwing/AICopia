@@ -1,16 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\BoardModel;
-use App\Models\PostModel;
 use App\Models\PostFileModel;
+use App\Models\PostModel;
 
 class PostController extends BaseController
 {
-    private PostModel  $postModel;
-    private BoardModel $boardModel;
+    private readonly PostModel  $postModel;
+    private readonly BoardModel $boardModel;
 
     public function __construct()
     {
@@ -52,14 +54,14 @@ class PostController extends BaseController
             ->orderBy('posts.id', 'DESC')
             ->findAll();
 
-        $data = array_map(fn($p) => [
+        $data = array_map(fn (array $p): array => [
             'id'         => (int) $p['id'],
             'title'      => $p['title'],
             'is_notice'  => (int) $p['is_notice'],
             'is_secret'  => (int) $p['is_secret'],
-            'board_name' => $p['board_name'] ?? '',
-            'board_slug' => $p['board_slug'] ?? '',
-            'author'     => $p['user_nickname'] ?: ($p['author_name'] ?? ''),
+            'board_name' => $p['board_name'],
+            'board_slug' => $p['board_slug'],
+            'author'     => $p['user_nickname'] ?: $p['author_name'],
             'views'      => (int) $p['views'],
             'created_at' => $p['created_at'],
         ], $posts);
@@ -74,7 +76,7 @@ class PostController extends BaseController
             return redirect()->back()->with('error', '게시글을 찾을 수 없습니다.');
         }
 
-        (new PostFileModel())->deleteByPost($id);
+        new PostFileModel()->deleteByPost($id);
         $this->postModel->delete($id);
 
         return redirect()->back()->with('success', '삭제되었습니다.');

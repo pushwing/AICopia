@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 class NaverShoppingProvider
 {
-    private string $clientId;
-    private string $clientSecret;
+    private readonly string $clientId;
+    private readonly string $clientSecret;
     private string $endpoint = 'https://openapi.naver.com/v1/search/shop.json';
 
     public function __construct()
@@ -46,7 +48,6 @@ class NaverShoppingProvider
         $raw      = curl_exec($ch);
         $curlErr  = curl_errno($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($curlErr || $raw === false) {
             log_message('error', "NaverShopping curl error: {$curlErr}");
@@ -66,18 +67,16 @@ class NaverShoppingProvider
             return ['items' => [], 'total' => 0, 'error' => '응답 형식 오류'];
         }
 
-        $items = array_map(function (array $item): array {
-            return [
-                'title'     => html_entity_decode(strip_tags($item['title'] ?? ''), ENT_QUOTES, 'UTF-8'),
-                'image'     => $item['image']     ?? '',
-                'lprice'    => $item['lprice']    ?? '0',
-                'hprice'    => $item['hprice']    ?? '0',
-                'mallName'  => $item['mallName']  ?? '',
-                'brand'     => $item['brand']     ?? '',
-                'category1' => $item['category1'] ?? '',
-                'link'      => $item['link']      ?? '',
-            ];
-        }, $data['items']);
+        $items = array_map(fn (array $item): array => [
+            'title'     => html_entity_decode(strip_tags($item['title'] ?? ''), ENT_QUOTES, 'UTF-8'),
+            'image'     => $item['image']     ?? '',
+            'lprice'    => $item['lprice']    ?? '0',
+            'hprice'    => $item['hprice']    ?? '0',
+            'mallName'  => $item['mallName']  ?? '',
+            'brand'     => $item['brand']     ?? '',
+            'category1' => $item['category1'] ?? '',
+            'link'      => $item['link']      ?? '',
+        ], $data['items']);
 
         return [
             'items' => $items,

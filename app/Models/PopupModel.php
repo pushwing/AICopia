@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -27,10 +29,12 @@ class PopupModel extends Model
     /**
      * 현재 URI 기준으로 노출할 팝업 목록 반환
      * 활성 팝업·페이지 매핑을 캐시하고 기간·스코프는 PHP에서 필터링 (캐시 1시간)
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getActiveForPage(string $uri): array
     {
-        $cached = (array) cache()->remember('active_popups', 3600, function () {
+        $cached = (array) cache()->remember('active_popups', 3600, function (): array {
             $popups = $this->where('is_active', 1)->orderBy('priority', 'ASC')->findAll();
 
             $pageUrls = [];
@@ -51,8 +55,12 @@ class PopupModel extends Model
 
         $result = [];
         foreach ((array) ($cached['popups'] ?? []) as $popup) {
-            if ($popup['started_at'] !== null && $popup['started_at'] > $now) continue;
-            if ($popup['ended_at'] !== null && $popup['ended_at'] < $now) continue;
+            if ($popup['started_at'] !== null && $popup['started_at'] > $now) {
+                continue;
+            }
+            if ($popup['ended_at'] !== null && $popup['ended_at'] < $now) {
+                continue;
+            }
 
             $show = match ($popup['show_scope']) {
                 'all'       => true,
@@ -68,6 +76,10 @@ class PopupModel extends Model
         return $result;
     }
 
+    /**
+     * @param  array<string, mixed> $data
+     * @return array<string, mixed>
+     */
     protected function clearCacheCallback(array $data): array
     {
         cache()->delete('active_popups');
@@ -76,6 +88,8 @@ class PopupModel extends Model
 
     /**
      * 팝업에 연결된 menu_id 배열 반환
+     *
+     * @return array<int, mixed>
      */
     public function getPageIds(int $popupId): array
     {
@@ -88,6 +102,8 @@ class PopupModel extends Model
 
     /**
      * 팝업-페이지 연결 동기화 (트랜잭션)
+     *
+     * @param array<int, mixed> $menuIds
      */
     public function syncPages(int $popupId, array $menuIds): void
     {
@@ -96,8 +112,8 @@ class PopupModel extends Model
 
         $db->table('popup_pages')->where('popup_id', $popupId)->delete();
 
-        if (! empty($menuIds)) {
-            $rows = array_map(fn($menuId) => [
+        if ($menuIds !== []) {
+            $rows = array_map(fn ($menuId): array => [
                 'popup_id' => $popupId,
                 'menu_id'  => (int) $menuId,
             ], $menuIds);
@@ -112,11 +128,15 @@ class PopupModel extends Model
     public function deleteWithFile(int $id): bool
     {
         $popup = $this->db->table($this->table)->where('id', $id)->get()->getRowArray();
-        if (! $popup) return false;
+        if (! $popup) {
+            return false;
+        }
 
         if (! empty($popup['image_path'])) {
             $fullPath = FCPATH . $popup['image_path'];
-            if (file_exists($fullPath)) unlink($fullPath);
+            if (file_exists($fullPath)) {
+                unlink($fullPath);
+            }
         }
 
         \Config\Database::connect()->table('popup_pages')->where('popup_id', $id)->delete();

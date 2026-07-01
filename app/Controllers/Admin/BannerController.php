@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -8,7 +10,7 @@ use App\Models\BannerModel;
 
 class BannerController extends BaseController
 {
-    private BannerModel $bannerModel;
+    private readonly BannerModel $bannerModel;
 
     public function __construct()
     {
@@ -46,7 +48,7 @@ class BannerController extends BaseController
             return redirect()->back()->withInput()->with('error', '배너 이미지를 선택해주세요.');
         }
 
-        $result = (new ImageUploader('banners'))->upload($file);
+        $result = new ImageUploader('banners')->upload($file);
         if (! $result['success']) {
             return redirect()->back()->withInput()->with('error', $result['error']);
         }
@@ -58,7 +60,9 @@ class BannerController extends BaseController
     public function edit(int $id): \CodeIgniter\HTTP\RedirectResponse|string
     {
         $banner = $this->bannerModel->find($id);
-        if (! $banner) return redirect()->to('/admin/banners')->with('error', '배너를 찾을 수 없습니다.');
+        if (! $banner) {
+            return redirect()->to('/admin/banners')->with('error', '배너를 찾을 수 없습니다.');
+        }
 
         return $this->render('admin/banners/form', [
             'banner'    => $banner,
@@ -69,18 +73,22 @@ class BannerController extends BaseController
     public function update(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $banner = $this->bannerModel->find($id);
-        if (! $banner) return redirect()->to('/admin/banners')->with('error', '배너를 찾을 수 없습니다.');
+        if (! $banner) {
+            return redirect()->to('/admin/banners')->with('error', '배너를 찾을 수 없습니다.');
+        }
 
         $imagePath = $banner['image_path'];
 
         $file = $this->request->getFile('image');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('banners'))->upload($file);
+            $result = new ImageUploader('banners')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
             $oldPath = FCPATH . $banner['image_path'];
-            if (file_exists($oldPath)) unlink($oldPath);
+            if (file_exists($oldPath)) {
+                unlink($oldPath);
+            }
             $imagePath = $result['path'];
         }
 
@@ -94,12 +102,13 @@ class BannerController extends BaseController
         return redirect()->to('/admin/banners')->with('success', '삭제되었습니다.');
     }
 
+    /** @return array<string, mixed> */
     private function collectData(string $imagePath): array
     {
-        $toDatetime = fn($val) => $val
-            ? (strlen($val) <= 16
+        $toDatetime = fn ($val) => $val
+            ? (strlen((string) $val) <= 16
                 ? str_replace('T', ' ', $val) . ':00'
-                : str_replace('T', ' ', substr($val, 0, 19)))
+                : str_replace('T', ' ', substr((string) $val, 0, 19)))
             : null;
 
         return [

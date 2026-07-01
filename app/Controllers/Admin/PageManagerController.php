@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -7,7 +9,7 @@ use App\Models\PageModel;
 
 class PageManagerController extends BaseController
 {
-    private PageModel $pageModel;
+    private readonly PageModel $pageModel;
 
     public function __construct()
     {
@@ -57,6 +59,7 @@ class PageManagerController extends BaseController
         return redirect()->to('/admin/pages')->with('success', '삭제되었습니다.');
     }
 
+    /** @return array<string, mixed> */
     private function collectData(bool $isUpdate = false): array
     {
         $data = [

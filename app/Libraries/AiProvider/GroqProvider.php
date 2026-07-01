@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\AiProvider;
 
 class GroqProvider implements AiProviderInterface
@@ -8,8 +10,8 @@ class GroqProvider implements AiProviderInterface
     use InquiryParsing;
     use SearchExpandParsing;
 
-    private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-    private const MODEL   = 'llama-3.1-8b-instant';
+    private const string API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+    private const string MODEL   = 'llama-3.1-8b-instant';
 
     private string $apiKey;
 
@@ -19,6 +21,7 @@ class GroqProvider implements AiProviderInterface
         $this->apiKey = ($settings['groq_api_key'] ?? '') ?: env('GROQ_API_KEY', '');
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     public function suggestCategories(string $name, string $description, array $tree): array
     {
         $prompt = $this->buildPrompt($name, $description, $tree);
@@ -48,7 +51,6 @@ class GroqProvider implements AiProviderInterface
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($httpCode !== 200 || $response === false) {
             return [];
@@ -57,17 +59,20 @@ class GroqProvider implements AiProviderInterface
         return $this->parseResponse($response);
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     protected function systemPrompt(array $tree): string
     {
         return AiPrompts::render('category', ['categories' => $this->flattenTree($tree)]);
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     protected function buildPrompt(string $name, string $description, array $tree): string
     {
         $desc = mb_substr(strip_tags($description), 0, 500);
         return "상품명: {$name}\n상품 설명: {$desc}";
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     protected function flattenTree(array $tree): string
     {
         $lines = [];
@@ -80,13 +85,14 @@ class GroqProvider implements AiProviderInterface
         return implode("\n", $lines);
     }
 
+    /** @return array<int, int> */
     protected function parseResponse(string $raw): array
     {
         $data = json_decode($raw, true);
         $content = $data['choices'][0]['message']['content'] ?? '';
-        $parsed  = json_decode($content, true);
+        $parsed  = json_decode((string) $content, true);
         $ids     = $parsed['category_ids'] ?? [];
-        return array_values(array_filter(array_map('intval', (array) $ids)));
+        return array_values(array_filter(array_map(intval(...), (array) $ids)));
     }
 
     public function generateDescription(string $name, string $description): string
@@ -136,6 +142,7 @@ class GroqProvider implements AiProviderInterface
         return $data['choices'][0]['message']['content'] ?? '';
     }
 
+    /** @param array<int, array<string, mixed>> $reviews */
     public function summarizeReviews(string $productName, array $reviews): array
     {
         if ($reviews === []) {
@@ -215,7 +222,7 @@ class GroqProvider implements AiProviderInterface
             'max_tokens'      => 200,
             'messages'        => [
                 ['role' => 'system', 'content' => AiPrompts::get('search_expand')],
-                ['role' => 'user',   'content' => "검색어: " . mb_substr($query, 0, 50)],
+                ['role' => 'user',   'content' => '검색어: ' . mb_substr($query, 0, 50)],
             ],
             'response_format' => ['type' => 'json_object'],
         ]);
@@ -252,6 +259,7 @@ class GroqProvider implements AiProviderInterface
         return trim((string) ($data['choices'][0]['message']['content'] ?? ''));
     }
 
+    /** @param array<string, mixed> $stats */
     public function generateSalesReport(array $stats): string
     {
         $payload = json_encode([
@@ -279,23 +287,26 @@ class GroqProvider implements AiProviderInterface
         $text = preg_replace('/```[\s\S]*?```/', '', $text);
 
         // **bold** / __bold__ → <strong>
-        $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $text);
-        $text = preg_replace('/__(.+?)__/u',     '<strong>$1</strong>', $text);
+        $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', (string) $text);
+        $text = preg_replace('/__(.+?)__/u', '<strong>$1</strong>', (string) $text);
 
-        $lines      = explode("\n", $text);
+        $lines      = explode("\n", (string) $text);
         $result     = [];
         $listItems  = [];
 
         $flushList = static function (array &$items, array &$out): void {
             if ($items !== []) {
-                $out[]  = '<ul>' . implode('', array_map(fn ($i) => "<li>{$i}</li>", $items)) . '</ul>';
+                $out[]  = '<ul>' . implode('', array_map(fn ($i): string => "<li>{$i}</li>", $items)) . '</ul>';
                 $items  = [];
             }
         };
 
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '') { $flushList($listItems, $result); continue; }
+            if ($line === '') {
+                $flushList($listItems, $result);
+                continue;
+            }
 
             // ## 헤딩 → <p><strong>
             if (preg_match('/^#{1,3}\s+(.+)/u', $line, $m)) {
@@ -313,11 +324,7 @@ class GroqProvider implements AiProviderInterface
             $flushList($listItems, $result);
 
             // 이미 HTML 태그가 있으면 그대로
-            if (preg_match('/<(p|ul|li|strong|br)[^>]*>/i', $line)) {
-                $result[] = $line;
-            } else {
-                $result[] = "<p>{$line}</p>";
-            }
+            $result[] = preg_match('/<(p|ul|li|strong|br)[^>]*>/i', $line) ? $line : "<p>{$line}</p>";
         }
 
         $flushList($listItems, $result);
@@ -340,7 +347,6 @@ class GroqProvider implements AiProviderInterface
         ]);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         return ($httpCode === 200 && $response !== false) ? $response : false;
     }

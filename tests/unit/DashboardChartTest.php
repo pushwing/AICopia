@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -77,7 +79,7 @@ final class DashboardChartTest extends CIUnitTestCase
             'total_amount'          => $amount,
             'payable_amount'        => $amount,
             'shipping_fee'          => 0,
-            'coupon_discount_amount'=> 0,
+            'coupon_discount_amount' => 0,
             'point_used_amount'     => 0,
             'point_earned_amount'   => 0,
             'receiver_name'         => '테스트',
@@ -206,7 +208,13 @@ final class DashboardChartTest extends CIUnitTestCase
 
     public function testTopDataAreIntegers(): void
     {
+        $userId  = $this->insertUser();
+        $orderId = $this->insertOrder($userId, 'paid', 10000, date('Y-m-d'));
+        $this->insertOrderItem($orderId, '테스트상품', 2);
+
         $result = $this->buildChartData();
+
+        $this->assertNotEmpty($result['top']['data'], 'top data가 비어있어 정수 타입 검증 불가');
         foreach ($result['top']['data'] as $val) {
             $this->assertIsInt($val);
             $this->assertGreaterThan(0, $val);

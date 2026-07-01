@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -14,6 +16,7 @@ class MediaModel extends Model
         'original_name', 'stored_name', 'file_path', 'file_size', 'mime_type', 'alt',
     ];
 
+    /** @return array<int, array<string, mixed>> */
     public function getList(int $limit = 30, int $offset = 0): array
     {
         return $this->orderBy('id', 'DESC')->findAll($limit, $offset);
@@ -22,10 +25,14 @@ class MediaModel extends Model
     public function deleteWithFile(int $id): bool
     {
         $media = $this->find($id);
-        if (! $media) return false;
+        if (! $media) {
+            return false;
+        }
 
         $fullPath = FCPATH . $media['file_path'];
-        if (file_exists($fullPath)) unlink($fullPath);
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
+        }
 
         return (bool) $this->delete($id);
     }

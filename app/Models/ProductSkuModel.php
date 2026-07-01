@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -26,6 +28,7 @@ class ProductSkuModel extends Model
      *   ],
      * ]
      */
+    /** @return array{options: array<int, array<string, mixed>>, skus: array<int, array<string, mixed>>} */
     public function getOptionsAndSkus(int $productId): array
     {
         $options = $this->db->table('product_options')
@@ -86,6 +89,7 @@ class ProductSkuModel extends Model
      * 옵션 + SKU를 일괄 저장 (상품 저장 후 호출)
      * $data 형태: ['options' => [...], 'skus' => [...]]
      */
+    /** @param array<string, mixed> $data */
     public function saveOptionsAndSkus(int $productId, array $data): void
     {
         $this->deleteByProduct($productId);
@@ -100,7 +104,7 @@ class ProductSkuModel extends Model
         // 옵션 그룹 + 값 저장, 클라이언트의 임시 ID → DB ID 매핑
         $valueIdMap = []; // 클라이언트 임시 value_id => 실제 DB id
         foreach ($options as $sortIdx => $opt) {
-            $optionId = (int) $this->db->table('product_options')->insert([
+            $this->db->table('product_options')->insert([
                 'product_id' => $productId,
                 'name'       => $opt['name'],
                 'sort_order' => $sortIdx,
@@ -133,7 +137,9 @@ class ProductSkuModel extends Model
             $skuId = (int) $this->db->insertID();
 
             foreach (($sku['value_tmp_ids'] ?? []) as $tmpId) {
-                if (! isset($valueIdMap[$tmpId])) continue;
+                if (! isset($valueIdMap[$tmpId])) {
+                    continue;
+                }
                 $this->db->table('product_sku_values')->insert([
                     'sku_id'          => $skuId,
                     'option_value_id' => $valueIdMap[$tmpId],
@@ -175,6 +181,7 @@ class ProductSkuModel extends Model
     /**
      * SKU 단건 조회 (product_id 소속 검증 포함)
      */
+    /** @return array<string, mixed>|null */
     public function findForProduct(int $skuId, int $productId): ?array
     {
         return $this->where('id', $skuId)->where('product_id', $productId)->first();

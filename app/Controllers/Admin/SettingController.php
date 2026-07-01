@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -8,7 +10,7 @@ use App\Models\SettingModel;
 
 class SettingController extends BaseController
 {
-    private SettingModel $settingModel;
+    private readonly SettingModel $settingModel;
 
     public function __construct()
     {
@@ -47,7 +49,7 @@ class SettingController extends BaseController
                 'settings'     => $this->settingModel->getAllAsMap(),
                 'bankSettings' => array_filter(
                     $this->settingModel->getGroup('shop'),
-                    fn($s) => in_array($s['key'], ['bank_name', 'bank_account', 'bank_holder'])
+                    fn (array $s): bool => in_array($s['key'], ['bank_name', 'bank_account', 'bank_holder'])
                 ),
             ]);
         }
@@ -61,7 +63,9 @@ class SettingController extends BaseController
         }
 
         $allowed = ['general', 'contact', 'sns', 'seo', 'footer', 'shop', 'grade'];
-        if (! in_array($group, $allowed)) $group = 'general';
+        if (! in_array($group, $allowed)) {
+            $group = 'general';
+        }
 
         return $this->render('admin/settings/index', [
             'group'    => $group,
@@ -83,9 +87,9 @@ class SettingController extends BaseController
 
         // 파일명에서 테마 이름 추출 (영소문자·숫자·하이픈·언더스코어만 허용)
         $themeName = strtolower(pathinfo($file->getClientName(), PATHINFO_FILENAME));
-        $themeName = trim(preg_replace('/[^a-z0-9\-_]+/', '-', $themeName), '-_');
+        $themeName = trim((string) preg_replace('/[^a-z0-9\-_]+/', '-', $themeName), '-_');
 
-        if (empty($themeName) || $themeName === 'default') {
+        if (in_array($themeName, ['', '0', 'default'], true)) {
             return redirect()->back()->with('error', "'{$themeName}'은 사용할 수 없는 테마 이름입니다.");
         }
 
@@ -111,7 +115,9 @@ class SettingController extends BaseController
                 return redirect()->back()->with('error', "보안 위험: 잘못된 경로 포함 ({$entry})");
             }
 
-            if (str_ends_with($entry, '/')) continue; // 디렉토리 엔트리 skip
+            if (str_ends_with($entry, '/')) {
+                continue;
+            } // 디렉토리 엔트리 skip
 
             $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
 
@@ -134,7 +140,7 @@ class SettingController extends BaseController
         }
 
         $missing = array_diff($required, $found);
-        if (! empty($missing)) {
+        if ($missing !== []) {
             $zip->close();
             return redirect()->back()->with('error', '필수 파일 누락: ' . implode(', ', $missing));
         }
@@ -179,7 +185,7 @@ class SettingController extends BaseController
             new \RecursiveDirectoryIterator($src, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::SELF_FIRST
         ) as $item) {
-            $target = $dest . '/' . substr($item->getPathname(), strlen($src) + 1);
+            $target = $dest . '/' . substr((string) $item->getPathname(), strlen($src) + 1);
             $item->isDir() ? (is_dir($target) ?: mkdir($target, 0755, true))
                            : copy($item->getPathname(), $target);
         }
@@ -187,7 +193,9 @@ class SettingController extends BaseController
 
     private function deleteDirectory(string $dir): void
     {
-        if (! is_dir($dir)) return;
+        if (! is_dir($dir)) {
+            return;
+        }
         foreach (new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::CHILD_FIRST
@@ -231,12 +239,15 @@ class SettingController extends BaseController
 
         if ($group === 'api') {
             $save = [
-                'ai_provider'                  => in_array($postData['ai_provider'] ?? '', ['groq', 'claude'], true)
+                'ai_provider'                  => in_array($postData['ai_provider'] ?? '', ['groq', 'claude', 'openrouter'], true)
                     ? $postData['ai_provider'] : 'groq',
                 'groq_api_key'                 => trim($postData['groq_api_key'] ?? ''),
                 'anthropic_api_key'            => trim($postData['anthropic_api_key'] ?? ''),
+                'openrouter_api_key'           => trim($postData['openrouter_api_key'] ?? ''),
+                'openrouter_model'             => trim($postData['openrouter_model'] ?? ''),
                 'naver_shopping_client_id'     => trim($postData['naver_shopping_client_id'] ?? ''),
                 'naver_shopping_client_secret' => trim($postData['naver_shopping_client_secret'] ?? ''),
+                'clipdrop_api_key'             => trim($postData['clipdrop_api_key'] ?? ''),
             ];
             // AI 프롬프트: 입력값이 있으면 저장, 비우면 코드 기본값으로 폴백
             foreach (\App\Libraries\AiProvider\AiPrompts::KEYS as $key) {
@@ -256,7 +267,7 @@ class SettingController extends BaseController
         if (array_key_exists('shipping_carriers', $postData)) {
             $raw      = $postData['shipping_carriers'];
             $carriers = is_array($raw) ? $raw : [];
-            $carriers = array_values(array_filter(array_map('trim', $carriers), fn ($c) => $c !== ''));
+            $carriers = array_values(array_filter(array_map(trim(...), $carriers), fn (string $c): bool => $c !== ''));
             $postData['shipping_carriers'] = json_encode($carriers, JSON_UNESCAPED_UNICODE);
         }
 
@@ -282,7 +293,7 @@ class SettingController extends BaseController
         }
 
         try {
-            (new Mailer($settings))->sendSmtpTest($to);
+            new Mailer($settings)->sendSmtpTest($to);
             return $this->response->setJSON([
                 'success' => true,
                 'message' => "{$to} 으로 테스트 메일을 발송했습니다.",
@@ -295,7 +306,11 @@ class SettingController extends BaseController
         }
     }
 
-    /** app/Views/themes/ 하위 폴더를 스캔해 테마 목록 반환 */
+    /**
+     * app/Views/themes/ 하위 폴더를 스캔해 테마 목록 반환
+     *
+     * @return array<string, array<string, mixed>>
+     */
     private function scanThemes(): array
     {
         $base   = APPPATH . 'Views/themes/';
@@ -312,7 +327,7 @@ class SettingController extends BaseController
                     'name'      => $name,
                     'label'     => ucfirst($name),
                     'has_css'   => is_file(FCPATH . "themes/{$name}/css/style.css"),
-                    'has_layout'=> is_file(APPPATH . "Views/themes/{$name}/layouts/main.php"),
+                    'has_layout' => is_file(APPPATH . "Views/themes/{$name}/layouts/main.php"),
                 ];
             }
         }

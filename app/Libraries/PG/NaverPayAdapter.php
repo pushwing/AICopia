@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\PG;
 
 /**
@@ -8,9 +10,9 @@ namespace App\Libraries\PG;
  */
 class NaverPayAdapter implements PGInterface
 {
-    private string $clientId;
-    private string $clientSecret;
-    private string $chainId;
+    private readonly string $clientId;
+    private readonly string $clientSecret;
+    private readonly string $chainId;
     private string $apiBase = 'https://dev.apis.naver.com/naverpay-partner/naverpay/payments/v2';
 
     public function __construct()
@@ -21,6 +23,10 @@ class NaverPayAdapter implements PGInterface
         $this->chainId      = $cfg->naverpayChainId;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         return [
@@ -36,7 +42,11 @@ class NaverPayAdapter implements PGInterface
         ];
     }
 
-    /** pgToken = paymentId (네이버페이 결제 후 전달) */
+    /**
+     * pgToken = paymentId (네이버페이 결제 후 전달)
+     *
+     * @return array<string, mixed>
+     */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         $response = $this->request('POST', '/apply', [
@@ -64,6 +74,7 @@ class NaverPayAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $response = $this->request('POST', '/cancel', [
@@ -85,6 +96,10 @@ class NaverPayAdapter implements PGInterface
         return 'naverpay';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -99,14 +114,16 @@ class NaverPayAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];
-        if (empty($items)) return '주문 ' . $order['order_number'];
+        if (empty($items)) {
+            return '주문 ' . $order['order_number'];
+        }
         $first = $items[0]['product_name'] ?? '';
         $extra = count($items) > 1 ? ' 외 ' . (count($items) - 1) . '건' : '';
         return $first . $extra;

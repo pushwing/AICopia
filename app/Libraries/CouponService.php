@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Models\CouponModel;
@@ -7,8 +9,8 @@ use App\Models\UserCouponModel;
 
 class CouponService
 {
-    private CouponModel     $couponModel;
-    private UserCouponModel $userCouponModel;
+    private readonly CouponModel     $couponModel;
+    private readonly UserCouponModel $userCouponModel;
 
     public function __construct()
     {
@@ -19,7 +21,7 @@ class CouponService
     /**
      * 쿠폰 코드로 검증
      *
-     * @return array{valid: bool, coupon: array|null, user_coupon_id: int|null, discount: int, message: string}
+     * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
      */
     public function validate(string $code, int $userId, int $orderAmount): array
     {
@@ -34,7 +36,7 @@ class CouponService
     /**
      * 발급된 user_coupon_id 로 검증
      *
-     * @return array{valid: bool, coupon: array|null, user_coupon_id: int|null, discount: int, message: string}
+     * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
      */
     public function validateByUserCouponId(int $userCouponId, int $userId, int $orderAmount): array
     {
@@ -68,6 +70,7 @@ class CouponService
      * 할인 금액 계산 (orderAmount 초과 불가)
      * free_shipping은 배송비를 직접 알 수 없으므로 0 반환 — 호출처에서 shippingFee로 오버라이드
      */
+    /** @param array<string, mixed> $coupon */
     public function calculateDiscount(array $coupon, int $orderAmount): int
     {
         if ($coupon['type'] === 'free_shipping') {
@@ -86,6 +89,10 @@ class CouponService
         return min($discount, $orderAmount);
     }
 
+    /**
+     * @param  array<string, mixed>  $coupon
+     * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
+     */
     private function checkCoupon(array $coupon, int $userId, int $orderAmount, ?int $userCouponId): array
     {
         if (! $coupon['is_active']) {
@@ -105,7 +112,7 @@ class CouponService
         }
 
         if ((int) $coupon['min_order_amount'] > 0 && $orderAmount < (int) $coupon['min_order_amount']) {
-            return $this->fail('최소 주문 금액(' . number_format($coupon['min_order_amount']) . '원) 이상일 때 사용 가능합니다.');
+            return $this->fail('최소 주문 금액(' . number_format((int) $coupon['min_order_amount']) . '원) 이상일 때 사용 가능합니다.');
         }
 
         // 등급 제한 쿠폰 검증 (콤마 구분 다중 등급)
@@ -113,10 +120,10 @@ class CouponService
             $userRow = \Config\Database::connect()
                 ->table('users')->select('grade')->where('id', $userId)->get()->getRowArray();
             $userGrade    = $userRow['grade'] ?? 'bronze';
-            $targetGrades = array_map('trim', explode(',', $coupon['target_grade']));
+            $targetGrades = array_map(trim(...), explode(',', (string) $coupon['target_grade']));
             if (! in_array($userGrade, $targetGrades, true)) {
                 $gradeLabels   = \App\Libraries\GradeService::LABELS;
-                $targetLabels  = array_map(fn($g) => $gradeLabels[$g] ?? $g, $targetGrades);
+                $targetLabels  = array_map(fn ($g) => $gradeLabels[$g] ?? $g, $targetGrades);
                 return $this->fail(implode('·', $targetLabels) . ' 등급 전용 쿠폰입니다.');
             }
         }
@@ -145,6 +152,7 @@ class CouponService
         ];
     }
 
+    /** @return array{valid: bool, coupon: null, user_coupon_id: null, discount: int, message: string} */
     private function fail(string $message): array
     {
         return ['valid' => false, 'coupon' => null, 'user_coupon_id' => null, 'discount' => 0, 'message' => $message];

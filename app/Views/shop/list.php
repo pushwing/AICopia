@@ -91,6 +91,14 @@
         <!-- 상품 목록 -->
         <div class="col-lg-10 col-md-9">
 
+            <!-- 카테고리 소개 카피 (랜딩) -->
+            <?php if (! empty($catLanding['description'])): ?>
+            <div class="mb-4">
+                <h1 class="h4 fw-bold mb-2"><?= esc($catLanding['name']) ?></h1>
+                <p class="text-muted mb-0" style="white-space:pre-line"><?= esc($catLanding['description']) ?></p>
+            </div>
+            <?php endif; ?>
+
             <!-- 정렬 -->
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <span class="text-muted small">총 <?= number_format($total) ?>개 상품</span>
@@ -223,6 +231,28 @@
             </nav>
             <?php endif; ?>
 
+            <?php endif; ?>
+
+            <!-- 카테고리 FAQ (랜딩) -->
+            <?php if (! empty($catLanding['faq'])): ?>
+            <div class="mt-5">
+                <h2 class="h5 fw-bold mb-3">자주 묻는 질문</h2>
+                <div class="accordion" id="catFaqAccordion">
+                    <?php foreach ($catLanding['faq'] as $i => $fq): ?>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#catFaq<?= (int) $i ?>">
+                                <?= esc($fq['question']) ?>
+                            </button>
+                        </h3>
+                        <div id="catFaq<?= (int) $i ?>" class="accordion-collapse collapse" data-bs-parent="#catFaqAccordion">
+                            <div class="accordion-body small text-muted" style="white-space:pre-line"><?= esc($fq['answer']) ?></div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
             <?php endif; ?>
         </div>
     </div>

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -16,14 +18,14 @@ use App\Models\WishlistModel;
 
 class ShopController extends BaseController
 {
-    private ProductModel       $productModel;
-    private CategoryModel      $categoryModel;
-    private ProductImageModel  $imageModel;
-    private ProductQnaModel    $qnaModel;
-    private ProductReviewModel $reviewModel;
-    private ProductSkuModel    $skuModel;
-    private WishlistModel      $wishlistModel;
-    private RestockAlertModel  $restockModel;
+    private readonly ProductModel       $productModel;
+    private readonly CategoryModel      $categoryModel;
+    private readonly ProductImageModel  $imageModel;
+    private readonly ProductQnaModel    $qnaModel;
+    private readonly ProductReviewModel $reviewModel;
+    private readonly ProductSkuModel    $skuModel;
+    private readonly WishlistModel      $wishlistModel;
+    private readonly RestockAlertModel  $restockModel;
 
     public function __construct()
     {
@@ -50,7 +52,7 @@ class ShopController extends BaseController
         $discountedProducts = $this->productModel->getDiscounted(8);
         $this->imageModel->attachPrimaryImages($discountedProducts);
 
-        $promotions = (new PromotionModel())->getActiveFrontList();
+        $promotions = new PromotionModel()->getActiveFrontList();
 
         return $this->render('shop/home', [
             'mainTopBanners'     => $bannerModel->getActiveByPosition('main_top'),
@@ -71,18 +73,24 @@ class ShopController extends BaseController
         $featuredCount = max(1, (int) ($s['welcome_featured_count'] ?? 8));
 
         $newProducts = ($s['welcome_show_new'] ?? '1') ? $this->productModel->getLatest($newCount) : [];
-        if ($newProducts) $this->imageModel->attachPrimaryImages($newProducts);
+        if ($newProducts !== []) {
+            $this->imageModel->attachPrimaryImages($newProducts);
+        }
 
         $discountedProducts = ($s['welcome_show_discount'] ?? '1') ? $this->productModel->getDiscounted($discountCount) : [];
-        if ($discountedProducts) $this->imageModel->attachPrimaryImages($discountedProducts);
+        if ($discountedProducts !== []) {
+            $this->imageModel->attachPrimaryImages($discountedProducts);
+        }
 
         $featuredProducts = ($s['welcome_show_featured'] ?? '1') ? $this->productModel->getFeatured($featuredCount) : [];
-        if ($featuredProducts) $this->imageModel->attachPrimaryImages($featuredProducts);
+        if ($featuredProducts !== []) {
+            $this->imageModel->attachPrimaryImages($featuredProducts);
+        }
 
         $categories = ($s['welcome_show_categories'] ?? '1') ? $this->categoryModel->getTree() : [];
 
         return $this->render('shop/welcome', [
-            'heroBanners'        => ($s['welcome_show_hero'] ?? '1')          ? $bannerModel->getActiveByPosition('main_top')    : [],
+            'heroBanners'        => ($s['welcome_show_hero'] ?? '1') ? $bannerModel->getActiveByPosition('main_top') : [],
             'mainBotBanners'     => ($s['welcome_show_bottom_banner'] ?? '1') ? $bannerModel->getActiveByPosition('main_bottom') : [],
             'newProducts'        => $newProducts,
             'discountedProducts' => $discountedProducts,
@@ -113,54 +121,94 @@ class ShopController extends BaseController
         $product['stock']  = $freshStock ? (int) $freshStock->stock : 0;
         $product['status'] = $product['stock'] === 0 ? 'sold_out' : $product['status'];
 
-        $images = $this->imageModel->getByProduct($product['id']);
+        $productId = (int) $product['id'];
+        $images = $this->imageModel->getByProduct($productId);
 
         $qnaPerPage = 10;
         $qnaPage    = max(1, (int) ($this->request->getGet('qna_page') ?? 1));
-        $qnaData    = $this->qnaModel->getByProduct($product['id'], $qnaPage, $qnaPerPage);
+        $qnaData    = $this->qnaModel->getByProduct($productId, $qnaPage, $qnaPerPage);
 
         $reviewPerPage = 10;
         $reviewPage    = max(1, (int) ($this->request->getGet('review_page') ?? 1));
-        $reviewData    = $this->reviewModel->getByProduct($product['id'], $reviewPage, $reviewPerPage);
+        $reviewData    = $this->reviewModel->getByProduct($productId, $reviewPage, $reviewPerPage);
+        $ratingSummary = $this->reviewModel->getRatingSummary($productId);
 
         $canWriteReview = false;
         $reviewOrderId  = null;
         $userId = (int) session()->get('user_id');
         if ($userId > 0) {
-            $reviewOrderId  = $this->reviewModel->canWriteReview($userId, $product['id']);
+            $reviewOrderId  = $this->reviewModel->canWriteReview($userId, $productId);
             $canWriteReview = $reviewOrderId !== null;
         }
 
-        $optionsAndSkus = $this->skuModel->getOptionsAndSkus($product['id']);
+        $optionsAndSkus = $this->skuModel->getOptionsAndSkus($productId);
 
         // 찜 여부
-        $isWished = $userId > 0
-            ? $this->wishlistModel->isWished($userId, (int) $product['id'])
-            : false;
+        $isWished = $userId > 0 && $this->wishlistModel->isWished($userId, (int) $product['id']);
 
         // 최근 본 상품 쿠키 업데이트
         $viewed = json_decode($this->request->getCookie('recently_viewed') ?? '[]', true);
-        if (! is_array($viewed)) $viewed = [];
-        $viewed = array_values(array_filter($viewed, fn($s) => $s !== $slug));
+        if (! is_array($viewed)) {
+            $viewed = [];
+        }
+        $viewed = array_values(array_filter($viewed, fn ($s): bool => $s !== $slug));
         array_unshift($viewed, $slug);
         $viewed = array_slice($viewed, 0, 11);
         $this->response->setCookie('recently_viewed', json_encode($viewed), 30 * 24 * 3600);
 
         // 최근 본 상품 목록 (현재 상품 제외, 최대 10개)
-        $recentSlugs    = array_values(array_filter($viewed, fn($s) => $s !== $slug));
+        $recentSlugs    = array_values(array_filter($viewed, fn ($s): bool => $s !== $slug));
         $recentProducts = [];
-        if ($recentSlugs) {
+        if ($recentSlugs !== []) {
             $recentProducts = $this->productModel
                 ->whereIn('slug', $recentSlugs)
                 ->whereIn('status', ['on_sale', 'sold_out'])
                 ->findAll();
             $this->imageModel->attachPrimaryImages($recentProducts);
-            usort($recentProducts, fn($a, $b) =>
+            usort(
+                $recentProducts,
+                fn (array $a, array $b): int =>
                 array_search($a['slug'], $recentSlugs) <=> array_search($b['slug'], $recentSlugs)
             );
         }
 
+        // ── SEO 메타 · 구조화 데이터(JSON-LD) ────────────────────────────────
+        $siteName = (string) ($this->viewData['settings']['site_name'] ?? '');
+        $canonical = base_url('shop/' . $product['slug']);
+        // 스키마용 개별 리뷰(별점 매겨진 것만, 표시명은 마스킹)
+        $schemaReviews = [];
+        foreach ($reviewData['items'] as $r) {
+            if ((int) ($r['rating'] ?? 0) < 1) {
+                continue;
+            }
+            $name = (string) ($r['nickname'] ?: $r['username']);
+            $schemaReviews[] = [
+                'author' => mb_substr($name, 0, 1) . str_repeat('*', min(max(mb_strlen($name) - 1, 0), 2)),
+                'rating' => (int) $r['rating'],
+                'body'   => (string) $r['content'],
+                'date'   => $r['created_at'] ?? null,
+            ];
+        }
+        $seoPage = [
+            'meta_title' => trim($product['name'] . ($siteName !== '' ? ' | ' . $siteName : '')),
+            'meta_desc'  => mb_substr(trim(strip_tags((string) ($product['description'] ?? ''))), 0, 155),
+            'og_image'   => $images[0]['file_path'] ?? ($this->viewData['settings']['site_logo'] ?? ''),
+            'og_type'    => 'product',
+            'canonical'  => $canonical,
+            'jsonld'     => [
+                \App\Libraries\SeoHelper::productSchema($product, $images, $ratingSummary, $schemaReviews),
+                \App\Libraries\SeoHelper::breadcrumbSchema([
+                    ['name' => '홈', 'url' => base_url('/')],
+                    ['name' => '상품', 'url' => base_url('shop')],
+                    ['name' => (string) $product['name'], 'url' => $canonical],
+                ]),
+                // 답변 완료된 공개 Q&A → FAQPage (없으면 빈 배열 → 렌더 시 생략)
+                \App\Libraries\SeoHelper::faqSchema($this->qnaModel->getPublicAnswered($productId)),
+            ],
+        ];
+
         return $this->render('shop/detail', [
+            'page'            => $seoPage,
             'product'         => $product,
             'images'          => $images,
             'shipping_policy' => $this->viewData['settings']['shipping_policy'] ?? '',
@@ -177,6 +225,7 @@ class ShopController extends BaseController
             'reviewTotal'     => $reviewData['total'],
             'reviewPage'      => $reviewPage,
             'reviewPerPage'   => $reviewPerPage,
+            'ratingSummary'   => $ratingSummary,
             'canWriteReview'  => $canWriteReview,
             'reviewOrderId'   => $reviewOrderId,
             'reviewSummary'   => \App\Libraries\AiProvider\AiCache::get(
@@ -192,7 +241,7 @@ class ShopController extends BaseController
     public function wishToggle(string $slug): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -209,7 +258,7 @@ class ShopController extends BaseController
     public function qnaStore(string $slug): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -239,7 +288,7 @@ class ShopController extends BaseController
     public function qnaDelete(string $slug, int $id): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -256,7 +305,7 @@ class ShopController extends BaseController
     public function reviewStore(string $slug): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -265,7 +314,7 @@ class ShopController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => '상품을 찾을 수 없습니다.']);
         }
 
-        $orderId = $this->reviewModel->canWriteReview($userId, $product['id']);
+        $orderId = $this->reviewModel->canWriteReview($userId, (int) $product['id']);
         if ($orderId === null) {
             return $this->response->setJSON(['success' => false, 'message' => '구매 확정된 상품에만 리뷰를 작성할 수 있습니다.']);
         }
@@ -275,19 +324,37 @@ class ShopController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => '리뷰 내용을 입력해주세요.']);
         }
 
+        $rating = (int) $this->request->getPost('rating');
+        if ($rating < 1 || $rating > 5) {
+            return $this->response->setJSON(['success' => false, 'message' => '별점을 선택해주세요. (1~5)']);
+        }
+
         // 이미지 업로드 (최대 3장)
         $uploadedImages = [];
         $uploadFiles    = $this->request->getFiles();
         if (isset($uploadFiles['images'])) {
             $fileList = is_array($uploadFiles['images']) ? $uploadFiles['images'] : [$uploadFiles['images']];
             foreach (array_slice($fileList, 0, 3) as $file) {
-                if (! ($file instanceof \CodeIgniter\HTTP\Files\UploadedFile)) continue;
-                if (! $file->isValid() || $file->hasMoved()) continue;
-                if (! in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) continue;
-                if ($file->getSize() > 5 * 1024 * 1024) continue;
+                if (! ($file instanceof \CodeIgniter\HTTP\Files\UploadedFile)) {
+                    continue;
+                }
+                if (! $file->isValid()) {
+                    continue;
+                }
+                if ($file->hasMoved()) {
+                    continue;
+                }
+                if (! in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
+                    continue;
+                }
+                if ($file->getSize() > 5 * 1024 * 1024) {
+                    continue;
+                }
                 $name = $file->getRandomName();
                 $dir  = FCPATH . 'uploads/reviews/';
-                if (! is_dir($dir)) mkdir($dir, 0755, true);
+                if (! is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
                 if ($file->move($dir, $name)) {
                     $uploadedImages[] = '/uploads/reviews/' . $name;
                 }
@@ -299,6 +366,7 @@ class ShopController extends BaseController
             'order_id'    => $orderId,
             'user_id'     => $userId,
             'content'     => $content,
+            'rating'      => $rating,
             'is_rewarded' => 0,
         ]);
 
@@ -332,7 +400,7 @@ class ShopController extends BaseController
     public function reviewDelete(string $slug, int $id): \CodeIgniter\HTTP\ResponseInterface
     {
         $userId = (int) session()->get('user_id');
-        if (! $userId) {
+        if ($userId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '로그인이 필요합니다.']);
         }
 
@@ -359,13 +427,13 @@ class ShopController extends BaseController
             'per_page'     => 12,
             'price_min'    => $this->request->getGet('price_min'),
             'price_max'    => $this->request->getGet('price_max'),
-            'only_discount'=> $this->request->getGet('only_discount'),
+            'only_discount' => $this->request->getGet('only_discount'),
         ];
 
         // 시맨틱 검색: 검색어를 AI로 확장해 재현율 향상 (AI 미설정 시 일반 검색)
         $expandedTerms = [];
         if (! empty($params['keyword'])) {
-            $expandedTerms = (new \App\Libraries\SemanticSearchService())->expand((string) $params['keyword']);
+            $expandedTerms = new \App\Libraries\SemanticSearchService()->expand((string) $params['keyword']);
             $params['expanded_terms'] = $expandedTerms;
         }
 
@@ -376,24 +444,49 @@ class ShopController extends BaseController
         // 현재 페이지 상품에 대한 찜 여부 (로그인 사용자)
         $wishedIds = [];
         $userId    = (int) session()->get('user_id');
-        if ($userId > 0 && ! empty($result['items'])) {
+        if ($userId > 0 && $result['items'] !== []) {
             $productIds = array_column($result['items'], 'id');
             $rows       = $this->wishlistModel
                 ->select('product_id')
                 ->where('user_id', $userId)
                 ->whereIn('product_id', $productIds)
                 ->findAll();
-            $wishedIds = array_map('intval', array_column($rows, 'product_id'));
+            $wishedIds = array_map(intval(...), array_column($rows, 'product_id'));
         }
 
         // 로그인 회원 개인화 추천 (필터·검색 없는 목록 1페이지에서만)
         $recommended = [];
         $noFilter    = empty($params['keyword']) && (int) $params['category_id'] === 0 && empty($params['only_discount']);
         if ($userId > 0 && (int) ($params['page'] ?? 1) <= 1 && $noFilter) {
-            $recommended = (new \App\Libraries\RecommendationService())->forUser($userId, 8);
+            $recommended = new \App\Libraries\RecommendationService()->forUser($userId, 8);
+        }
+
+        // 카테고리 랜딩(소개 카피 + FAQ) — 단일 카테고리 선택 시 SEO 강화
+        $catLanding = null;
+        $seoPage    = null;
+        $curCatId   = (int) $params['category_id'];
+        if ($curCatId > 0) {
+            $cat = $this->categoryModel->where('id', $curCatId)->first();
+            if ($cat !== null && (int) $cat['is_active'] === 1) {
+                $catFaq     = \App\Models\CategoryModel::decodeFaq($cat['faq'] ?? null);
+                $catLanding = [
+                    'name'        => (string) $cat['name'],
+                    'description' => (string) ($cat['description'] ?? ''),
+                    'faq'         => $catFaq,
+                ];
+                $siteName = (string) ($this->viewData['settings']['site_name'] ?? '');
+                $seoPage  = [
+                    'meta_title' => trim($cat['name'] . ($siteName !== '' ? ' | ' . $siteName : '')),
+                    'meta_desc'  => mb_substr(trim(strip_tags((string) ($cat['description'] ?? ''))), 0, 155),
+                    'canonical'  => base_url('shop') . '?category_id=' . $curCatId,
+                    'jsonld'     => [\App\Libraries\SeoHelper::faqSchema($catFaq)],
+                ];
+            }
         }
 
         return $this->render('shop/list', array_merge($result, [
+            'page'         => $seoPage,
+            'catLanding'   => $catLanding,
             'tree'         => $this->categoryModel->getTree(),
             'keyword'      => $params['keyword'],
             'curCat'       => (int) $params['category_id'],
@@ -403,7 +496,7 @@ class ShopController extends BaseController
             'onlyDiscount' => (bool) $params['only_discount'],
             'wishedIds'    => $wishedIds,
             'recommended'  => $recommended,
-            'expandedTerms'=> $expandedTerms,
+            'expandedTerms' => $expandedTerms,
         ]));
     }
 

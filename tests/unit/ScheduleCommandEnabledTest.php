@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\SettingModel;
@@ -73,7 +75,7 @@ final class ScheduleCommandEnabledTest extends CIUnitTestCase
 
         $settings = (new SettingModel())->getAllAsMap();
         // 실제 키가 '1'인 경우 — isEnabled true
-        $key = array_key_first(array_filter($settings, fn($v) => $v === '1'));
+        $key = array_key_first(array_filter($settings, fn ($v) => $v === '1'));
         $this->assertTrue($this->isEnabled(['schedule_orders_expire_enabled' => '1'], 'schedule_orders_expire_enabled'));
     }
 

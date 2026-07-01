@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -7,9 +9,9 @@ use App\Models\SettingModel;
 
 class ScheduleController extends BaseController
 {
-    private SettingModel $settingModel;
+    private readonly SettingModel $settingModel;
 
-    private const JOB_COMMANDS = [
+    private const array JOB_COMMANDS = [
         'schedule_orders_expire'    => 'orders:expire',
         'schedule_stats_purge_logs' => 'stats:purge-logs',
         'schedule_coupons_birthday' => 'coupons:birthday',

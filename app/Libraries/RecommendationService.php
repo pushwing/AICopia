@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Models\ProductImageModel;
@@ -14,12 +16,12 @@ use App\Models\ProductImageModel;
 class RecommendationService
 {
     /** 매출에 잡히는 주문 상태 (구매 이력으로 인정) */
-    private const PURCHASED_STATUSES = [
+    private const array PURCHASED_STATUSES = [
         'paid', 'preparing', 'shipped', 'delivered', 'refund_requested', 'return_requested', 'return_approved',
     ];
 
     /** 회원별 캐시 TTL (초) */
-    private const CACHE_TTL = 600;
+    private const int CACHE_TTL = 600;
 
     /**
      * 회원 추천 상품 목록 (primary_image 포함).
@@ -54,6 +56,7 @@ class RecommendationService
         }
     }
 
+    /** @return array<int, array<string, mixed>> */
     private function build(int $userId, int $limit): array
     {
         $db       = \Config\Database::connect();
@@ -80,7 +83,7 @@ class RecommendationService
 
         // 부족하면 추천·최신 상품으로 채움 (신규 회원 폴백 포함)
         if (count($items) < $limit) {
-            $exclude = array_map('intval', array_merge($ownedIds, array_column($items, 'id')));
+            $exclude = array_map(intval(...), array_merge($ownedIds, array_column($items, 'id')));
             $fb = $db->table('products p')
                 ->select('p.*')
                 ->where('p.status', 'on_sale')
@@ -95,13 +98,17 @@ class RecommendationService
             $items = array_merge($items, $fbItems);
         }
 
-        (new ProductImageModel())->attachPrimaryImages($items);
+        new ProductImageModel()->attachPrimaryImages($items);
 
         return $items;
     }
 
-    /** 사용자가 찜했거나 구매한 상품 id 집합. */
-    private function ownedProductIds($db, int $userId): array
+    /**
+     * 사용자가 찜했거나 구매한 상품 id 집합.
+     *
+     * @return array<int, int>
+     */
+    private function ownedProductIds(\CodeIgniter\Database\BaseConnection $db, int $userId): array
     {
         $wished = $db->table('wishlists')
             ->select('product_id')
@@ -120,11 +127,16 @@ class RecommendationService
             array_column($bought, 'product_id')
         );
 
-        return array_values(array_unique(array_map('intval', $ids)));
+        return array_values(array_unique(array_map(intval(...), $ids)));
     }
 
-    /** 보유 상품들의 카테고리 빈도 상위 5개. */
-    private function preferredCategories($db, array $ownedIds): array
+    /**
+     * 보유 상품들의 카테고리 빈도 상위 5개.
+     *
+     * @param  array<int, int> $ownedIds
+     * @return array<int, int>
+     */
+    private function preferredCategories(\CodeIgniter\Database\BaseConnection $db, array $ownedIds): array
     {
         if ($ownedIds === []) {
             return [];
@@ -138,6 +150,6 @@ class RecommendationService
             ->limit(5)
             ->get()->getResultArray();
 
-        return array_map(fn ($r) => (int) $r['category_id'], $rows);
+        return array_map(fn (array $r): int => (int) $r['category_id'], $rows);
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -15,11 +17,13 @@ class PostFileModel extends Model
         'file_path', 'file_size', 'mime_type', 'is_image',
     ];
 
+    /** @return array<int, array<string, mixed>> */
     public function getByPost(int $postId): array
     {
         return $this->where('post_id', $postId)->findAll();
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getImages(int $postId): array
     {
         return $this->where('post_id', $postId)->where('is_image', 1)->findAll();

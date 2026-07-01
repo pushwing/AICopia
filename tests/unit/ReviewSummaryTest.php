@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Libraries\AiProvider\AiCache;
@@ -36,7 +38,9 @@ class SummaryTraitHost
 // ── callApi를 모킹한 Provider ───────────────────────────────────────────────
 class MockGroqSummaryProvider extends GroqProvider
 {
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -46,7 +50,9 @@ class MockGroqSummaryProvider extends GroqProvider
 
 class MockClaudeSummaryProvider extends ClaudeProvider
 {
-    public function __construct(private string $mockRaw, private bool $success = true) {}
+    public function __construct(private string $mockRaw, private bool $success = true)
+    {
+    }
 
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
@@ -57,30 +63,69 @@ class MockClaudeSummaryProvider extends ClaudeProvider
 // ── 핸들러용 가짜 의존성 (DB 불필요) ─────────────────────────────────────────
 class StubSummaryProvider implements AiProviderInterface
 {
-    public function __construct(private array $canned) {}
+    public function __construct(private array $canned)
+    {
+    }
 
-    public function suggestCategories(string $name, string $description, array $tree): array { return []; }
-    public function generateDescription(string $name, string $description): string { return ''; }
-    public function generateQnaAnswer(string $p, string $d, string $t, string $c): string { return ''; }
-    public function summarizeReviews(string $productName, array $reviews): array { return $this->canned; }
-    public function classifyInquiry(string $subject, string $message): array { return []; }
-    public function generateInquiryReply(string $name, string $subject, string $message): string { return ''; }
-    public function generateSalesReport(array $stats): string { return ''; }
-    public function generateRestockMessage(string $productName, string $productDescription): string { return ''; }
-    public function expandSearchQuery(string $query): array { return []; }
+    public function suggestCategories(string $name, string $description, array $tree): array
+    {
+        return [];
+    }
+    public function generateDescription(string $name, string $description): string
+    {
+        return '';
+    }
+    public function generateQnaAnswer(string $p, string $d, string $t, string $c): string
+    {
+        return '';
+    }
+    public function summarizeReviews(string $productName, array $reviews): array
+    {
+        return $this->canned;
+    }
+    public function classifyInquiry(string $subject, string $message): array
+    {
+        return [];
+    }
+    public function generateInquiryReply(string $name, string $subject, string $message): string
+    {
+        return '';
+    }
+    public function generateSalesReport(array $stats): string
+    {
+        return '';
+    }
+    public function generateRestockMessage(string $productName, string $productDescription): string
+    {
+        return '';
+    }
+    public function expandSearchQuery(string $query): array
+    {
+        return [];
+    }
 }
 
 class FakeProductModel extends ProductModel
 {
-    public function __construct(private ?array $product) {}
-    public function find($id = null) { return $this->product; }
+    public function __construct(private ?array $product)
+    {
+    }
+    public function find($id = null)
+    {
+        return $this->product;
+    }
 }
 
 class FakeReviewModel extends ProductReviewModel
 {
     public array $markedNegative = [];
-    public function __construct(private array $reviews) {}
-    public function getForSummary(int $productId, int $limit = 50): array { return $this->reviews; }
+    public function __construct(private array $reviews)
+    {
+    }
+    public function getForSummary(int $productId, int $limit = 50): array
+    {
+        return $this->reviews;
+    }
     public function markNegative(int $productId, array $negativeIds): void
     {
         $this->markedNegative = $negativeIds;

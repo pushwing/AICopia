@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -18,6 +20,7 @@ class RestockAlertModel extends Model
                     ->countAllResults() > 0;
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getPending(int $productId): array
     {
         return $this->where('product_id', $productId)

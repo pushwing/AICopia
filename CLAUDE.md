@@ -21,8 +21,14 @@ php spark serve              # 개발 서버 실행 (http://localhost:8080)
 php spark migrate            # 대기 중인 마이그레이션 전체 실행 (테이블 생성 + 시드)
 php spark migrate:rollback   # 마지막 마이그레이션 배치 롤백
 php spark db:seed <Seeder>   # 시더 실행 (예: ProductSeeder, PostSeeder)
-./vendor/bin/phpunit         # 테스트 실행
-vendor/bin/phpstan analyse   # 정적 분석 (설정: phpstan.neon)
+
+composer test                # PHPUnit
+composer analyse             # PHPStan (레벨 5)
+composer cs                  # 코드 스타일 검사 (PHP-CS-Fixer, dry-run)
+composer cs-fix              # 코드 스타일 자동 수정
+composer rector              # 리팩토링 미리보기 (dry-run)
+composer rector-fix          # 리팩토링 적용
+composer check               # cs + analyse + test 일괄
 ```
 
 ### 스케줄 / 배치 명령 (`app/Commands/`)
@@ -45,7 +51,10 @@ vendor/bin/phpstan analyse   # 정적 분석 (설정: phpstan.neon)
 
 ```bash
 composer install
-cp env .env                    # 이후 편집: DB, CI_ENVIRONMENT, AI 키, PG 키, OAuth 키, SMTP
+# 표준 CI4 스켈레톤은 gitignore 되어 있어 vendor에서 복원한다(커스텀 Config는 보존).
+cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
+[ -e system ] || ln -s vendor/codeigniter4/framework/system system
+cp vendor/codeigniter4/framework/env .env   # 이후 편집: DB, CI_ENVIRONMENT, AI 키, PG 키, OAuth 키, SMTP
 # app/Config/App.php: $appTimezone = 'Asia/Seoul' 로 설정
 php spark migrate              # 테이블 생성 + 기본 데이터 시드
 ```
@@ -242,7 +251,7 @@ ai_jobs              — 비동기 AI 잡 큐
 
 ## 코딩 표준 (프로젝트 전역)
 
-- PHP 8.1+ (타입 프로퍼티, match, 화살표 함수); PSR-12.
+- PHP 8.5+ (타입 프로퍼티, match, 화살표 함수); PSR-12. (`composer.json`에서 `php >=8.5` 요구, CI·PHPStan 기준도 8.5)
 - 모델은 `CodeIgniter\Model`을 상속하고 `$allowedFields`를 명시.
 - 뷰는 네이티브 대체 문법(`<?php if (): ?> … <?php endif; ?>`) 사용, 모든 출력에 `esc()`.
 - 입력은 `$this->request->getPost()`로 받고, 처리 전 `$this->validate()`로 검증.
@@ -347,7 +356,7 @@ return $this->render('admin/products/index', [
 foreach ($products as $item) { ... }
 ```
 
-## 권장 PHP 스타일 (8.1+)
+## 권장 PHP 스타일 (8.5+)
 
 - 메서드·프로퍼티에 타입 선언(반환 타입 포함)을 적용 — PHPStan 레벨 5 전제.
 - 분기는 `match` 표현식 우선(`switch` 지양).
@@ -416,14 +425,83 @@ $rows = $spreadsheet->getActiveSheet()->toArray();
 - 대용량(1만 행 이상)은 청크 단위 처리(`ChunkReadFilter`) 적용.
 - 업로드 파일은 `public/` 외부(`writable/uploads/`)에 저장 후 처리하고, 완료 즉시 임시 파일 삭제.
 
-## 정적 분석 · 테스트
+## 개발 품질 게이트 (필수)
+
+커밋·PR 전에 아래를 통과시킵니다. 한 번에 `composer check`(= cs + analyse + test).
+
+### 1. 코드 스타일 — PHP-CS-Fixer
 
 ```bash
-vendor/bin/phpstan analyse     # 정적 분석 (설정: phpstan.neon, 레벨 5)
-./vendor/bin/phpunit           # 테스트 실행 (tests/unit)
+composer cs       # 검사 (변경 없음)
+composer cs-fix   # 자동 수정
 ```
 
-- PHPStan 분석 레벨 **5**, 대상은 `app/`의 코드 디렉토리(Views 제외) — 자세한 paths는 `phpstan.neon`.
-- 기존 억제 항목은 `phpstan-baseline.neon`에 정리되어 있음. 새 코드는 `@phpstan-ignore`로 덮지 말고 원인을 수정.
+- 설정: `.php-cs-fixer.dist.php` — **PSR-12** 기반 + `declare(strict_types=1)` 강제 + import 정렬·short array 등.
+- 대상: `app/`, `tests/`(Views 제외). CI에서 `composer cs`가 실패하면 머지 불가.
+- **모든 PHP 파일 첫 줄에 `declare(strict_types=1);`** — cs-fixer가 자동 삽입/검사.
+
+### 2. 정적 분석 — PHPStan
+
+```bash
+composer analyse
+```
+
+- 레벨 **5**(`phpstan.neon`), CI4 확장(`codeigniter/phpstan-codeigniter`) 사용. 대상은 `app/` 코드 디렉토리(Views 제외).
+- 기존 억제는 `phpstan-baseline.neon`. 새 코드는 `@phpstan-ignore`로 덮지 말고 원인 수정.
 - 새 클래스·메서드에는 제네릭 타입(`array<string, mixed>` 등) 명시.
-- 단위 테스트는 `tests/unit/`. 새 기능(특히 Service/Model 로직)은 테스트를 함께 작성하고, 운영 DB는 절대 사용하지 말 것.
+- 점진적 상향 목표: 5 → 6 → 8 (baseline으로 단계적 적용).
+
+### 3. 자동 현대화 — Rector
+
+```bash
+composer rector       # 미리보기(dry-run)
+composer rector-fix   # 적용
+```
+
+- 설정: `rector.php` — PHP 8.5 셋 + CODE_QUALITY / DEAD_CODE / TYPE_DECLARATION / EARLY_RETURN.
+- 대량 변경이 나올 수 있으므로 **반드시 PR 단위로 검토**하고 cs-fix·analyse·test로 재검증.
+
+### 4. 테스트 — PHPUnit
+
+```bash
+composer test
+```
+
+- 단위 테스트는 `tests/unit/`(`CIUnitTestCase` + `DatabaseTestTrait`, `$DBGroup = 'tests'`, `$migrate = false`).
+- 테스트는 **미리 마이그레이션된 `tests` DB 그룹**을 가정한다(스스로 마이그레이션하지 않음).
+- 마이그레이션은 **MySQL 전용 DDL**(`ALTER TABLE ... ADD UNIQUE KEY` 등)을 사용하므로 SQLite로는 실행 불가 — 테스트 DB도 **MySQL**이어야 한다.
+- 마이그레이션이 prefix 없는 raw DDL(`ALTER TABLE users ...`)을 쓰므로 **DBPrefix는 빈 값**이어야 한다(프레임워크 기본 tests 그룹의 `db_`를 쓰면 안 됨).
+- 로컬 테스트 준비 예시(default·tests 그룹을 같은 MySQL DB로):
+
+```bash
+# .env (default·tests 그룹 모두 동일 MySQL, prefix 없음)
+#   database.default.DBDriver = MySQLi
+#   database.default.database = aicopia_test
+#   database.default.DBPrefix =
+#   database.tests.DBDriver   = MySQLi
+#   database.tests.database   = aicopia_test
+#   database.tests.DBPrefix   =
+php spark migrate --all      # default 그룹에 테이블 생성
+composer test                # tests 그룹이 같은 DB를 읽음
+```
+
+- 운영 DB는 절대 사용 금지. CI는 `.github/workflows/ci.yml`의 `test` 잡이 동일 흐름을 MySQL 서비스로 자동 수행.
+- 새 기능(특히 Service/Model 로직)은 테스트를 함께 작성.
+
+## CI / CD
+
+- **GitHub Actions**(`.github/workflows/ci.yml`)가 `dev`·`main` 대상 PR·push마다 실행:
+  - `static` 잡 — `composer cs` + `composer analyse` + `composer audit`(의존성 취약점).
+  - `test` 잡 — MySQL 서비스 프로비저닝 → `tests` DB 마이그레이션 → `composer test`.
+- 이 저장소는 표준 CI4 스켈레톤(`app/Config/App.php`·`Constants.php`·`system/`·`public/index.php`·`spark`)을 **gitignore** 하고 커스텀 Config만 추적한다. CI는 `vendor/codeigniter4/framework`에서 누락 스켈레톤을 복원(`cp -rn` + `system` 심링크)한 뒤 검사를 돌린다. 로컬도 동일 방식으로 복원 가능.
+- 권장: GitHub 브랜치 보호 규칙으로 `main`·`dev` 직접 push 차단 + CI 통과를 머지 조건으로 설정.
+
+### 배포 (CD) — `.github/workflows/deploy.yml`
+
+- 트리거: `main`에 머지(push)되면 배포 잡이 큐에 들어가고, **`production` 환경의 Required reviewers 승인 후** SSH로 운영 서버에 배포(머지 후 수동 승인). `workflow_dispatch`로 수동 재배포도 가능.
+- 서버 배포 순서: `git reset --hard origin/main` → `composer install --no-dev` → `php spark cache:clear`.
+  - `.env`와 gitignore된 스켈레톤은 untracked라 `git reset --hard`에도 보존된다.
+- **DB 마이그레이션은 수동**: 일반 배포에서는 실행하지 않는다. 마이그레이션이 필요하면 Actions 탭에서 `workflow_dispatch`로 **`run_migration = true`**를 선택해 배포를 실행하면 그때만 `php spark migrate --all`이 돈다. (서버에 직접 SSH로 `php spark migrate`를 돌려도 됨.)
+- **필수 GitHub Secrets**: `SSH_HOST`, `SSH_USER`, `SSH_KEY`(개인키), `DEPLOY_PATH`(서버의 git 클론 경로). 선택: `SSH_PORT`(기본 22), Variable `PRODUCTION_URL`.
+- **사전 준비(1회)**: ① 운영 서버에 이 저장소를 git clone하고 `.env`·스켈레톤·`writable/` 권한을 세팅, ② GitHub Settings → Environments에서 `production` 환경 생성 후 **Required reviewers** 지정(승인 게이트), ③ 배포용 SSH 키를 서버 `authorized_keys`에 등록하고 개인키를 `SSH_KEY` Secret에 저장.
+- 마이그레이션은 되돌리기 어렵다 — `run_migration` 실행 전 `deploy.yml`의 mysqldump 백업 단계(주석) 활성화를 권장.

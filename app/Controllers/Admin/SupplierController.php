@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -11,7 +13,7 @@ class SupplierController extends BaseController
         $db        = \Config\Database::connect();
         $suppliers = $db->table('suppliers')->orderBy('name', 'ASC')->get()->getResultArray();
 
-        return $this->render('admin/suppliers/list', compact('suppliers'));
+        return $this->render('admin/suppliers/list', ['suppliers' => $suppliers]);
     }
 
     public function create(): string
@@ -52,7 +54,7 @@ class SupplierController extends BaseController
         if (! $supplier) {
             return redirect()->to('/admin/suppliers')->with('error', '매입처를 찾을 수 없습니다.');
         }
-        return $this->render('admin/suppliers/form', compact('supplier'));
+        return $this->render('admin/suppliers/form', ['supplier' => $supplier]);
     }
 
     public function update(int $id): \CodeIgniter\HTTP\RedirectResponse
@@ -78,8 +80,10 @@ class SupplierController extends BaseController
         if ($path !== null) {
             // 기존 파일 삭제
             if (! empty($supplier['business_license_path'])) {
-                $old = FCPATH . ltrim($supplier['business_license_path'], '/');
-                if (is_file($old)) unlink($old);
+                $old = FCPATH . ltrim((string) $supplier['business_license_path'], '/');
+                if (is_file($old)) {
+                    unlink($old);
+                }
             }
             $data['business_license_path'] = $path;
         }
@@ -94,8 +98,10 @@ class SupplierController extends BaseController
         $db       = \Config\Database::connect();
         $supplier = $db->table('suppliers')->where('id', $id)->get()->getRowArray();
         if ($supplier && ! empty($supplier['business_license_path'])) {
-            $file = FCPATH . ltrim($supplier['business_license_path'], '/');
-            if (is_file($file)) unlink($file);
+            $file = FCPATH . ltrim((string) $supplier['business_license_path'], '/');
+            if (is_file($file)) {
+                unlink($file);
+            }
         }
         $db->table('products')->where('supplier_id', $id)->update(['supplier_id' => null]);
         $db->table('suppliers')->where('id', $id)->delete();
@@ -105,6 +111,7 @@ class SupplierController extends BaseController
 
     // ── private ──────────────────────────────────────────────────────────────
 
+    /** @return array<string, string> */
     private function rules(): array
     {
         return [
@@ -116,6 +123,7 @@ class SupplierController extends BaseController
         ];
     }
 
+    /** @return array<string, mixed> */
     private function collectData(): array
     {
         return [
@@ -152,7 +160,9 @@ class SupplierController extends BaseController
         }
 
         $dir  = FCPATH . 'uploads/suppliers/';
-        if (! is_dir($dir)) mkdir($dir, 0755, true);
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
 
         $name = $file->getRandomName();
         $file->move($dir, $name);

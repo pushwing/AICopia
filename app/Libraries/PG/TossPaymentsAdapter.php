@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\PG;
 
 /**
@@ -8,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class TossPaymentsAdapter implements PGInterface
 {
-    private string $clientKey;
-    private string $secretKey;
+    private readonly string $clientKey;
+    private readonly string $secretKey;
     private string $apiBase = 'https://api.tosspayments.com/v1';
 
     public function __construct()
@@ -19,6 +21,10 @@ class TossPaymentsAdapter implements PGInterface
         $this->secretKey = $cfg->tossSecretKey;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         return [
@@ -32,6 +38,7 @@ class TossPaymentsAdapter implements PGInterface
         ];
     }
 
+    /** @return array<string, mixed> */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         // pgToken = paymentKey (토스페이먼츠 결제창에서 전달)
@@ -41,7 +48,7 @@ class TossPaymentsAdapter implements PGInterface
             'orderId'    => session()->get('toss_order_id') ?? '',
         ]);
 
-        if (empty($response) || ($response['status'] ?? '') !== 'DONE') {
+        if ($response === [] || ($response['status'] ?? '') !== 'DONE') {
             return ['success' => false, 'message' => $response['message'] ?? 'PG 확인 실패'];
         }
 
@@ -54,6 +61,7 @@ class TossPaymentsAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $response = $this->request('POST', "/payments/{$pgTid}/cancel", [
@@ -73,6 +81,10 @@ class TossPaymentsAdapter implements PGInterface
         return 'toss';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -86,7 +98,6 @@ class TossPaymentsAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 
@@ -104,10 +115,13 @@ class TossPaymentsAdapter implements PGInterface
         };
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];
-        if (empty($items)) return '주문 ' . $order['order_number'];
+        if (empty($items)) {
+            return '주문 ' . $order['order_number'];
+        }
 
         $first = $items[0]['product_name'] ?? '';
         $extra = count($items) > 1 ? ' 외 ' . (count($items) - 1) . '건' : '';

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -8,8 +10,8 @@ use App\Models\PostModel;
 
 class BoardManagerController extends BaseController
 {
-    private BoardModel $boardModel;
-    private PostModel  $postModel;
+    private readonly BoardModel $boardModel;
+    private readonly PostModel  $postModel;
 
     public function __construct()
     {
@@ -105,7 +107,7 @@ class BoardManagerController extends BaseController
             return redirect()->back()->with('error', '게시글을 찾을 수 없습니다.');
         }
 
-        (new \App\Models\PostFileModel())->deleteByPost($postId);
+        new \App\Models\PostFileModel()->deleteByPost($postId);
         $this->postModel->delete($postId);
 
         return redirect()->back()->with('success', '삭제되었습니다.');

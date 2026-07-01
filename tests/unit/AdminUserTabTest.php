@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use CodeIgniter\Test\CIUnitTestCase;
@@ -22,7 +24,7 @@ final class AdminUserTabTest extends CIUnitTestCase
         'orders'      => [],
         'order_items' => [],
         'point_logs'  => [],
-        'user_coupons'=> [],
+        'user_coupons' => [],
         'coupons'     => [],
     ];
 

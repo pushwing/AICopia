@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -16,6 +18,7 @@ class PostCommentModel extends Model
         'author_name', 'author_password', 'ip_address',
     ];
 
+    /** @return array<int, array<string, mixed>> */
     public function getByPost(int $postId): array
     {
         return $this->select('post_comments.*, users.nickname as user_nickname')

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -13,6 +15,8 @@ class CartModel extends Model
 
     /**
      * 사용자의 장바구니 목록 (상품 정보 + SKU + 대표 이미지 JOIN)
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getByUser(int $userId): array
     {
@@ -46,15 +50,21 @@ class CartModel extends Model
         return $rows;
     }
 
+    /**
+     * @param  array<int|string, mixed> $skuIds
+     * @return array<string, string>
+     */
     private function getSkuLabels(array $skuIds): array
     {
-        if (empty($skuIds)) return [];
+        if ($skuIds === []) {
+            return [];
+        }
 
         $rows = $this->db->table('product_sku_values sv')
             ->select('sv.sku_id, o.name as option_name, ov.value')
             ->join('product_option_values ov', 'ov.id = sv.option_value_id')
             ->join('product_options o', 'o.id = ov.option_id')
-            ->whereIn('sv.sku_id', array_map('intval', $skuIds))
+            ->whereIn('sv.sku_id', array_map(intval(...), $skuIds))
             ->orderBy('o.sort_order', 'ASC')
             ->get()->getResultArray();
 
@@ -62,7 +72,7 @@ class CartModel extends Model
         foreach ($rows as $r) {
             $labels[$r['sku_id']][] = $r['option_name'] . ':' . $r['value'];
         }
-        return array_map(fn($parts) => implode('/', $parts), $labels);
+        return array_map(fn ($parts): string => implode('/', $parts), $labels);
     }
 
     /**
@@ -128,16 +138,24 @@ class CartModel extends Model
      * 세션 키 형식: "productId_skuId" (skuId=0이면 SKU 없음)
      * $stockMap: ['productId_skuId' => stock] — 호출자가 미리 조회해서 전달
      */
+    /**
+     * @param array<string, mixed> $sessionCart
+     * @param array<string, int>   $stockMap
+     */
     public function mergeSession(int $userId, array $sessionCart, array $stockMap): void
     {
-        if (empty($sessionCart)) return;
+        if ($sessionCart === []) {
+            return;
+        }
 
         $productIds = [];
         $skuIds     = [];
-        foreach ($sessionCart as $key => $_) {
-            [$pid, $sid] = $this->parseSessionKey((string) $key);
+        foreach (array_keys($sessionCart) as $key) {
+            [$pid, $sid] = static::parseSessionKey((string) $key);
             $productIds[] = $pid;
-            if ($sid) $skuIds[] = $sid;
+            if ($sid) {
+                $skuIds[] = $sid;
+            }
         }
 
         // DB에 이미 있는 항목 조회 (클리핑 계산용)
@@ -151,13 +169,17 @@ class CartModel extends Model
         }
 
         foreach ($sessionCart as $key => $sessionQty) {
-            [$productId, $skuId] = $this->parseSessionKey((string) $key);
+            [$productId, $skuId] = static::parseSessionKey((string) $key);
             $stock      = (int) ($stockMap[$key] ?? 0);
-            if ($stock < 1) continue;
+            if ($stock < 1) {
+                continue;
+            }
 
-            $currentQty = (int) ($dbQtyMap[$key] ?? 0);
+            $currentQty = $dbQtyMap[$key] ?? 0;
             $addQty     = min((int) $sessionQty, $stock - $currentQty);
-            if ($addQty < 1) continue;
+            if ($addQty < 1) {
+                continue;
+            }
 
             $this->upsert($userId, $productId, $addQty, $skuId ?: null);
         }
@@ -170,18 +192,22 @@ class CartModel extends Model
     public function mergeAndClear(int $userId): void
     {
         $sessionCart = session()->get('cart') ?? [];
-        if (empty($sessionCart)) return;
+        if (empty($sessionCart)) {
+            return;
+        }
 
         $productIds = [];
         $skuIds     = [];
         foreach ($sessionCart as $key => $_) {
             [$pid, $sid] = self::parseSessionKey((string) $key);
             $productIds[] = $pid;
-            if ($sid) $skuIds[] = $sid;
+            if ($sid) {
+                $skuIds[] = $sid;
+            }
         }
 
         $productStocks = [];
-        if ($productIds) {
+        if ($productIds !== []) {
             $rows = $this->db->table('products')
                 ->select('id, stock')
                 ->whereIn('id', array_unique($productIds))
@@ -190,7 +216,7 @@ class CartModel extends Model
         }
 
         $skuStocks = [];
-        if ($skuIds) {
+        if ($skuIds !== []) {
             $rows = $this->db->table('product_skus')
                 ->select('id, stock')
                 ->whereIn('id', array_unique($skuIds))
@@ -208,7 +234,11 @@ class CartModel extends Model
         session()->remove('cart');
     }
 
-    /** 세션 키 "productId_skuId" 파싱 */
+    /**
+     * 세션 키 "productId_skuId" 파싱
+     *
+     * @return array{0: int, 1: int}
+     */
     public static function parseSessionKey(string $key): array
     {
         $parts = explode('_', $key, 2);

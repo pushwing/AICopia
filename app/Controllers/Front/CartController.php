@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -9,9 +11,9 @@ use App\Models\ProductSkuModel;
 
 class CartController extends BaseController
 {
-    private CartModel       $cartModel;
-    private ProductModel    $productModel;
-    private ProductSkuModel $skuModel;
+    private readonly CartModel       $cartModel;
+    private readonly ProductModel    $productModel;
+    private readonly ProductSkuModel $skuModel;
 
     public function __construct()
     {
@@ -122,7 +124,9 @@ class CartController extends BaseController
         // 재고 상한 클리핑
         if ($skuId !== null) {
             $skuRow = $this->skuModel->db->table('product_skus')->where('id', $skuId)->get()->getRowArray();
-            if ($skuRow) $qty = min($qty, (int) $skuRow['stock']);
+            if ($skuRow) {
+                $qty = min($qty, (int) $skuRow['stock']);
+            }
         } else {
             $stockRow = $this->productModel->db->table('products')->select('stock')->where('id', $productId)->get()->getRow();
             if ($stockRow && (int) $stockRow->stock > 0) {

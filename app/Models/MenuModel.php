@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -12,10 +14,12 @@ class MenuModel extends Model
 
     /**
      * 트리 구조로 메뉴 반환 (캐시 1시간)
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getTree(): array
     {
-        return (array) cache()->remember('nav_menus', 3600, function () {
+        return (array) cache()->remember('nav_menus', 3600, function (): array {
             $all    = $this->db->table($this->table)->where('is_active', 1)->orderBy('sort_order')->get()->getResultArray();
             $tree   = [];
             $map    = [];

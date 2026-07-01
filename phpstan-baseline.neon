@@ -1,79 +1,25 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Call to an undefined method App\\Models\\InquiryModel\:\:countAll\(\)\.$#'
-			identifier: method.notFound
+			message: '#^Method App\\Controllers\\Admin\\SalesController\:\:baseSalesQuery\(\) has parameter \$db with generic class CodeIgniter\\Database\\BaseConnection but does not specify its types\: TConnection, TResult$#'
+			identifier: missingType.generics
 			count: 1
-			path: app/Controllers/Admin/DashboardController.php
+			path: app/Controllers/Admin/SalesController.php
 
 		-
-			message: '#^Call to an undefined method App\\Models\\PostModel\:\:countAll\(\)\.$#'
-			identifier: method.notFound
+			message: '#^Property App\\Libraries\\GradeService\:\:\$db with generic class CodeIgniter\\Database\\BaseConnection does not specify its types\: TConnection, TResult$#'
+			identifier: missingType.generics
 			count: 1
-			path: app/Controllers/Admin/DashboardController.php
+			path: app/Libraries/GradeService.php
 
 		-
-			message: '#^Call to an undefined method App\\Models\\UserModel\:\:countAll\(\)\.$#'
-			identifier: method.notFound
+			message: '#^Method App\\Libraries\\RecommendationService\:\:ownedProductIds\(\) has parameter \$db with generic class CodeIgniter\\Database\\BaseConnection but does not specify its types\: TConnection, TResult$#'
+			identifier: missingType.generics
 			count: 1
-			path: app/Controllers/Admin/DashboardController.php
+			path: app/Libraries/RecommendationService.php
 
 		-
-			message: '#^Call to an undefined method App\\Models\\InquiryModel\:\:countAll\(\)\.$#'
-			identifier: method.notFound
+			message: '#^Method App\\Libraries\\RecommendationService\:\:preferredCategories\(\) has parameter \$db with generic class CodeIgniter\\Database\\BaseConnection but does not specify its types\: TConnection, TResult$#'
+			identifier: missingType.generics
 			count: 1
-			path: app/Controllers/Admin/InquiryController.php
-
-		-
-			message: '#^Call to an undefined method App\\Models\\MediaModel\:\:countAll\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Controllers/Admin/MediaController.php
-
-		-
-			message: '#^Offset ''author_name'' on array\{id\: int, title\: string, is_notice\: int, is_secret\: int, views\: int, created_at\: string\|null, author_name\: string, board_name\: string, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Controllers/Admin/PostController.php
-
-		-
-			message: '#^Offset ''board_name'' on array\{id\: int, title\: string, is_notice\: int, is_secret\: int, views\: int, created_at\: string\|null, author_name\: string, board_name\: string, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Controllers/Admin/PostController.php
-
-		-
-			message: '#^Offset ''board_slug'' on array\{id\: int, title\: string, is_notice\: int, is_secret\: int, views\: int, created_at\: string\|null, author_name\: string, board_name\: string, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Controllers/Admin/PostController.php
-
-		-
-			message: '#^Offset ''social_provider'' does not exist on list\<array\{id\: int, username\: string, email\: string, password\: string\|null, nickname\: string, role\: string, is_active\: int, last_login\: string\|null, \.\.\.\}\>\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: app/Controllers/Front/AuthController.php
-
-		-
-			message: '#^Property App\\Controllers\\Front\\MyPageController\:\:\$userCouponModel is never read, only written\.$#'
-			identifier: property.onlyWritten
-			count: 1
-			path: app/Controllers/Front/MyPageController.php
-
-		-
-			message: '#^Offset ''doc''\|''docx''\|''gif''\|''hwp''\|''jpeg''\|''jpg''\|''pdf''\|''png''\|''ppt''\|''pptx''\|''txt''\|''webp''\|''xls''\|''xlsx''\|''zip'' on array\{jpg\: array\{''image/jpeg''\}, jpeg\: array\{''image/jpeg''\}, png\: array\{''image/png''\}, gif\: array\{''image/gif''\}, webp\: array\{''image/webp''\}, pdf\: array\{''application/pdf''\}, doc\: array\{''application/msword''\}, docx\: array\{''application/vnd…''\}, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Libraries/FileUploader.php
-
-		-
-			message: '#^Variable \$allowedMimes in empty\(\) always exists and is not falsy\.$#'
-			identifier: empty.variable
-			count: 1
-			path: app/Libraries/FileUploader.php
-
-		-
-			message: '#^Left side of && is always true\.$#'
-			identifier: booleanAnd.leftAlwaysTrue
-			count: 1
-			path: app/Models/BannerModel.php
+			path: app/Libraries/RecommendationService.php

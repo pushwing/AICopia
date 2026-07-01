@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -56,7 +58,7 @@ class DashboardController extends BaseController
             'sales'   => ['labels' => $salesLabels, 'data' => $salesData],
             'top'     => [
                 'labels' => array_column($topProducts, 'product_name'),
-                'data'   => array_map('intval', array_column($topProducts, 'total_qty')),
+                'data'   => array_map(intval(...), array_column($topProducts, 'total_qty')),
             ],
         ]);
     }
@@ -66,7 +68,7 @@ class DashboardController extends BaseController
         $postModel    = new PostModel();
         $userModel    = new UserModel();
         $inquiryModel = new InquiryModel();
-        $orderModel   = new OrderModel();
+        new OrderModel();
         $productModel = new ProductModel();
 
         $db = \Config\Database::connect();
@@ -93,7 +95,6 @@ class DashboardController extends BaseController
         $todayStart = date('Y-m-d') . ' 00:00:00';
         $weekStart  = date('Y-m-d', strtotime('monday this week')) . ' 00:00:00';
         $monthStart = date('Y-m-01') . ' 00:00:00';
-        $excludedStatuses = ['pending', 'expired', 'cancelled', 'refunded'];
 
         $salesRow = $db->query("
             SELECT
@@ -119,10 +120,10 @@ class DashboardController extends BaseController
 
         return $this->render('admin/dashboard/index', [
             'stats' => [
-                'total_posts'     => $postModel->countAll(),
-                'total_users'     => $userModel->countAll(),
-                'total_inquiries' => $inquiryModel->countAll(),
-                'unread_inquiries'=> $inquiryModel->getUnreadCount(),
+                'total_posts'     => $postModel->countAllResults(),
+                'total_users'     => $userModel->countAllResults(),
+                'total_inquiries' => $inquiryModel->countAllResults(),
+                'unread_inquiries' => $inquiryModel->getUnreadCount(),
             ],
             'salesStats' => [
                 'today' => (int) ($salesRow['today_sales'] ?? 0),

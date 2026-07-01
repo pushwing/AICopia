@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\AiProvider;
 
 class ClaudeProvider implements AiProviderInterface
@@ -8,8 +10,8 @@ class ClaudeProvider implements AiProviderInterface
     use InquiryParsing;
     use SearchExpandParsing;
 
-    private const API_URL = 'https://api.anthropic.com/v1/messages';
-    private const MODEL   = 'claude-haiku-4-5-20251001';
+    private const string API_URL = 'https://api.anthropic.com/v1/messages';
+    private const string MODEL   = 'claude-haiku-4-5-20251001';
 
     private string $apiKey;
 
@@ -19,6 +21,7 @@ class ClaudeProvider implements AiProviderInterface
         $this->apiKey = ($settings['anthropic_api_key'] ?? '') ?: env('ANTHROPIC_API_KEY', '');
     }
 
+    /** @param array<int, array<string, mixed>> $tree */
     public function suggestCategories(string $name, string $description, array $tree): array
     {
         $list = $this->flattenTree($tree);
@@ -50,7 +53,6 @@ class ClaudeProvider implements AiProviderInterface
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($httpCode !== 200 || $response === false) {
             return [];
@@ -59,6 +61,9 @@ class ClaudeProvider implements AiProviderInterface
         return $this->parseResponse($response);
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $tree
+     */
     protected function flattenTree(array $tree): string
     {
         $lines = [];
@@ -71,17 +76,20 @@ class ClaudeProvider implements AiProviderInterface
         return implode("\n", $lines);
     }
 
+    /**
+     * @return array<int, int>
+     */
     protected function parseResponse(string $raw): array
     {
         $data    = json_decode($raw, true);
         $content = $data['content'][0]['text'] ?? '';
         // JSON 블록만 추출
-        if (preg_match('/\{.*\}/s', $content, $m)) {
+        if (preg_match('/\{.*\}/s', (string) $content, $m)) {
             $content = $m[0];
         }
-        $parsed = json_decode($content, true);
+        $parsed = json_decode((string) $content, true);
         $ids    = $parsed['category_ids'] ?? [];
-        return array_values(array_filter(array_map('intval', (array) $ids)));
+        return array_values(array_filter(array_map(intval(...), (array) $ids)));
     }
 
     public function generateDescription(string $name, string $description): string
@@ -112,23 +120,26 @@ class ClaudeProvider implements AiProviderInterface
     private function convertToHtml(string $text): string
     {
         $text = preg_replace('/```[\s\S]*?```/', '', $text);
-        $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $text);
-        $text = preg_replace('/__(.+?)__/u',     '<strong>$1</strong>', $text);
+        $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', (string) $text);
+        $text = preg_replace('/__(.+?)__/u', '<strong>$1</strong>', (string) $text);
 
-        $lines     = explode("\n", $text);
+        $lines     = explode("\n", (string) $text);
         $result    = [];
         $listItems = [];
 
         $flushList = static function (array &$items, array &$out): void {
             if ($items !== []) {
-                $out[]  = '<ul>' . implode('', array_map(fn ($i) => "<li>{$i}</li>", $items)) . '</ul>';
+                $out[]  = '<ul>' . implode('', array_map(fn ($i): string => "<li>{$i}</li>", $items)) . '</ul>';
                 $items  = [];
             }
         };
 
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '') { $flushList($listItems, $result); continue; }
+            if ($line === '') {
+                $flushList($listItems, $result);
+                continue;
+            }
 
             if (preg_match('/^#{1,3}\s+(.+)/u', $line, $m)) {
                 $flushList($listItems, $result);
@@ -143,11 +154,7 @@ class ClaudeProvider implements AiProviderInterface
 
             $flushList($listItems, $result);
 
-            if (preg_match('/<(p|ul|li|strong|br)[^>]*>/i', $line)) {
-                $result[] = $line;
-            } else {
-                $result[] = "<p>{$line}</p>";
-            }
+            $result[] = preg_match('/<(p|ul|li|strong|br)[^>]*>/i', $line) ? $line : "<p>{$line}</p>";
         }
 
         $flushList($listItems, $result);
@@ -179,6 +186,7 @@ class ClaudeProvider implements AiProviderInterface
         return $data['content'][0]['text'] ?? '';
     }
 
+    /** @param array<int, array<string, mixed>> $reviews */
     public function summarizeReviews(string $productName, array $reviews): array
     {
         if ($reviews === []) {
@@ -252,7 +260,7 @@ class ClaudeProvider implements AiProviderInterface
             'max_tokens' => 256,
             'system'     => AiPrompts::get('search_expand'),
             'messages'   => [
-                ['role' => 'user', 'content' => "검색어: " . mb_substr($query, 0, 50)],
+                ['role' => 'user', 'content' => '검색어: ' . mb_substr($query, 0, 50)],
             ],
         ]);
 
@@ -287,6 +295,7 @@ class ClaudeProvider implements AiProviderInterface
         return trim((string) ($data['content'][0]['text'] ?? ''));
     }
 
+    /** @param array<string, mixed> $stats */
     public function generateSalesReport(array $stats): string
     {
         $payload = json_encode([
@@ -342,10 +351,10 @@ class ClaudeProvider implements AiProviderInterface
             return $empty;
         }
 
-        if (preg_match('/\{.*\}/s', $text, $m)) {
+        if (preg_match('/\{.*\}/s', (string) $text, $m)) {
             $text = $m[0];
         }
-        $parsed = json_decode($text, true);
+        $parsed = json_decode((string) $text, true);
         if (! is_array($parsed) || trim((string) ($parsed['name'] ?? '')) === '') {
             return $empty;
         }
@@ -374,7 +383,6 @@ class ClaudeProvider implements AiProviderInterface
         ]);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         return ($httpCode === 200 && $response !== false) ? $response : false;
     }

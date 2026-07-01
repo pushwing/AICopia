@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -27,10 +29,12 @@ class BannerModel extends Model
 
     /**
      * 활성 배너 전체를 캐시하고 노출 기간만 PHP에서 필터링 (캐시 1시간)
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getActiveByPosition(string $position): array
     {
-        $grouped = (array) cache()->remember('active_banners', 3600, function () {
+        $grouped = (array) cache()->remember('active_banners', 3600, function (): array {
             $rows = $this->db->table($this->table)
                 ->where('is_active', 1)->orderBy('priority', 'ASC')
                 ->get()->getResultArray();
@@ -45,11 +49,15 @@ class BannerModel extends Model
 
         return array_values(array_filter(
             (array) ($grouped[$position] ?? []),
-            fn($b) => ($b['started_at'] === null || $b['started_at'] <= $now)
+            fn (array $b): bool => ($b['started_at'] === null || $b['started_at'] <= $now)
                    && ($b['ended_at'] === null || $b['ended_at'] >= $now)
         ));
     }
 
+    /**
+     * @param  array<string, mixed> $data
+     * @return array<string, mixed>
+     */
     protected function clearCacheCallback(array $data): array
     {
         cache()->delete('active_banners');
@@ -59,10 +67,14 @@ class BannerModel extends Model
     public function deleteWithFile(int $id): bool
     {
         $banner = $this->db->table($this->table)->where('id', $id)->get()->getRowArray();
-        if (! $banner) return false;
+        if (! $banner) {
+            return false;
+        }
 
         $fullPath = FCPATH . ($banner['image_path'] ?? '');
-        if ($fullPath && file_exists($fullPath)) unlink($fullPath);
+        if ($banner['image_path'] !== null && $banner['image_path'] !== '' && file_exists($fullPath)) {
+            unlink($fullPath);
+        }
 
         return (bool) $this->delete($id);
     }

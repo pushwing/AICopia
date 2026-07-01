@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\AiProvider;
 
 /**
@@ -206,7 +208,11 @@ PROMPT,
         ];
     }
 
-    /** 설정 UI 라벨 */
+    /**
+     * 설정 UI 라벨
+     *
+     * @return array<string, string>
+     */
     public static function labels(): array
     {
         return [

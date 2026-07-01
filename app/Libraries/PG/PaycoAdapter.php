@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\PG;
 
 /**
@@ -8,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class PaycoAdapter implements PGInterface
 {
-    private string $sellerKey;
-    private string $secretKey;
+    private readonly string $sellerKey;
+    private readonly string $secretKey;
     private string $apiBase = 'https://api-pay.payco.com/v2.1';
 
     public function __construct()
@@ -19,6 +21,10 @@ class PaycoAdapter implements PGInterface
         $this->secretKey = $cfg->paycoSecretKey;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         return [
@@ -33,7 +39,11 @@ class PaycoAdapter implements PGInterface
         ];
     }
 
-    /** pgToken = reserveOrderNo (PAYCO 결제 후 전달) */
+    /**
+     * pgToken = reserveOrderNo (PAYCO 결제 후 전달)
+     *
+     * @return array<string, mixed>
+     */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         $timestamp = (int) (microtime(true) * 1000);
@@ -66,6 +76,7 @@ class PaycoAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $timestamp = (int) (microtime(true) * 1000);
@@ -92,6 +103,10 @@ class PaycoAdapter implements PGInterface
         return 'payco';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -102,14 +117,16 @@ class PaycoAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];
-        if (empty($items)) return '주문 ' . $order['order_number'];
+        if (empty($items)) {
+            return '주문 ' . $order['order_number'];
+        }
         $first = $items[0]['product_name'] ?? '';
         $extra = count($items) > 1 ? ' 외 ' . (count($items) - 1) . '건' : '';
         return $first . $extra;

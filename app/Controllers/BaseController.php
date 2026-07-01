@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Models\BannerModel;
@@ -14,6 +16,7 @@ use CodeIgniter\Controller;
 
 class BaseController extends Controller
 {
+    /** @var array<string, mixed> */
     protected array $viewData = [];
 
     public function initController(
@@ -24,10 +27,10 @@ class BaseController extends Controller
         parent::initController($request, $response, $logger);
 
         // 전역 사이트 설정 (캐시됨)
-        $settings = (new SettingModel())->getAllAsMap();
+        $settings = new SettingModel()->getAllAsMap();
 
         // 전역 네비게이션 메뉴 (캐시됨)
-        $menus = (new MenuModel())->getTree();
+        $menus = new MenuModel()->getTree();
 
         // 로그인 정보
         $userId   = (int) session()->get('user_id');
@@ -45,10 +48,10 @@ class BaseController extends Controller
         $lowStockCount    = 0;
         $pendingOrders    = 0;
         if ($authUser['role'] === 'admin') {
-            $unreadInquiries   = (new InquiryModel())->getUnreadCount();
-            $unansweredQna     = (new ProductQnaModel())->getUnansweredCount();
+            $unreadInquiries   = new InquiryModel()->getUnreadCount();
+            $unansweredQna     = new ProductQnaModel()->getUnansweredCount();
             $lowStockThreshold = (int) ($settings['low_stock_threshold'] ?? $settings['stock_alert_threshold'] ?? 5);
-            $lowStockCount     = (new ProductModel())
+            $lowStockCount     = new ProductModel()
                 ->where('stock <=', $lowStockThreshold)
                 ->where('status !=', 'hidden')
                 ->countAllResults();
@@ -67,15 +70,15 @@ class BaseController extends Controller
 
         $subLeftBanners = $isAdmin
             ? []
-            : (new BannerModel())->getActiveByPosition('sub_left');
+            : new BannerModel()->getActiveByPosition('sub_left');
 
         $activePopups = $isAdmin
             ? []
-            : (new PopupModel())->getActiveForPage(uri_string());
+            : new PopupModel()->getActiveForPage(uri_string());
 
-        $categories = $isAdmin ? [] : (new CategoryModel())->getTree();
+        $categories = $isAdmin ? [] : new CategoryModel()->getTree();
 
-        $this->viewData = compact('settings', 'menus', 'authUser', 'unreadInquiries', 'unansweredQna', 'lowStockCount', 'pendingOrders', 'subLeftBanners', 'activePopups', 'cartCount', 'categories');
+        $this->viewData = ['settings' => $settings, 'menus' => $menus, 'authUser' => $authUser, 'unreadInquiries' => $unreadInquiries, 'unansweredQna' => $unansweredQna, 'lowStockCount' => $lowStockCount, 'pendingOrders' => $pendingOrders, 'subLeftBanners' => $subLeftBanners, 'activePopups' => $activePopups, 'cartCount' => $cartCount, 'categories' => $categories];
     }
 
     protected function getUserRole(): string
@@ -97,6 +100,9 @@ class BaseController extends Controller
         };
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     protected function render(string $view, array $data = []): string
     {
         return view($view, array_merge($this->viewData, $data));

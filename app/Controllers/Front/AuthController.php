@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -11,7 +13,7 @@ use App\Models\UserModel;
 
 class AuthController extends BaseController
 {
-    private UserModel $userModel;
+    private readonly UserModel $userModel;
 
     public function __construct()
     {
@@ -52,7 +54,7 @@ class AuthController extends BaseController
 
         $user = $this->userModel->findByEmail($email);
 
-        if (! $user || ! password_verify($password, $user['password'])) {
+        if (! $user || ! password_verify($password, (string) $user['password'])) {
             return redirect()->back()->withInput()->with('error', '이메일 또는 비밀번호가 올바르지 않습니다.');
         }
 
@@ -63,10 +65,10 @@ class AuthController extends BaseController
             'user_grade'    => $user['grade'] ?? 'bronze',
         ]);
 
-        $this->userModel->updateLastLogin($user['id']);
+        $this->userModel->updateLastLogin((int) $user['id']);
 
         // 비로그인 세션 카트를 DB 카트로 병합
-        (new CartModel())->mergeAndClear((int) $user['id']);
+        new CartModel()->mergeAndClear((int) $user['id']);
 
         return redirect()->to(session()->getTempdata('redirect_url') ?? '/');
     }
@@ -117,7 +119,7 @@ class AuthController extends BaseController
         $zipcode  = $this->request->getPost('zipcode');
         $address1 = $this->request->getPost('address1');
         if ($zipcode && $address1) {
-            (new ShippingAddressModel())->saveAddress((int) $userId, [
+            new ShippingAddressModel()->saveAddress((int) $userId, [
                 'receiver_name'  => $this->request->getPost('nickname'),
                 'receiver_phone' => $this->request->getPost('phone'),
                 'zipcode'        => $zipcode,
@@ -129,7 +131,7 @@ class AuthController extends BaseController
 
         $token = $this->userModel->generateVerifyToken((int) $userId);
         $user  = $this->userModel->find((int) $userId);
-        (new Mailer($this->viewData['settings'] ?? []))->sendVerify($user, $token);
+        new Mailer($this->viewData['settings'] ?? [])->sendVerify($user, $token);
 
         return redirect()->to('/auth/verify-pending')
             ->with('verify_email', $this->request->getPost('email'));
@@ -137,12 +139,12 @@ class AuthController extends BaseController
 
     // ─── 이메일 인증 ──────────────────────────────────────────────────────────────
 
-    public function verifyPending()
+    public function verifyPending(): string
     {
         return $this->render('auth/verify_pending');
     }
 
-    public function verifyEmail(string $token)
+    public function verifyEmail(string $token): \CodeIgniter\HTTP\RedirectResponse
     {
         $user = $this->userModel->verifyByToken($token);
 
@@ -155,13 +157,13 @@ class AuthController extends BaseController
 
         // 가입 보너스 포인트 지급
         $settings = $this->viewData['settings'] ?? [];
-        (new GradeService())->awardSignupBonus((int) $user['id'], $settings);
+        new GradeService()->awardSignupBonus((int) $user['id'], $settings);
 
         return redirect()->to('/auth/login')
             ->with('success', '이메일 인증이 완료되었습니다. 로그인해주세요.');
     }
 
-    public function resendVerification()
+    public function resendVerification(): \CodeIgniter\HTTP\RedirectResponse
     {
         $email = $this->request->getPost('email');
 
@@ -180,14 +182,14 @@ class AuthController extends BaseController
 
         // 1분 이내 재발송 차단
         if ($user['email_verify_token_at'] &&
-            time() - strtotime($user['email_verify_token_at']) < 60) {
+            time() - strtotime((string) $user['email_verify_token_at']) < 60) {
             return redirect()->to('/auth/verify-pending')
                 ->with('verify_email', $email)
                 ->with('error', '1분 후 다시 시도해주세요.');
         }
 
         $token = $this->userModel->generateVerifyToken($user['id']);
-        (new Mailer($this->viewData['settings'] ?? []))->sendVerify($user, $token);
+        new Mailer($this->viewData['settings'] ?? [])->sendVerify($user, $token);
 
         return redirect()->to('/auth/verify-pending')
             ->with('verify_email', $email)
@@ -200,14 +202,18 @@ class AuthController extends BaseController
     {
         $user      = $this->userModel->find(session()->get('user_id'));
         $activeTab = $this->request->getGet('tab') ?? 'info';
-        return $this->render('auth/profile', compact('user', 'activeTab'));
+        return $this->render('auth/profile', ['user' => $user, 'activeTab' => $activeTab]);
     }
 
     public function profileUpdate(): \CodeIgniter\HTTP\RedirectResponse
     {
-        $userId = session()->get('user_id');
+        $userId = (int) session()->get('user_id');
         $user   = $this->userModel->find($userId);
-        $tab  = $this->request->getPost('tab') ?? 'info';
+        $tab    = $this->request->getPost('tab') ?? 'info';
+
+        if (! is_array($user)) {
+            return redirect()->to('/auth/login');
+        }
 
         // ── 기본정보 탭 ──
         if ($tab === 'info') {
@@ -265,4 +271,3 @@ class AuthController extends BaseController
     // ─── 이메일 발송 (private) ────────────────────────────────────────────────────
 
 }
-

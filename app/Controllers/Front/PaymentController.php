@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -8,7 +10,7 @@ use App\Models\OrderModel;
 
 class PaymentController extends BaseController
 {
-    private OrderModel $orderModel;
+    private readonly OrderModel $orderModel;
 
     public function __construct()
     {
@@ -48,7 +50,7 @@ class PaymentController extends BaseController
 
         // PG별 토큰 파라미터 이름이 다름
         $pgToken = $this->resolvePgToken($pgProvider);
-        if (! $pgToken) {
+        if ($pgToken === '' || $pgToken === '0') {
             session()->setFlashdata('pg_error', '결제 정보를 받지 못했습니다.');
             return redirect()->to('/order/fail/' . $order['order_number']);
         }

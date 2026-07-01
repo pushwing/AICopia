@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductModel;
@@ -101,7 +103,7 @@ final class ProductSearchFilterTest extends CIUnitTestCase
         $result = $this->model->getList(['category_id' => $catId, 'price_min' => 10000]);
         $ids = $this->idsFromResult($result);
 
-        $this->assertContains($mid,   $ids);
+        $this->assertContains($mid, $ids);
         $this->assertContains($pricy, $ids);
         $this->assertNotContains($cheap, $ids);
     }
@@ -117,7 +119,7 @@ final class ProductSearchFilterTest extends CIUnitTestCase
         $ids = $this->idsFromResult($result);
 
         $this->assertContains($cheap, $ids);
-        $this->assertContains($mid,   $ids);
+        $this->assertContains($mid, $ids);
         $this->assertNotContains($pricy, $ids);
     }
 
@@ -132,7 +134,7 @@ final class ProductSearchFilterTest extends CIUnitTestCase
         $ids = $this->idsFromResult($result);
 
         $this->assertContains($mid, $ids);
-        $this->assertNotContains($low,  $ids);
+        $this->assertNotContains($low, $ids);
         $this->assertNotContains($high, $ids);
     }
 
@@ -146,7 +148,7 @@ final class ProductSearchFilterTest extends CIUnitTestCase
         $ids = $this->idsFromResult($result);
 
         $this->assertNotContains($discounted, $ids, '할인가 8000은 price_min=10000에 걸려야 함');
-        $this->assertNotContains($normal,     $ids, '정가 8000도 price_min=10000에 걸려야 함');
+        $this->assertNotContains($normal, $ids, '정가 8000도 price_min=10000에 걸려야 함');
     }
 
     public function test_discount_price_included_when_below_max(): void
@@ -170,14 +172,14 @@ final class ProductSearchFilterTest extends CIUnitTestCase
         $ids = $this->idsFromResult($result);
 
         $this->assertContains($discounted, $ids);
-        $this->assertNotContains($regular,   $ids);
+        $this->assertNotContains($regular, $ids);
     }
 
     public function test_keyword_and_price_min_combined(): void
     {
         $catId = $this->insertCategory();
         $match     = $this->insertProduct($catId, 15000, null, 'SF검색타겟상품');
-        $tooChap   = $this->insertProduct($catId, 3000,  null, 'SF검색타겟상품');
+        $tooChap   = $this->insertProduct($catId, 3000, null, 'SF검색타겟상품');
         $noKeyword = $this->insertProduct($catId, 15000);
 
         $result = $this->model->getList([
@@ -187,8 +189,8 @@ final class ProductSearchFilterTest extends CIUnitTestCase
         ]);
         $ids = $this->idsFromResult($result);
 
-        $this->assertContains($match,     $ids);
-        $this->assertNotContains($tooChap,   $ids);
+        $this->assertContains($match, $ids);
+        $this->assertNotContains($tooChap, $ids);
         $this->assertNotContains($noKeyword, $ids);
     }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Exceptions\AiKeyMissingException;
@@ -15,10 +17,10 @@ use App\Libraries\AiProvider\AiCache;
 class SemanticSearchService
 {
     /** 확장을 시도할 검색어 최대 길이 */
-    private const MAX_QUERY_LEN = 50;
+    private const int MAX_QUERY_LEN = 50;
 
     /** 확장 결과 캐시 TTL(초) — 1일 */
-    private const CACHE_TTL = 86400;
+    private const int CACHE_TTL = 86400;
 
     /**
      * 검색어를 확장한 키워드 목록을 반환한다 (원본 제외, 실패 시 빈 배열).
@@ -34,10 +36,10 @@ class SemanticSearchService
 
         $key = AiCache::key('search_expand', mb_strtolower($query));
 
-        $terms = AiCache::remember($key, function () use ($query) {
+        $terms = AiCache::remember($key, function () use ($query): array {
             try {
                 return AiCategoryAdvisor::create()->expandSearchQuery($query);
-            } catch (AiKeyMissingException $e) {
+            } catch (AiKeyMissingException) {
                 // AI 미설정은 정상 폴백 경로 — 로그를 남기지 않는다 (검색마다 누적 방지)
                 return [];
             } catch (\Throwable $e) {
@@ -50,7 +52,7 @@ class SemanticSearchService
         $lower = mb_strtolower($query);
         return array_values(array_filter(
             $terms,
-            fn ($t) => mb_strtolower(trim((string) $t)) !== $lower
+            fn (string $t): bool => mb_strtolower(trim($t)) !== $lower
         ));
     }
 }

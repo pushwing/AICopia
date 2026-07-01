@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Models\PostFileModel;
@@ -7,14 +9,14 @@ use CodeIgniter\HTTP\Files\UploadedFile;
 
 class FileUploader
 {
-    private const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    private const ALLOWED_EXTS = [
+    private const array IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    private const array ALLOWED_EXTS = [
         'jpg', 'jpeg', 'png', 'gif', 'webp',
         'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
         'zip', 'txt', 'hwp',
     ];
     // 확장자 → 허용 MIME 매핑 (서버사이드 검증용)
-    private const EXT_MIME_MAP = [
+    private const array EXT_MIME_MAP = [
         'jpg'  => ['image/jpeg'],
         'jpeg' => ['image/jpeg'],
         'png'  => ['image/png'],
@@ -33,7 +35,7 @@ class FileUploader
     ];
     private const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
-    private PostFileModel $fileModel;
+    private readonly PostFileModel $fileModel;
 
     public function __construct()
     {
@@ -42,7 +44,9 @@ class FileUploader
 
     /**
      * 파일 유효성 사전 검증 (DB/디스크 저장 없음)
-     * @return string[] 에러 메시지 배열 (비어 있으면 통과)
+     *
+     * @param  array<int, mixed> $uploadedFiles
+     * @return string[]           에러 메시지 배열 (비어 있으면 통과)
      */
     public function validateFiles(array $uploadedFiles): array
     {
@@ -75,7 +79,9 @@ class FileUploader
 
     /**
      * 게시글의 첨부파일 일괄 저장
-     * @return array ['saved' => int, 'errors' => array]
+     *
+     * @param  array<int, mixed>       $uploadedFiles
+     * @return array{saved: int, errors: string[]}
      */
     public function savePostFiles(int $postId, array $uploadedFiles): array
     {
@@ -120,6 +126,7 @@ class FileUploader
         };
     }
 
+    /** @return array{success: bool, error?: string} */
     private function saveFile(int $postId, UploadedFile $file): array
     {
         $ext  = strtolower($file->getClientExtension());
@@ -129,8 +136,8 @@ class FileUploader
             return ['success' => false, 'error' => "{$file->getName()}: 허용되지 않는 파일 형식"];
         }
 
-        $allowedMimes = self::EXT_MIME_MAP[$ext] ?? [];
-        if (! empty($allowedMimes) && ! in_array($mime, $allowedMimes, true)) {
+        $allowedMimes = self::EXT_MIME_MAP[$ext];
+        if (! in_array($mime, $allowedMimes, true)) {
             return ['success' => false, 'error' => "{$file->getName()}: 파일 형식이 올바르지 않습니다."];
         }
 
@@ -164,6 +171,7 @@ class FileUploader
         return ['success' => true];
     }
 
+    /** @param array<string, mixed> $fileRecord */
     public function deleteFile(array $fileRecord): void
     {
         $fullPath = FCPATH . $fileRecord['file_path'];

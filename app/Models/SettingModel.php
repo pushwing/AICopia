@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -12,10 +14,12 @@ class SettingModel extends Model
 
     /**
      * 전체 설정을 ['key' => 'value'] 형태로 반환 (캐시 1시간)
+     *
+     * @return array<string, mixed>
      */
     public function getAllAsMap(): array
     {
-        return (array) cache()->remember('site_settings', 3600, function () {
+        return (array) cache()->remember('site_settings', 3600, function (): array {
             $rows = $this->findAll();
             $map  = [];
             foreach ($rows as $row) {
@@ -27,6 +31,8 @@ class SettingModel extends Model
 
     /**
      * 특정 그룹의 설정 목록 반환
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getGroup(string $group): array
     {
@@ -35,6 +41,8 @@ class SettingModel extends Model
 
     /**
      * 설정 저장 (키가 있으면 UPDATE, 없으면 INSERT)
+     *
+     * @param array<string, mixed> $data
      */
     public function saveSettings(array $data): void
     {

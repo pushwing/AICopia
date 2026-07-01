@@ -1,0 +1,67 @@
+name: Deploy
+
+# main에 머지(push)되면 잡이 큐에 들어가고, production 환경의
+# Required reviewers 승인을 받은 뒤에야 SSH 배포가 실행된다(= 머지 후 수동 승인).
+# 마이그레이션은 자동 실행하지 않는다(수동). 필요할 때 Actions 탭에서
+# workflow_dispatch로 run_migration=true 를 선택해 실행한다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_migration:
+        description: "이 배포에서 DB 마이그레이션(php spark migrate --all) 실행"
+        type: boolean
+        default: false
+
+# 배포는 한 번에 하나만. 진행 중 배포를 끊지 않는다.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 운영 배포 (수동 승인)
+    runs-on: ubuntu-latest
+    # 이 environment에 Required reviewers를 설정하면 승인 게이트가 된다.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: SSH 배포
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          # workflow_dispatch에서 run_migration=true 로 실행할 때만 true.
+          RUN_MIGRATION: ${{ github.event_name == 'workflow_dispatch' && inputs.run_migration == true }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          script_stop: true
+          envs: RUN_MIGRATION
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            # 1) 최신 main 반영 (.env·gitignore된 스켈레톤 등 untracked 파일은 보존됨)
+            git fetch --all --prune
+            git reset --hard origin/main
+
+            # 2) 운영 의존성 설치
+            composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+            # 3) DB 마이그레이션 (수동) — workflow_dispatch에서 run_migration=true 일 때만 실행.
+            #    실행 전 DB 백업을 권장한다(아래 mysqldump 주석 참고).
+            if [ "${RUN_MIGRATION:-false}" = "true" ]; then
+              # mkdir -p writable/backups
+              # mysqldump -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" \
+              #   > "writable/backups/$(date +%F_%H%M%S).sql"
+              echo "마이그레이션 실행..."
+              php spark migrate --all
+            else
+              echo "마이그레이션 건너뜀(수동). 필요 시 Actions에서 run_migration=true 로 실행."
+            fi
+
+            # 4) 캐시 초기화
+            php spark cache:clear

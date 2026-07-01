@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -23,7 +25,11 @@ class AiJobModel extends Model
         'error', 'worker_token', 'available_at', 'created_at', 'updated_at', 'processed_at',
     ];
 
-    /** 작업을 큐에 적재하고 job id를 반환한다. */
+    /**
+     * 작업을 큐에 적재하고 job id를 반환한다.
+     *
+     * @param array<string, mixed> $payload
+     */
     public function enqueue(string $type, array $payload = [], int $maxAttempts = 3): int
     {
         $now = date('Y-m-d H:i:s');
@@ -69,7 +75,11 @@ class AiJobModel extends Model
             ->first();
     }
 
-    /** 작업 성공 처리 — 결과 저장. */
+    /**
+     * 작업 성공 처리 — 결과 저장.
+     *
+     * @param array<string, mixed> $result
+     */
     public function markDone(int $id, array $result): bool
     {
         $now = date('Y-m-d H:i:s');

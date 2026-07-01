@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -8,8 +10,8 @@ use App\Models\UserModel;
 
 class GradeController extends BaseController
 {
-    private GradeService $gradeService;
-    private UserModel    $userModel;
+    private readonly GradeService $gradeService;
+    private readonly UserModel    $userModel;
 
     public function __construct()
     {
@@ -18,7 +20,7 @@ class GradeController extends BaseController
     }
 
     /** GET /admin/grade/platinum — 플래티넘 선정 화면 (골드 회원 목록) */
-    public function platinum()
+    public function platinum(): string
     {
         $keyword = $this->request->getGet('q') ?? '';
         $page    = max(1, (int) ($this->request->getGet('page') ?? 1));
@@ -31,7 +33,7 @@ class GradeController extends BaseController
     }
 
     /** POST /admin/grade/platinum/:id/promote — 플래티넘 승급 */
-    public function promote(int $id)
+    public function promote(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         $user = $this->userModel->find($id);
         if (! $user || $user['grade'] !== 'gold') {

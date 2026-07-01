@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\AiProvider;
 
 /**
@@ -7,7 +9,11 @@ namespace App\Libraries\AiProvider;
  */
 trait InquiryParsing
 {
-    /** 분류 실패 시 기본값 (미분류로 두지 않고 안전한 기본값). */
+    /**
+     * 분류 실패 시 기본값 (미분류로 두지 않고 안전한 기본값).
+     *
+     * @return array{category:string, priority:string, sentiment:string}
+     */
     protected function emptyClassification(): array
     {
         return ['category' => 'etc', 'priority' => 'normal', 'sentiment' => 'neutral'];
@@ -49,7 +55,11 @@ trait InquiryParsing
         ];
     }
 
-    /** 값이 허용 목록에 없으면 기본값으로 정규화한다. */
+    /**
+     * 값이 허용 목록에 없으면 기본값으로 정규화한다.
+     *
+     * @param array<int, string> $allowed
+     */
     private function normalize(mixed $value, array $allowed, string $default): string
     {
         $value = strtolower(trim((string) $value));

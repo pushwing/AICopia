@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\ProductModel;
@@ -161,7 +163,7 @@ final class QuickCartProductListTest extends CIUnitTestCase
         $products = $this->getListByCategory($catId);
 
         $this->assertSame(0, (int) $products[$noOptPid]['has_options'], '옵션 없는 상품');
-        $this->assertSame(1, (int) $products[$optPid]['has_options'],   '옵션 있는 상품');
+        $this->assertSame(1, (int) $products[$optPid]['has_options'], '옵션 있는 상품');
     }
 
     // ── 목록 포함/제외 ─────────────────────────────────────────────────────────

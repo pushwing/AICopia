@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\PG;
 
 /**
@@ -8,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class KakaoPayAdapter implements PGInterface
 {
-    private string $secretKey;
-    private string $cid;
+    private readonly string $secretKey;
+    private readonly string $cid;
     private string $apiBase = 'https://open-api.kakaopay.com/online/v1/payment';
 
     public function __construct()
@@ -19,6 +21,10 @@ class KakaoPayAdapter implements PGInterface
         $this->cid       = $cfg->kakaoCid;
     }
 
+    /**
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     public function buildPaymentParams(array $order): array
     {
         $ready = $this->ready($order);
@@ -34,7 +40,12 @@ class KakaoPayAdapter implements PGInterface
         ];
     }
 
-    /** 카카오페이는 준비(ready) → 승인(approve) 2단계 */
+    /**
+     * 카카오페이는 준비(ready) → 승인(approve) 2단계
+     *
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
     private function ready(array $order): array
     {
         $baseUrl = base_url();
@@ -52,7 +63,11 @@ class KakaoPayAdapter implements PGInterface
         ]);
     }
 
-    /** pgToken = pg_token (카카오페이 승인 콜백에서 전달) */
+    /**
+     * pgToken = pg_token (카카오페이 승인 콜백에서 전달)
+     *
+     * @return array<string, mixed>
+     */
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         // tid는 호출자(PaymentController)가 세션에서 꺼내서 주입
@@ -85,6 +100,7 @@ class KakaoPayAdapter implements PGInterface
         ];
     }
 
+    /** @return array{success: bool, message: string} */
     public function cancel(string $pgTid, int $amount, string $reason): array
     {
         $response = $this->request('POST', '/cancel', [
@@ -106,6 +122,10 @@ class KakaoPayAdapter implements PGInterface
         return 'kakaopay';
     }
 
+    /**
+     * @param  array<string, mixed> $body
+     * @return array<string, mixed>
+     */
     private function request(string $method, string $path, array $body = []): array
     {
         $ch = curl_init($this->apiBase . $path);
@@ -119,14 +139,16 @@ class KakaoPayAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 
+    /** @param array<string, mixed> $order */
     private function buildOrderName(array $order): string
     {
         $items = $order['items'] ?? [];
-        if (empty($items)) return '주문 ' . $order['order_number'];
+        if (empty($items)) {
+            return '주문 ' . $order['order_number'];
+        }
         $first = $items[0]['product_name'] ?? '';
         $extra = count($items) > 1 ? ' 외 ' . (count($items) - 1) . '건' : '';
         return $first . $extra;

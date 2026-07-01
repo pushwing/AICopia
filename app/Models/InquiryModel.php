@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use CodeIgniter\Model;
@@ -20,7 +22,11 @@ class InquiryModel extends Model
         return (int) $this->db->table($this->table)->where('is_read', 0)->countAllResults();
     }
 
-    /** AI 분류 결과를 저장한다. */
+    /**
+     * AI 분류 결과를 저장한다.
+     *
+     * @param array<string, mixed> $classification
+     */
     public function applyClassification(int $id, array $classification): bool
     {
         return $this->update($id, [

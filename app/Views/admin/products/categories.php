@@ -51,6 +51,8 @@
                                         data-id="<?= $parent['id'] ?>"
                                         data-parent-id=""
                                         data-name="<?= esc($parent['name']) ?>"
+                                        data-desc="<?= esc($parent['description'] ?? '') ?>"
+                                        data-faq="<?= esc(\App\Models\CategoryModel::faqToLines($parent['faq'] ?? null)) ?>"
                                         data-sort="<?= (int) $parent['sort_order'] ?>"
                                         data-active="<?= (int) $parent['is_active'] ?>">수정</button>
                                 <form method="post" action="/admin/products/categories/<?= $parent['id'] ?>/delete" class="d-inline"
@@ -76,6 +78,8 @@
                                         data-id="<?= $child['id'] ?>"
                                         data-parent-id="<?= $parent['id'] ?>"
                                         data-name="<?= esc($child['name']) ?>"
+                                        data-desc="<?= esc($child['description'] ?? '') ?>"
+                                        data-faq="<?= esc(\App\Models\CategoryModel::faqToLines($child['faq'] ?? null)) ?>"
                                         data-sort="<?= (int) $child['sort_order'] ?>"
                                         data-active="<?= (int) $child['is_active'] ?>">수정</button>
                                 <form method="post" action="/admin/products/categories/<?= $child['id'] ?>/delete" class="d-inline"
@@ -148,6 +152,17 @@
                         <input type="text" name="name" id="editName" class="form-control" required>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">소개 카피 <span class="text-muted small">(랜딩 상단·SEO)</span></label>
+                        <textarea name="description" id="editDescription" class="form-control" rows="3"
+                                  placeholder="카테고리 소개 문구 (200~400자 권장, 키워드 포함)"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">FAQ <span class="text-muted small">(한 줄에 "질문 || 답변")</span></label>
+                        <textarea name="faq_raw" id="editFaq" class="form-control font-monospace" rows="4"
+                                  placeholder="배송은 얼마나 걸리나요? || 결제 후 2~3일 이내 발송됩니다."></textarea>
+                        <div class="form-text small">FAQPage 구조화 데이터로도 노출됩니다.</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">정렬 순서</label>
                         <input type="number" name="sort_order" id="editSortOrder" class="form-control" min="0">
                     </div>
@@ -200,6 +215,8 @@ document.querySelectorAll('.edit-btn').forEach(function(btn) {
         document.getElementById('editForm').action     = `/admin/products/categories/${id}/edit`;
         document.getElementById('editParentId').value  = parentId;
         document.getElementById('editName').value      = name;
+        document.getElementById('editDescription').value = this.dataset.desc || '';
+        document.getElementById('editFaq').value       = this.dataset.faq || '';
         document.getElementById('editSortOrder').value = sort;
         document.getElementById('editIsActive').checked = active === '1';
         new bootstrap.Modal(document.getElementById('editModal')).show();

@@ -1,13 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\AiProvider;
 
 class OpenRouterProvider extends GroqProvider
 {
     private const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-    private const DEFAULT_MODEL = 'meta-llama/llama-3.1-8b-instruct:free';
+    private const string DEFAULT_MODEL = 'meta-llama/llama-3.1-8b-instruct:free';
 
-    private string $apiKey;
+    private readonly string $apiKey;
     protected string $model;
 
     public function __construct()
@@ -40,7 +42,6 @@ class OpenRouterProvider extends GroqProvider
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         return ($httpCode === 200 && $response !== false) ? $response : false;
     }

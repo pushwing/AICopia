@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use App\Traits\HasSlug;
@@ -29,19 +31,21 @@ class ProductModel extends Model
         'conditional' => '조건부 무료',
     ];
 
-    private const CAT_NAME_SQL = '(SELECT GROUP_CONCAT(c.name ORDER BY c.sort_order, c.id SEPARATOR \', \')
+    private const string CAT_NAME_SQL = '(SELECT GROUP_CONCAT(c.name ORDER BY c.sort_order, c.id SEPARATOR \', \')
         FROM product_categories pc JOIN categories c ON c.id = pc.category_id
         WHERE pc.product_id = products.id) AS category_name';
 
     /**
      * 상품에 카테고리 배열을 저장 (기존 연결 전부 교체)
+     *
+     * @param array<int, mixed> $categoryIds
      */
     public function setCategories(int $productId, array $categoryIds): void
     {
         $db = $this->db;
         $db->table('product_categories')->where('product_id', $productId)->delete();
 
-        foreach (array_unique(array_filter(array_map('intval', $categoryIds))) as $cid) {
+        foreach (array_unique(array_filter(array_map(intval(...), $categoryIds))) as $cid) {
             $db->table('product_categories')->insert([
                 'product_id'  => $productId,
                 'category_id' => $cid,
@@ -51,6 +55,8 @@ class ProductModel extends Model
 
     /**
      * 상품의 카테고리 ID 배열 반환
+     *
+     * @return array<int, int>
      */
     public function getCategories(int $productId): array
     {
@@ -58,11 +64,14 @@ class ProductModel extends Model
             ->select('category_id')
             ->where('product_id', $productId)
             ->get()->getResultArray();
-        return array_map('intval', array_column($rows, 'category_id'));
+        return array_map(intval(...), array_column($rows, 'category_id'));
     }
 
     /**
      * 프론트 상품 목록: 숨김 제외, 검색·카테고리·정렬 지원
+     *
+     * @param  array<string, mixed> $params
+     * @return array<string, mixed>
      */
     public function getList(array $params = []): array
     {
@@ -82,7 +91,7 @@ class ProductModel extends Model
             ->whereIn('products.status', ['on_sale', 'sold_out']);
 
         if ($keyword) {
-            $expanded = array_filter(array_map('trim', (array) ($params['expanded_terms'] ?? [])));
+            $expanded = array_filter(array_map(trim(...), (array) ($params['expanded_terms'] ?? [])));
 
             if ($expanded === []) {
                 // 확장어가 없으면 기존과 동일하게 상품명만 검색 (정밀도 유지)
@@ -110,7 +119,7 @@ class ProductModel extends Model
             $ids = array_column($subIds, 'id');
             $ids[] = $categoryId;
 
-            $inList = implode(',', array_map('intval', $ids));
+            $inList = implode(',', array_map(intval(...), $ids));
             $builder->where("EXISTS (SELECT 1 FROM product_categories pc2
                 WHERE pc2.product_id = products.id AND pc2.category_id IN ({$inList}))", null, false);
         }
@@ -136,6 +145,9 @@ class ProductModel extends Model
 
     /**
      * 관리자 상품 목록
+     *
+     * @param  array<string, mixed> $params
+     * @return array<string, mixed>
      */
     public function getAdminList(array $params = []): array
     {
@@ -165,6 +177,7 @@ class ProductModel extends Model
         return $this->buildPage($builder, $page, $perPage);
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getLatest(int $limit = 8): array
     {
         return $this->db->table('products')
@@ -176,6 +189,7 @@ class ProductModel extends Model
             ->get()->getResultArray();
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getDiscounted(int $limit = 8): array
     {
         return $this->db->table('products')
@@ -188,6 +202,7 @@ class ProductModel extends Model
             ->get()->getResultArray();
     }
 
+    /** @return array<int, array<string, mixed>> */
     public function getFeatured(int $limit = 8): array
     {
         return $this->db->table('products')
@@ -200,7 +215,8 @@ class ProductModel extends Model
             ->get()->getResultArray();
     }
 
-    private function buildPage($builder, int $page, int $perPage): array
+    /** @return array{items: array<int, array<string, mixed>>, total: int, totalPages: int, currentPage: int, perPage: int} */
+    private function buildPage(\CodeIgniter\Database\BaseBuilder $builder, int $page, int $perPage): array
     {
         // DB Builder는 배열 기반 상태라 clone이 안전함 (Model clone과 달리 DB 커넥션을 통한 상태 공유 없음)
         $total  = (clone $builder)->countAllResults();

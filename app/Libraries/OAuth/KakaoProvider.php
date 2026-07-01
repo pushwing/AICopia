@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries\OAuth;
 
 /**
@@ -14,13 +16,16 @@ class KakaoProvider extends AbstractOAuthProvider
         parent::__construct('kakao');
     }
 
+    /** @return array<string, mixed>|null */
     public function getProfile(string $token): ?array
     {
         $data = $this->get($this->config['profile_url'], [
             'Authorization: Bearer ' . $token,
         ]);
 
-        if (empty($data['id'])) return null;
+        if (empty($data['id'])) {
+            return null;
+        }
 
         $account  = $data['kakao_account'] ?? [];
         $profile  = $account['profile']    ?? [];

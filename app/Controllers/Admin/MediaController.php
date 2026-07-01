@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -8,8 +10,8 @@ use App\Models\MediaModel;
 
 class MediaController extends BaseController
 {
-    private MediaModel    $mediaModel;
-    private MediaUploader $uploader;
+    private readonly MediaModel    $mediaModel;
+    private readonly MediaUploader $uploader;
 
     public function __construct()
     {
@@ -22,12 +24,12 @@ class MediaController extends BaseController
         $page   = (int) ($this->request->getGet('page') ?? 1);
         $limit  = 24;
         $offset = ($page - 1) * $limit;
-        $total  = $this->mediaModel->countAll();
+        $total  = $this->mediaModel->countAllResults();
 
         return $this->render('admin/media/index', [
             'mediaList'  => $this->mediaModel->getList($limit, $offset),
             'totalPages' => (int) ceil($total / $limit),
-            'currentPage'=> $page,
+            'currentPage' => $page,
         ]);
     }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit;
 
 use App\Models\WishlistModel;
@@ -121,7 +123,9 @@ final class WishlistModelTest extends CIUnitTestCase
         $row = db_connect()->table('wishlists')
             ->where('user_id', $userId)->where('product_id', $productId)
             ->get()->getRowArray();
-        if ($row) $this->cleanup['wishlists'][] = (int) $row['id'];
+        if ($row) {
+            $this->cleanup['wishlists'][] = (int) $row['id'];
+        }
 
         // 두 번째: 제거
         $wished = $this->model->toggle($userId, $productId);
@@ -149,7 +153,9 @@ final class WishlistModelTest extends CIUnitTestCase
             $row = db_connect()->table('wishlists')
                 ->where($col, $uid)->where('product_id', $productId)
                 ->get()->getRowArray();
-            if ($row) $this->cleanup['wishlists'][] = (int) $row['id'];
+            if ($row) {
+                $this->cleanup['wishlists'][] = (int) $row['id'];
+            }
         }
 
         // userId2 제거해도 userId1 영향 없음
@@ -181,7 +187,9 @@ final class WishlistModelTest extends CIUnitTestCase
         $row = db_connect()->table('wishlists')
             ->where('user_id', $userId)->where('product_id', $productId)
             ->get()->getRowArray();
-        if ($row) $this->cleanup['wishlists'][] = (int) $row['id'];
+        if ($row) {
+            $this->cleanup['wishlists'][] = (int) $row['id'];
+        }
 
         $this->assertTrue($this->model->isWished($userId, $productId));
     }
@@ -201,7 +209,9 @@ final class WishlistModelTest extends CIUnitTestCase
             $row = db_connect()->table('wishlists')
                 ->where('user_id', $userId)->where('product_id', $pid)
                 ->get()->getRowArray();
-            if ($row) $this->cleanup['wishlists'][] = (int) $row['id'];
+            if ($row) {
+                $this->cleanup['wishlists'][] = (int) $row['id'];
+            }
         }
 
         $result = $this->model->getByUser($userId);
@@ -232,7 +242,9 @@ final class WishlistModelTest extends CIUnitTestCase
         $row = db_connect()->table('wishlists')
             ->where('user_id', $userId1)->where('product_id', $productId)
             ->get()->getRowArray();
-        if ($row) $this->cleanup['wishlists'][] = (int) $row['id'];
+        if ($row) {
+            $this->cleanup['wishlists'][] = (int) $row['id'];
+        }
 
         $result = $this->model->getByUser($userId2);
 

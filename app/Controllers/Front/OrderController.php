@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
@@ -14,11 +16,11 @@ use App\Models\UserCouponModel;
 
 class OrderController extends BaseController
 {
-    private OrderModel          $orderModel;
-    private CartModel           $cartModel;
-    private ProductModel        $productModel;
-    private ShippingAddressModel $addressModel;
-    private UserCouponModel     $userCouponModel;
+    private readonly OrderModel          $orderModel;
+    private readonly CartModel           $cartModel;
+    private readonly ProductModel        $productModel;
+    private readonly ShippingAddressModel $addressModel;
+    private readonly UserCouponModel     $userCouponModel;
 
     public function __construct()
     {
@@ -35,17 +37,17 @@ class OrderController extends BaseController
         $userId = (int) session()->get('user_id');
         $items  = $this->cartModel->getByUser($userId);
 
-        if (empty($items)) {
+        if ($items === []) {
             return redirect()->to('/cart')->with('error', '장바구니가 비어 있습니다.');
         }
 
-        $available = array_filter($items, fn($i) => $i['is_available']);
-        if (empty($available)) {
+        $available = array_filter($items, fn (array $i) => $i['is_available']);
+        if ($available === []) {
             return redirect()->to('/cart')->with('error', '구매 가능한 상품이 없습니다.');
         }
 
         $totalProduct = array_sum(array_map(
-            fn($i) => ($i['discount_price'] ?? $i['price']) * $i['qty'],
+            fn (array $i): int|float => ($i['discount_price'] ?? $i['price']) * $i['qty'],
             $available
         ));
 
@@ -59,11 +61,7 @@ class OrderController extends BaseController
         $user         = \Config\Database::connect()->table('users')->select('point_balance')->where('id', $userId)->get()->getRow();
         $pointBalance = (int) ($user->point_balance ?? 0);
 
-        return $this->render('shop/checkout', compact(
-            'available', 'totalProduct', 'shippingFee', 'totalAmount',
-            'savedAddresses', 'savedAddress', 'pgProviders',
-            'userCoupons', 'pointBalance'
-        ));
+        return $this->render('shop/checkout', ['available' => $available, 'totalProduct' => $totalProduct, 'shippingFee' => $shippingFee, 'totalAmount' => $totalAmount, 'savedAddresses' => $savedAddresses, 'savedAddress' => $savedAddress, 'pgProviders' => $pgProviders, 'userCoupons' => $userCoupons, 'pointBalance' => $pointBalance]);
     }
 
     /**
@@ -95,9 +93,9 @@ class OrderController extends BaseController
         $pointUse     = max(0, (int) ($this->request->getPost('point_use') ?? 0));
 
         $items = $this->cartModel->getByUser($userId);
-        $items = array_values(array_filter($items, fn($i) => $i['is_available']));
+        $items = array_values(array_filter($items, fn (array $i) => $i['is_available']));
 
-        if (empty($items)) {
+        if ($items === []) {
             return $this->response->setJSON(['success' => false, 'message' => '구매 가능한 상품이 없습니다.']);
         }
 
@@ -115,7 +113,7 @@ class OrderController extends BaseController
 
         // 서버 금액 재계산
         $totalProduct = array_sum(array_map(
-            fn($i) => ((int) ($i['discount_price'] ?? $i['price'])) * (int) $i['qty'],
+            fn (array $i): int => ((int) ($i['discount_price'] ?? $i['price'])) * (int) $i['qty'],
             $items
         ));
         $shippingFee = $this->orderModel->calculateShippingFee($items, $totalProduct);
@@ -165,16 +163,21 @@ class OrderController extends BaseController
         // 포인트 적립 예정액 (배송완료 시점 등급 기준 — 여기선 현재 등급으로 미리 계산)
         $userRow     = \Config\Database::connect()->table('users')->select('grade')->where('id', $userId)->get()->getRow();
         $userGrade   = $userRow->grade ?? 'bronze';
-        $earnRate    = (new GradeService())->getEarnRate($userGrade, $settings);
+        $earnRate    = new GradeService()->getEarnRate($userGrade, $settings);
         $pointEarned = $payableAmount > 0 ? (int) floor($payableAmount * $earnRate / 100) : 0;
 
         $orderId = $this->orderModel->createPending(
-            $userId, $shippingData, $items,
-            $couponId, $resolvedUserCouponId,
-            $couponDiscountAmount, $pointUse, $pointEarned
+            $userId,
+            $shippingData,
+            $items,
+            $couponId,
+            $resolvedUserCouponId,
+            $couponDiscountAmount,
+            $pointUse,
+            $pointEarned
         );
 
-        if (! $orderId) {
+        if ($orderId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '주문 생성에 실패했습니다. (포인트 또는 쿠폰 처리 오류)']);
         }
 
@@ -247,9 +250,9 @@ class OrderController extends BaseController
             return redirect()->to('/')->with('error', '유효하지 않은 주문입니다.');
         }
 
-        $order = $this->orderModel->getWithItems($order['id'], $userId);
+        $order = $this->orderModel->getWithItems((int) $order['id'], $userId);
 
-        return $this->render('shop/bank_transfer', compact('order'));
+        return $this->render('shop/bank_transfer', ['order' => $order]);
     }
 
     /** GET /order/complete/:orderNumber */
@@ -262,9 +265,9 @@ class OrderController extends BaseController
             return redirect()->to('/')->with('error', '유효하지 않은 주문입니다.');
         }
 
-        $order = $this->orderModel->getWithItems($order['id'], $userId);
+        $order = $this->orderModel->getWithItems((int) $order['id'], $userId);
 
-        return $this->render('shop/order_complete', compact('order'));
+        return $this->render('shop/order_complete', ['order' => $order]);
     }
 
     /** GET /order/fail/:orderNumber */
@@ -274,7 +277,7 @@ class OrderController extends BaseController
         $order   = $this->orderModel->where('order_number', $orderNumber)->where('user_id', $userId)->first();
         $message = session()->getFlashdata('pg_error') ?? '결제에 실패했습니다.';
 
-        return $this->render('shop/order_fail', compact('order', 'message'));
+        return $this->render('shop/order_fail', ['order' => $order, 'message' => $message]);
     }
 
     /** POST /order/cancel */

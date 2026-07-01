@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
@@ -10,7 +12,7 @@ use App\Models\InquiryModel;
 
 class InquiryController extends BaseController
 {
-    private InquiryModel $model;
+    private readonly InquiryModel $model;
 
     public function __construct()
     {
@@ -45,7 +47,7 @@ class InquiryController extends BaseController
             'filter'      => $filter,
             'category'    => $category,
             'unreadCount' => $this->model->getUnreadCount(),
-            'totalAll'    => $this->model->countAll(),
+            'totalAll'    => $this->model->countAllResults(),
         ]);
     }
 
@@ -81,7 +83,9 @@ class InquiryController extends BaseController
     public function view(int $id): \CodeIgniter\HTTP\RedirectResponse|string
     {
         $inquiry = $this->model->find($id);
-        if (! $inquiry) return redirect()->to('/admin/inquiries');
+        if (! $inquiry) {
+            return redirect()->to('/admin/inquiries');
+        }
 
         $this->model->markRead($id);
 

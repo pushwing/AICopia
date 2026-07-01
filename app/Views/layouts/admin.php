@@ -211,15 +211,37 @@
         <?php
         $totalBadge = ($unreadInquiries ?? 0) + ($unansweredQna ?? 0) + ($lowStockCount ?? 0) + ($pendingOrders ?? 0);
         ?>
-        <div class="position-relative" id="notif-bell-wrap" style="cursor:default">
+        <div class="position-relative" id="notif-bell-wrap" style="cursor:pointer">
             <i class="bi bi-bell fs-5 text-muted" id="notif-bell"></i>
-            <?php if ($totalBadge > 0): ?>
-            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-                  id="badge-total" style="font-size:.6rem"><?= $totalBadge ?></span>
-            <?php else: ?>
-            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-                  id="badge-total" style="font-size:.6rem">0</span>
-            <?php endif; ?>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger<?= $totalBadge > 0 ? '' : ' d-none' ?>"
+                  id="badge-total" style="font-size:.6rem"><?= $totalBadge > 0 ? $totalBadge : 0 ?></span>
+
+            <?php
+            // 알림 항목 정의: [키, 라벨, 링크, 아이콘, 초기 카운트]
+            // negativeReviews는 BaseController에서 주입하지 않아 0으로 시작하고 JS가 갱신함
+            $notifItems = [
+                ['inquiries',  '미확인 문의',  '/admin/inquiries', 'bi-envelope',        $unreadInquiries ?? 0],
+                ['qna',        '미답변 Q&A',   '/admin/qna',       'bi-question-circle', $unansweredQna ?? 0],
+                ['low-stock',  '재고 부족',    '/admin/inventory', 'bi-boxes',           $lowStockCount ?? 0],
+                ['orders',     '처리 대기 주문', '/admin/orders',    'bi-receipt',         $pendingOrders ?? 0],
+                ['reviews',    '부정 리뷰',    '/admin/reviews',   'bi-star',            0],
+            ];
+            ?>
+            <div id="notif-dropdown" class="shadow-sm border rounded bg-white d-none"
+                 style="position:absolute; right:0; top:135%; width:250px; z-index:1050;">
+                <div class="px-3 py-2 border-bottom small fw-bold text-muted">알림</div>
+                <?php foreach ($notifItems as [$key, $label, $link, $icon, $cnt]): ?>
+                <a href="<?= esc($link, 'attr') ?>"
+                   class="notif-row d-flex align-items-center justify-content-between px-3 py-2 text-decoration-none text-dark<?= $cnt > 0 ? '' : ' d-none' ?>"
+                   id="notif-row-<?= esc($key, 'attr') ?>">
+                    <span><i class="bi <?= esc($icon, 'attr') ?> me-2"></i><?= esc($label) ?></span>
+                    <span class="badge bg-danger rounded-pill" id="notif-count-<?= esc($key, 'attr') ?>"><?= (int) $cnt ?></span>
+                </a>
+                <?php endforeach; ?>
+                <div id="notif-empty" class="px-3 py-3 text-center text-muted small<?= $totalBadge > 0 ? ' d-none' : '' ?>">
+                    새 알림이 없습니다
+                </div>
+            </div>
         </div>
         <span class="text-muted small"><i class="bi bi-person-circle me-1"></i><?= esc($authUser['nickname']) ?></span>
     </div>
@@ -255,6 +277,15 @@
         el.classList.toggle('d-none', count === 0);
     }
 
+    // 드롭다운 한 줄(카운트 배지 + 0이면 행 숨김)을 갱신
+    function setNotifRow(key, count) {
+        var row   = document.getElementById('notif-row-' + key);
+        var badge = document.getElementById('notif-count-' + key);
+        if (! row || ! badge) return;
+        badge.textContent = count;
+        row.classList.toggle('d-none', count === 0);
+    }
+
     function refreshCounts() {
         fetch('/admin/notifications/counts')
             .then(function(r) { return r.json(); })
@@ -265,8 +296,30 @@
                 setBadge('badge-orders',    d.pending_orders  || 0);
                 setBadge('badge-reviews',   d.negative_reviews|| 0);
                 setBadge('badge-total',     d.total           || 0);
+
+                setNotifRow('inquiries', d.unread_inquiries || 0);
+                setNotifRow('qna',       d.unanswered_qna   || 0);
+                setNotifRow('low-stock', d.low_stock        || 0);
+                setNotifRow('orders',    d.pending_orders   || 0);
+                setNotifRow('reviews',   d.negative_reviews || 0);
+
+                var empty = document.getElementById('notif-empty');
+                if (empty) empty.classList.toggle('d-none', (d.total || 0) > 0);
             })
             .catch(function() {});
+    }
+
+    // 종 클릭 → 드롭다운 토글 / 바깥 클릭 → 닫기
+    var bellWrap = document.getElementById('notif-bell-wrap');
+    var dropdown = document.getElementById('notif-dropdown');
+    if (bellWrap && dropdown) {
+        bellWrap.addEventListener('click', function (e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('d-none');
+        });
+        document.addEventListener('click', function (e) {
+            if (! dropdown.contains(e.target)) dropdown.classList.add('d-none');
+        });
     }
 
     // 30초마다 갱신

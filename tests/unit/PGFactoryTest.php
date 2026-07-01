@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Libraries\PG\PGFactory;
 use App\Libraries\PG\PGInterface;
 use CodeIgniter\Test\CIUnitTestCase;

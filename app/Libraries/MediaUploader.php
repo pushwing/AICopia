@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Libraries;
 
 use App\Models\MediaModel;
@@ -7,17 +9,18 @@ use CodeIgniter\HTTP\Files\UploadedFile;
 
 class MediaUploader
 {
-    private const ALLOWED       = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+    private const array ALLOWED       = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
     private const MAX_SIZE      = 5 * 1024 * 1024; // 5MB
-    private const MAX_DIMENSION = 1200;             // 리사이즈 기준 (px)
+    private const int MAX_DIMENSION = 1200;             // 리사이즈 기준 (px)
 
-    private MediaModel $model;
+    private readonly MediaModel $model;
 
     public function __construct()
     {
         $this->model = new MediaModel();
     }
 
+    /** @return array{success: bool, id?: int|string, path?: string, url?: string, error?: string} */
     public function upload(UploadedFile $file, string $alt = ''): array
     {
         $ext = strtolower($file->getClientExtension());
@@ -66,11 +69,15 @@ class MediaUploader
     // GIF(애니메이션)·SVG(벡터)를 제외하고 MAX_DIMENSION 초과 시 비율 유지하며 축소
     private function resizeIfNeeded(string $fullPath, string $ext): void
     {
-        if (in_array($ext, ['gif', 'svg'])) return;
+        if (in_array($ext, ['gif', 'svg'])) {
+            return;
+        }
 
         [$width, $height] = getimagesize($fullPath) ?: [0, 0];
 
-        if ($width <= self::MAX_DIMENSION && $height <= self::MAX_DIMENSION) return;
+        if ($width <= self::MAX_DIMENSION && $height <= self::MAX_DIMENSION) {
+            return;
+        }
 
         $masterDim = $width >= $height ? 'width' : 'height';
 
