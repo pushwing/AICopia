@@ -19,7 +19,6 @@ class OpenRouterProvider extends GroqProvider
         $this->model   = ($settings['openrouter_model']   ?? '') ?: env('OPENROUTER_MODEL', self::DEFAULT_MODEL);
     }
 
-    #[\Override]
     protected function callApi(string $payload, int $timeout = 15): string|false
     {
         // 모델 필드를 현재 설정값으로 교체

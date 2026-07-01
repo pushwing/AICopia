@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class ProductSkuModel extends Model
 {
-    #[\Override]
     protected $table         = 'product_skus';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = false;
-    #[\Override]
     protected $allowedFields = ['product_id', 'price_diff', 'stock', 'sku_code'];
 
     /**

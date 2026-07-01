@@ -11,11 +11,8 @@ use CodeIgniter\CLI\CLI;
 
 class PurgeAccessLogs extends BaseCommand
 {
-    #[\Override]
     protected $group       = 'Stats';
-    #[\Override]
     protected $name        = 'stats:purge-logs';
-    #[\Override]
     protected $description = '보존 기간(기본 90일) 이전의 접속 로그를 삭제합니다.';
 
     public function run(array $params): void

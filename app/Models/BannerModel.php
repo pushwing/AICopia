@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class BannerModel extends Model
 {
-    #[\Override]
     protected $table         = 'banners';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = [
         'image_path', 'link_url', 'link_target', 'position',
         'priority', 'is_active', 'started_at', 'ended_at',
@@ -27,11 +23,8 @@ class BannerModel extends Model
         'sub_right'   => '서브 우측',
     ];
 
-    #[\Override]
     protected $afterInsert = ['clearCacheCallback'];
-    #[\Override]
     protected $afterUpdate = ['clearCacheCallback'];
-    #[\Override]
     protected $afterDelete = ['clearCacheCallback'];
 
     /**

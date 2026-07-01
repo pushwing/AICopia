@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class ProductReviewModel extends Model
 {
-    #[\Override]
     protected $table         = 'product_reviews';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = [
         'product_id', 'order_id', 'user_id', 'content', 'rating', 'is_rewarded', 'is_hidden', 'is_negative',
     ];

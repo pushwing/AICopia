@@ -8,15 +8,10 @@ use CodeIgniter\Model;
 
 class ProductImageModel extends Model
 {
-    #[\Override]
     protected $table        = 'product_images';
-    #[\Override]
     protected $primaryKey   = 'id';
-    #[\Override]
     protected $useTimestamps = false;
-    #[\Override]
     protected $updatedField  = '';
-    #[\Override]
     protected $allowedFields = ['product_id', 'media_id', 'is_primary', 'sort_order', 'created_at'];
 
     /** @return array<int, array<string, mixed>> */

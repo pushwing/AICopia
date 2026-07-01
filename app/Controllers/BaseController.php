@@ -19,7 +19,6 @@ class BaseController extends Controller
     /** @var array<string, mixed> */
     protected array $viewData = [];
 
-    #[\Override]
     public function initController(
         \CodeIgniter\HTTP\RequestInterface $request,
         \CodeIgniter\HTTP\ResponseInterface $response,

@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class WishlistModel extends Model
 {
-    #[\Override]
     protected $table         = 'wishlists';
-    #[\Override]
     protected $allowedFields = ['user_id', 'product_id'];
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $updatedField  = '';
 
     /** 찜 토글 — true: 추가됨, false: 제거됨 */

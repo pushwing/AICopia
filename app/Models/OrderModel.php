@@ -9,13 +9,9 @@ use CodeIgniter\Model;
 
 class OrderModel extends Model
 {
-    #[\Override]
     protected $table         = 'orders';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = [
         'user_id', 'order_number', 'status',
         'total_product_price', 'shipping_fee', 'total_amount',

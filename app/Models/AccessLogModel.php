@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class AccessLogModel extends Model
 {
-    #[\Override]
     protected $table         = 'access_logs';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = false;
-    #[\Override]
     protected $allowedFields = ['ip', 'page', 'url', 'user_id', 'user_agent', 'referer', 'created_at'];
 
     /** @return array{pv: int, uv: int} */

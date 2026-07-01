@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class CartModel extends Model
 {
-    #[\Override]
     protected $table         = 'cart_items';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = false;
-    #[\Override]
     protected $allowedFields = ['user_id', 'product_id', 'sku_id', 'qty', 'created_at'];
 
     /**

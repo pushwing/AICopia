@@ -11,11 +11,8 @@ use CodeIgniter\CLI\CLI;
 
 class UpgradeGrades extends BaseCommand
 {
-    #[\Override]
     protected $group       = 'Members';
-    #[\Override]
     protected $name        = 'grades:upgrade';
-    #[\Override]
     protected $description = '누적 구매 조건을 충족한 회원을 자동 승급합니다 (bronze→silver, silver→gold).';
 
     public function run(array $params): void

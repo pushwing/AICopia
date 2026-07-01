@@ -25,7 +25,6 @@ class ThemeView extends View
         return $this->resolvedTheme;
     }
 
-    #[\Override]
     public function render(string $view, ?array $options = null, ?bool $saveData = null): string
     {
         // 이미 테마 경로로 들어온 경우 그대로 처리 (무한 루프 방지)

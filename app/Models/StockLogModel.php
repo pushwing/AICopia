@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class StockLogModel extends Model
 {
-    #[\Override]
     protected $table        = 'stock_logs';
-    #[\Override]
     protected $primaryKey   = 'id';
-    #[\Override]
     protected $useTimestamps = false;
-    #[\Override]
     protected $allowedFields = [
         'product_id', 'type', 'quantity', 'stock_before', 'stock_after', 'note', 'admin_id', 'created_at',
     ];

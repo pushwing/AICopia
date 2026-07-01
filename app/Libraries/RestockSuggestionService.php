@@ -83,7 +83,7 @@ class RestockSuggestionService
         }
 
         // 소진 임박(잔여일 적은) 순 → 판매량 많은 순
-        usort($suggestions, fn (array $a, array $b) => [$a['days_remaining'], -$a['sold']] <=> [$b['days_remaining'], -$b['sold']]);
+        usort($suggestions, fn (array $a, array $b): int => [$a['days_remaining'], -$a['sold']] <=> [$b['days_remaining'], -$b['sold']]);
 
         if ($suggestions !== []) {
             new ProductImageModel()->attachPrimaryImages($suggestions);

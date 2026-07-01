@@ -11,11 +11,8 @@ use CodeIgniter\CLI\CLI;
 
 class ExpireOrders extends BaseCommand
 {
-    #[\Override]
     protected $group       = 'Orders';
-    #[\Override]
     protected $name        = 'orders:expire';
-    #[\Override]
     protected $description = '결제 대기 30분 초과 주문을 만료 처리합니다.';
 
     public function run(array $params): void

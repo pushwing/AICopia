@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class PromotionModel extends Model
 {
-    #[\Override]
     protected $table         = 'promotions';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = [
         'title', 'slug', 'description', 'banner_image',
         'grade_access', 'start_date', 'end_date', 'is_active', 'sort_order',

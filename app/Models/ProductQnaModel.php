@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class ProductQnaModel extends Model
 {
-    #[\Override]
     protected $table         = 'product_qnas';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = [
         'product_id', 'user_id', 'title', 'content',
         'is_secret', 'is_answered', 'answer', 'answered_at', 'answered_by',

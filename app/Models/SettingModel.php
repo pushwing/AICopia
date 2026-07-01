@@ -8,11 +8,8 @@ use CodeIgniter\Model;
 
 class SettingModel extends Model
 {
-    #[\Override]
     protected $table      = 'settings';
-    #[\Override]
     protected $primaryKey = 'id';
-    #[\Override]
     protected $allowedFields = ['group', 'key', 'value', 'label', 'type', 'updated_at'];
 
     /**

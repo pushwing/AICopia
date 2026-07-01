@@ -8,15 +8,10 @@ use CodeIgniter\Model;
 
 class PostModel extends Model
 {
-    #[\Override]
     protected $table      = 'posts';
-    #[\Override]
     protected $primaryKey = 'id';
-    #[\Override]
     protected $useTimestamps  = true;
-    #[\Override]
     protected $useSoftDeletes = true;
-    #[\Override]
     protected $allowedFields  = [
         'board_id', 'user_id', 'title', 'content',
         'author_name', 'author_password',

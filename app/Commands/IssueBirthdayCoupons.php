@@ -10,11 +10,8 @@ use CodeIgniter\CLI\CLI;
 
 class IssueBirthdayCoupons extends BaseCommand
 {
-    #[\Override]
     protected $group       = 'Members';
-    #[\Override]
     protected $name        = 'coupons:birthday';
-    #[\Override]
     protected $description = '생일인 회원에게 생일 쿠폰을 자동 발급합니다 (매일 실행).';
 
     public function run(array $params): void

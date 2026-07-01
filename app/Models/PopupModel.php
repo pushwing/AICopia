@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class PopupModel extends Model
 {
-    #[\Override]
     protected $table         = 'popups';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = [
         'title', 'image_path', 'content', 'show_scope',
         'pos_x', 'pos_y', 'priority', 'is_active', 'started_at', 'ended_at',
@@ -26,11 +22,8 @@ class PopupModel extends Model
         'specific'  => '특정 페이지',
     ];
 
-    #[\Override]
     protected $afterInsert = ['clearCacheCallback'];
-    #[\Override]
     protected $afterUpdate = ['clearCacheCallback'];
-    #[\Override]
     protected $afterDelete = ['clearCacheCallback'];
 
     /**

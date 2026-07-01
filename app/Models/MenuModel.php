@@ -8,11 +8,8 @@ use CodeIgniter\Model;
 
 class MenuModel extends Model
 {
-    #[\Override]
     protected $table      = 'menus';
-    #[\Override]
     protected $primaryKey = 'id';
-    #[\Override]
     protected $allowedFields = ['parent_id', 'title', 'url', 'target', 'sort_order', 'is_active'];
 
     /**

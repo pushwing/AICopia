@@ -10,15 +10,10 @@ use CodeIgniter\Model;
 class ProductModel extends Model
 {
     use HasSlug;
-    #[\Override]
     protected $table          = 'products';
-    #[\Override]
     protected $primaryKey     = 'id';
-    #[\Override]
     protected $useTimestamps  = true;
-    #[\Override]
     protected $useSoftDeletes = true;
-    #[\Override]
     protected $allowedFields  = [
         'supplier_id', 'name', 'slug', 'price', 'cost_price', 'discount_price',
         'stock', 'status', 'is_featured', 'description', 'shipping_type', 'shipping_fee', 'free_threshold',

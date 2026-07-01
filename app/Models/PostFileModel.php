@@ -8,15 +8,10 @@ use CodeIgniter\Model;
 
 class PostFileModel extends Model
 {
-    #[\Override]
     protected $table      = 'post_files';
-    #[\Override]
     protected $primaryKey = 'id';
-    #[\Override]
     protected $useTimestamps  = true;
-    #[\Override]
     protected $updatedField   = '';
-    #[\Override]
     protected $allowedFields  = [
         'post_id', 'original_name', 'stored_name',
         'file_path', 'file_size', 'mime_type', 'is_image',

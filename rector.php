@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
+use Rector\DeadCode\Rector\Cast\RecastingRemovalRector;
+use Rector\Php83\Rector\ClassMethod\AddOverrideAttributeToOverriddenMethodsRector;
+use Rector\Php85\Rector\Property\AddOverrideAttributeToOverriddenPropertiesRector;
 use Rector\Set\ValueObject\LevelSetList;
 use Rector\Set\ValueObject\SetList;
 
@@ -25,6 +28,13 @@ return RectorConfig::configure()
     ])
     ->withSkip([
         __DIR__ . '/app/Views',
+        // #[\Override]는 CI4 Model의 프로퍼티($table 등)에까지 무의미하게 붙어
+        // 노이즈만 유발하므로 관련 룰(메서드·프로퍼티)을 모두 제외한다.
+        AddOverrideAttributeToOverriddenMethodsRector::class,
+        AddOverrideAttributeToOverriddenPropertiesRector::class,
+        // 캐스트 제거 시 괄호까지 함께 지워 연산자 우선순위를 바꾸는 오작동이 있어 제외
+        // (예: `. (int) ($skuId ?? 0)` → `. $skuId ?? 0`).
+        RecastingRemovalRector::class,
     ])
     ->withPhpSets(php85: true)
     ->withSets([

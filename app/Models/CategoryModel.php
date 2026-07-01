@@ -10,13 +10,9 @@ use CodeIgniter\Model;
 class CategoryModel extends Model
 {
     use HasSlug;
-    #[\Override]
     protected $table      = 'categories';
-    #[\Override]
     protected $primaryKey = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = ['parent_id', 'name', 'description', 'faq', 'slug', 'sort_order', 'is_active'];
 
     /**

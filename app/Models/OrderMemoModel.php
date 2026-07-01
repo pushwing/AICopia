@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class OrderMemoModel extends Model
 {
-    #[\Override]
     protected $table         = 'order_memos';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = ['order_id', 'admin_id', 'content'];
 
     /** @return array<int, array<string, mixed>> */

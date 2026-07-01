@@ -8,13 +8,9 @@ use CodeIgniter\Model;
 
 class ShippingAddressModel extends Model
 {
-    #[\Override]
     protected $table         = 'shipping_addresses';
-    #[\Override]
     protected $primaryKey    = 'id';
-    #[\Override]
     protected $useTimestamps = true;
-    #[\Override]
     protected $allowedFields = [
         'user_id', 'receiver_name', 'receiver_phone', 'zipcode', 'address1', 'address2', 'is_default',
     ];
