@@ -173,7 +173,27 @@ class ShopController extends BaseController
             );
         }
 
+        // ── SEO 메타 · 구조화 데이터(JSON-LD) ────────────────────────────────
+        $siteName = (string) ($this->viewData['settings']['site_name'] ?? '');
+        $canonical = base_url('shop/' . $product['slug']);
+        $seoPage = [
+            'meta_title' => trim($product['name'] . ($siteName !== '' ? ' | ' . $siteName : '')),
+            'meta_desc'  => mb_substr(trim(strip_tags((string) ($product['description'] ?? ''))), 0, 155),
+            'og_image'   => $images[0]['file_path'] ?? ($this->viewData['settings']['site_logo'] ?? ''),
+            'og_type'    => 'product',
+            'canonical'  => $canonical,
+            'jsonld'     => [
+                \App\Libraries\SeoHelper::productSchema($product, $images),
+                \App\Libraries\SeoHelper::breadcrumbSchema([
+                    ['name' => '홈', 'url' => base_url('/')],
+                    ['name' => '상품', 'url' => base_url('shop')],
+                    ['name' => (string) $product['name'], 'url' => $canonical],
+                ]),
+            ],
+        ];
+
         return $this->render('shop/detail', [
+            'page'            => $seoPage,
             'product'         => $product,
             'images'          => $images,
             'shipping_policy' => $this->viewData['settings']['shipping_policy'] ?? '',
