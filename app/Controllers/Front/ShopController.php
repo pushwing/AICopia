@@ -460,7 +460,32 @@ class ShopController extends BaseController
             $recommended = (new \App\Libraries\RecommendationService())->forUser($userId, 8);
         }
 
+        // 카테고리 랜딩(소개 카피 + FAQ) — 단일 카테고리 선택 시 SEO 강화
+        $catLanding = null;
+        $seoPage    = null;
+        $curCatId   = (int) $params['category_id'];
+        if ($curCatId > 0) {
+            $cat = $this->categoryModel->where('id', $curCatId)->first();
+            if ($cat !== null && (int) $cat['is_active'] === 1) {
+                $catFaq     = \App\Models\CategoryModel::decodeFaq($cat['faq'] ?? null);
+                $catLanding = [
+                    'name'        => (string) $cat['name'],
+                    'description' => (string) ($cat['description'] ?? ''),
+                    'faq'         => $catFaq,
+                ];
+                $siteName = (string) ($this->viewData['settings']['site_name'] ?? '');
+                $seoPage  = [
+                    'meta_title' => trim($cat['name'] . ($siteName !== '' ? ' | ' . $siteName : '')),
+                    'meta_desc'  => mb_substr(trim(strip_tags((string) ($cat['description'] ?? ''))), 0, 155),
+                    'canonical'  => base_url('shop') . '?category_id=' . $curCatId,
+                    'jsonld'     => [\App\Libraries\SeoHelper::faqSchema($catFaq)],
+                ];
+            }
+        }
+
         return $this->render('shop/list', array_merge($result, [
+            'page'         => $seoPage,
+            'catLanding'   => $catLanding,
             'tree'         => $this->categoryModel->getTree(),
             'keyword'      => $params['keyword'],
             'curCat'       => (int) $params['category_id'],

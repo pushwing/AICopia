@@ -47,6 +47,22 @@ class SitemapService
             );
         }
 
+        // 카테고리 랜딩 (소개 카피가 있는 활성 카테고리만 — 얇은 페이지 색인 방지)
+        $categories = $db->table('categories')
+            ->select('id, updated_at')
+            ->where('is_active', 1)
+            ->where('description IS NOT NULL')
+            ->where('description !=', '')
+            ->get()->getResultArray();
+        foreach ($categories as $cat) {
+            $urls[] = $this->entry(
+                base_url('shop') . '?category_id=' . $cat['id'],
+                $this->w3cDate($cat['updated_at'] ?? null),
+                'weekly',
+                '0.7'
+            );
+        }
+
         // 공개 정적 페이지 (published)
         $pages = $db->table('pages')
             ->select('slug, updated_at')
