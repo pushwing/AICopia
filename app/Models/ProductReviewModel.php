@@ -12,7 +12,7 @@ class ProductReviewModel extends Model
     protected $primaryKey    = 'id';
     protected $useTimestamps = true;
     protected $allowedFields = [
-        'product_id', 'order_id', 'user_id', 'content', 'is_rewarded', 'is_hidden', 'is_negative',
+        'product_id', 'order_id', 'user_id', 'content', 'rating', 'is_rewarded', 'is_hidden', 'is_negative',
     ];
 
     /**
@@ -88,6 +88,29 @@ class ProductReviewModel extends Model
         }
 
         return compact('items', 'total');
+    }
+
+    /**
+     * 상품의 평균 평점·리뷰 수 집계 (별점이 매겨진 노출 리뷰만, rating 1~5).
+     * 별점 없는 레거시 리뷰(rating=0)와 숨김 리뷰는 제외한다.
+     *
+     * @return array{count: int, average: float}
+     */
+    public function getRatingSummary(int $productId): array
+    {
+        $row = $this->db->table('product_reviews')
+            ->select('COUNT(*) AS cnt, AVG(rating) AS avg_rating')
+            ->where('product_id', $productId)
+            ->where('is_hidden', 0)
+            ->where('rating >', 0)
+            ->get()->getRowArray();
+
+        $count = (int) ($row['cnt'] ?? 0);
+
+        return [
+            'count'   => $count,
+            'average' => $count > 0 ? round((float) $row['avg_rating'], 1) : 0.0,
+        ];
     }
 
     /**

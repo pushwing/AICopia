@@ -155,10 +155,12 @@ HTML;
      *
      * @param array<string, mixed>             $product products 행
      * @param array<int, array<string, mixed>> $images  ProductImageModel::getByProduct 결과(media_url 포함)
+     * @param array{count: int, average: float}|null                              $rating  평균 평점·리뷰 수(없거나 0이면 생략)
+     * @param array<int, array{author: string, rating: int, body: string, date: ?string}> $reviews 개별 리뷰(별점 매겨진 것만)
      *
      * @return array<string, mixed>
      */
-    public static function productSchema(array $product, array $images = []): array
+    public static function productSchema(array $product, array $images = [], ?array $rating = null, array $reviews = []): array
     {
         $stock   = (int) ($product['stock'] ?? 0);
         $status  = (string) ($product['status'] ?? '');
@@ -193,6 +195,44 @@ HTML;
 
         if ($imageUrls !== []) {
             $schema['image'] = $imageUrls;
+        }
+
+        // 평균 평점 — 실제 별점이 매겨진 리뷰가 있을 때만 포함(빈 값 금지)
+        if ($rating !== null && $rating['count'] > 0) {
+            $schema['aggregateRating'] = [
+                '@type'       => 'AggregateRating',
+                'ratingValue' => (string) $rating['average'],
+                'reviewCount' => $rating['count'],
+                'bestRating'  => '5',
+                'worstRating' => '1',
+            ];
+        }
+
+        // 개별 리뷰(별점 포함) — 스니펫 신뢰도 보강
+        $reviewGraph = [];
+        foreach ($reviews as $review) {
+            $stars = $review['rating'];
+            if ($stars < 1) {
+                continue;
+            }
+            $entry = [
+                '@type'        => 'Review',
+                'reviewRating' => [
+                    '@type'       => 'Rating',
+                    'ratingValue' => (string) $stars,
+                    'bestRating'  => '5',
+                    'worstRating' => '1',
+                ],
+                'author'     => ['@type' => 'Person', 'name' => $review['author']],
+                'reviewBody' => trim(strip_tags($review['body'])),
+            ];
+            if (! empty($review['date'])) {
+                $entry['datePublished'] = date('c', strtotime((string) $review['date']));
+            }
+            $reviewGraph[] = $entry;
+        }
+        if ($reviewGraph !== []) {
+            $schema['review'] = $reviewGraph;
         }
 
         return $schema;

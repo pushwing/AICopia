@@ -260,11 +260,33 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                 <!-- 리뷰 탭 -->
                 <div class="tab-pane fade" id="tabReviews">
 
+                    <!-- 평균 평점 요약 -->
+                    <?php $rSum = $ratingSummary ?? ['count' => 0, 'average' => 0]; ?>
+                    <?php if (($rSum['count'] ?? 0) > 0): ?>
+                    <?php $rAvg = (float) $rSum['average']; $rRound = (int) round($rAvg); ?>
+                    <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+                        <span class="fs-3 fw-bold"><?= esc(number_format($rAvg, 1)) ?></span>
+                        <span class="text-warning fs-5 lh-1">
+                            <?php for ($s = 1; $s <= 5; $s++): ?><i class="bi bi-star<?= $s <= $rRound ? '-fill' : '' ?>"></i><?php endfor; ?>
+                        </span>
+                        <span class="text-muted small"><?= (int) $rSum['count'] ?>개 리뷰</span>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- 작성 폼 -->
                     <?php if ($canWriteReview ?? false): ?>
                     <div class="card mb-4 border">
                         <div class="card-header bg-white fw-semibold small">리뷰 작성</div>
                         <div class="card-body">
+                            <div class="mb-2">
+                                <label class="form-label small text-muted mb-1 d-block">별점</label>
+                                <div id="reviewStarInput" class="fs-4 text-warning lh-1" style="cursor:pointer">
+                                    <?php for ($s = 1; $s <= 5; $s++): ?>
+                                    <i class="bi bi-star" data-value="<?= $s ?>"></i>
+                                    <?php endfor; ?>
+                                </div>
+                                <input type="hidden" id="reviewRating" value="0">
+                            </div>
                             <textarea id="reviewContent" class="form-control form-control-sm mb-2" rows="4"
                                       placeholder="구매하신 상품 어떠셨나요? 사진 1장 + 30자 이상 작성 시 150 포인트가 지급됩니다."></textarea>
                             <div class="mb-2">
@@ -344,6 +366,10 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                         <div class="border rounded p-3">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div>
+                                    <?php $rvStar = (int) ($review['rating'] ?? 0); ?>
+                                    <?php if ($rvStar > 0): ?>
+                                    <span class="text-warning small me-1 lh-1"><?php for ($s = 1; $s <= 5; $s++): ?><i class="bi bi-star<?= $s <= $rvStar ? '-fill' : '' ?>"></i><?php endfor; ?></span>
+                                    <?php endif; ?>
                                     <span class="fw-semibold small"><?= esc($rMask) ?></span>
                                     <span class="text-muted small ms-2"><?= date('Y.m.d', strtotime($review['created_at'])) ?></span>
                                     <?php if ($review['is_rewarded']): ?>
@@ -701,7 +727,33 @@ document.getElementById('btnBuyNow')?.addEventListener('click', function () {
 });
 
 // ─── 리뷰 ─────────────────────────────────────────────────────────────────────
+// 별점 입력 인터랙션
+(function () {
+    const wrap = document.getElementById('reviewStarInput');
+    if (! wrap) return;
+    const hidden = document.getElementById('reviewRating');
+    const stars  = wrap.querySelectorAll('i');
+    const paint  = function (val) {
+        stars.forEach(function (st) {
+            const v = parseInt(st.dataset.value, 10);
+            st.classList.toggle('bi-star-fill', v <= val);
+            st.classList.toggle('bi-star', v > val);
+        });
+    };
+    stars.forEach(function (st) {
+        st.addEventListener('mouseenter', function () { paint(parseInt(st.dataset.value, 10)); });
+        st.addEventListener('click', function () {
+            hidden.value = st.dataset.value;
+            paint(parseInt(st.dataset.value, 10));
+        });
+    });
+    wrap.addEventListener('mouseleave', function () { paint(parseInt(hidden.value, 10) || 0); });
+})();
+
 document.getElementById('btnReviewSubmit')?.addEventListener('click', function () {
+    const rating = parseInt(document.getElementById('reviewRating')?.value ?? '0', 10) || 0;
+    if (rating < 1 || rating > 5) { alert('별점을 선택해주세요.'); return; }
+
     const content = (document.getElementById('reviewContent')?.value ?? '').trim();
     if (! content) { alert('리뷰 내용을 입력해주세요.'); return; }
 
@@ -710,6 +762,7 @@ document.getElementById('btnReviewSubmit')?.addEventListener('click', function (
 
     const fd = new FormData();
     fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+    fd.append('rating', rating);
     fd.append('content', content);
     for (let i = 0; i < files.length; i++) fd.append('images[]', files[i]);
 
