@@ -7,7 +7,7 @@ use Rector\Set\ValueObject\LevelSetList;
 use Rector\Set\ValueObject\SetList;
 
 /**
- * Rector 설정 — PHP 8.1 기준 코드 현대화/품질 개선.
+ * Rector 설정 — PHP 8.5 기준 코드 현대화/품질 개선.
  *
  *   composer rector       # 미리보기 (dry-run, 변경 없음)
  *   composer rector-fix   # 실제 적용
@@ -26,9 +26,9 @@ return RectorConfig::configure()
     ->withSkip([
         __DIR__ . '/app/Views',
     ])
-    ->withPhpSets(php81: true)
+    ->withPhpSets(php85: true)
     ->withSets([
-        LevelSetList::UP_TO_PHP_81,
+        LevelSetList::UP_TO_PHP_85,
         SetList::CODE_QUALITY,
         SetList::DEAD_CODE,
         SetList::TYPE_DECLARATION,

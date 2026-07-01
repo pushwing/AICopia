@@ -30,7 +30,7 @@
 | 엑셀 | PhpSpreadsheet (`phpoffice/phpspreadsheet`) |
 | 정적 분석 | PHPStan 레벨 6 + CI4 확장 (`codeigniter/phpstan-codeigniter`) |
 | 코드 스타일 | PHP-CS-Fixer (PSR-12, strict_types 강제) |
-| 현대화 | Rector (PHP 8.1 셋) |
+| 현대화 | Rector (PHP 8.5 셋) |
 
 ---
 
@@ -495,7 +495,7 @@ delivered → exchange_requested
 |------|------|------|
 | PHP-CS-Fixer | `composer cs` / `composer cs-fix` | PSR-12 + strict_types 강제 |
 | PHPStan | `composer analyse` | 레벨 6, baseline 4건 (외부 라이브러리) |
-| Rector | `composer rector` / `composer rector-fix` | PHP 8.1 셋 |
+| Rector | `composer rector` / `composer rector-fix` | PHP 8.5 셋 |
 | PHPUnit | `composer test` | MySQL 전용, DBPrefix 없음 |
 
 CI: GitHub Actions (`.github/workflows/ci.yml`) — `dev`·`main` PR/push마다 `static` + `test` 잡 자동 실행

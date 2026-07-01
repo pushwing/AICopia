@@ -458,7 +458,7 @@ composer rector       # 미리보기(dry-run)
 composer rector-fix   # 적용
 ```
 
-- 설정: `rector.php` — PHP 8.1 셋 + CODE_QUALITY / DEAD_CODE / TYPE_DECLARATION / EARLY_RETURN.
+- 설정: `rector.php` — PHP 8.5 셋 + CODE_QUALITY / DEAD_CODE / TYPE_DECLARATION / EARLY_RETURN.
 - 대량 변경이 나올 수 있으므로 **반드시 PR 단위로 검토**하고 cs-fix·analyse·test로 재검증.
 
 ### 4. 테스트 — PHPUnit
