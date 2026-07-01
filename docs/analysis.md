@@ -19,7 +19,7 @@
 
 | 영역 | 기술 |
 |------|------|
-| 백엔드 프레임워크 | CodeIgniter 4 (PHP 8.1+) |
+| 백엔드 프레임워크 | CodeIgniter 4 (PHP 8.5+) |
 | 프론트엔드 | Bootstrap 5 + Bootstrap Icons |
 | 에디터 | TinyMCE 6 (자체 호스팅, npm — API 키 불필요) |
 | 데이터베이스 | MySQL 8.0 / MariaDB 10.6+ |

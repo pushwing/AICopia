@@ -251,7 +251,7 @@ ai_jobs              — 비동기 AI 잡 큐
 
 ## 코딩 표준 (프로젝트 전역)
 
-- PHP 8.1+ (타입 프로퍼티, match, 화살표 함수); PSR-12.
+- PHP 8.5+ (타입 프로퍼티, match, 화살표 함수); PSR-12. (`composer.json`에서 `php >=8.5` 요구, CI·PHPStan 기준도 8.5)
 - 모델은 `CodeIgniter\Model`을 상속하고 `$allowedFields`를 명시.
 - 뷰는 네이티브 대체 문법(`<?php if (): ?> … <?php endif; ?>`) 사용, 모든 출력에 `esc()`.
 - 입력은 `$this->request->getPost()`로 받고, 처리 전 `$this->validate()`로 검증.
@@ -356,7 +356,7 @@ return $this->render('admin/products/index', [
 foreach ($products as $item) { ... }
 ```
 
-## 권장 PHP 스타일 (8.1+)
+## 권장 PHP 스타일 (8.5+)
 
 - 메서드·프로퍼티에 타입 선언(반환 타입 포함)을 적용 — PHPStan 레벨 5 전제.
 - 분기는 `match` 표현식 우선(`switch` 지양).
