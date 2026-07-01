@@ -96,7 +96,15 @@ class BoardController extends BaseController
         $files    = $this->fileModel->getByPost($postId);
         $comments = $this->commentModel->getByPost($postId);
 
-        return $this->render('board/view', compact('board', 'post', 'files', 'comments'));
+        // ── SEO 메타 (게시판 글은 og:type=article) ──────────────────────────
+        $page = [
+            'meta_title' => (string) $post['title'],
+            'meta_desc'  => mb_substr(trim(strip_tags((string) ($post['content'] ?? ''))), 0, 155),
+            'og_type'    => 'article',
+            'canonical'  => base_url('board/' . $boardSlug . '/' . $postId),
+        ];
+
+        return $this->render('board/view', compact('board', 'post', 'files', 'comments', 'page'));
     }
 
     // ─── 작성 ───────────────────────────────────────────────────────────────

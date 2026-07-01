@@ -10,6 +10,10 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/', 'Front\ShopController::home');
 $routes->get('welcome', 'Front\ShopController::welcome');
 
+// ─── SEO (robots.txt / sitemap.xml — 동적 생성, catch-all보다 앞에 위치) ──────
+$routes->get('robots.txt', 'Front\SeoController::robots');
+$routes->get('sitemap.xml', 'Front\SeoController::sitemap');
+
 // ─── 인증 ────────────────────────────────────────────────────────────────────
 $routes->get('auth/login', 'Front\AuthController::login');
 $routes->post('auth/login', 'Front\AuthController::loginProcess');
