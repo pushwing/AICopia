@@ -107,7 +107,12 @@ class ProductSkuModel extends Model
 
         // 옵션 그룹 + 값 저장, 클라이언트의 임시 ID → DB ID 매핑
         $valueIdMap = []; // 클라이언트 임시 value_id => 실제 DB id
-        foreach ($options as $opt) {
+        foreach ($options as $sortIdx => $opt) {
+            $this->db->table('product_options')->insert([
+                'product_id' => $productId,
+                'name'       => $opt['name'],
+                'sort_order' => $sortIdx,
+            ]);
             $optionId = (int) $this->db->insertID();
 
             foreach ($opt['values'] as $valSortIdx => $val) {
