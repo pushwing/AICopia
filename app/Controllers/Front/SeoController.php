@@ -13,6 +13,14 @@ use CodeIgniter\HTTP\ResponseInterface;
  */
 class SeoController extends BaseController
 {
+    /**
+     * 크롤 허용(Disallow보다 더 구체적 → 우선). 카테고리 랜딩은 색인 대상이므로
+     * 쿼리 URL 전면 차단(`/*?`)에서 예외로 허용한다.
+     */
+    private const ALLOW = [
+        '/shop?category_id=',
+    ];
+
     /** 봇 무관 크롤 차단 경로(비공개·기능성 URL) */
     private const DISALLOW = [
         '/admin/',
@@ -34,6 +42,9 @@ class SeoController extends BaseController
 
         // 일반 크롤러
         $lines[] = 'User-agent: *';
+        foreach (self::ALLOW as $path) {
+            $lines[] = 'Allow: ' . $path;
+        }
         foreach (self::DISALLOW as $path) {
             $lines[] = 'Disallow: ' . $path;
         }
@@ -42,6 +53,9 @@ class SeoController extends BaseController
         // 검색·인용용 AI 봇: 공개 콘텐츠 허용 + 비공개 경로는 동일 차단
         foreach (self::AI_BOTS as $bot) {
             $lines[] = 'User-agent: ' . $bot;
+            foreach (self::ALLOW as $path) {
+                $lines[] = 'Allow: ' . $path;
+            }
             foreach (self::DISALLOW as $path) {
                 $lines[] = 'Disallow: ' . $path;
             }

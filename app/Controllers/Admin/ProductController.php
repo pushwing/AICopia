@@ -745,11 +745,13 @@ class ProductController extends BaseController
         $parentId = $this->request->getPost('parent_id') ?: null;
 
         $this->categoryModel->insert([
-            'parent_id'  => $parentId,
-            'name'       => $name,
-            'slug'       => $this->categoryModel->generateSlug($name),
-            'sort_order' => (int) $this->request->getPost('sort_order'),
-            'is_active'  => $this->request->getPost('is_active') ? 1 : 0,
+            'parent_id'   => $parentId,
+            'name'        => $name,
+            'description' => trim((string) $this->request->getPost('description')) ?: null,
+            'faq'         => \App\Models\CategoryModel::encodeFaqFromLines((string) $this->request->getPost('faq_raw')),
+            'slug'        => $this->categoryModel->generateSlug($name),
+            'sort_order'  => (int) $this->request->getPost('sort_order'),
+            'is_active'   => $this->request->getPost('is_active') ? 1 : 0,
         ]);
 
         return redirect()->to('/admin/products/categories')->with('success', '카테고리가 추가되었습니다.');
@@ -768,10 +770,12 @@ class ProductController extends BaseController
         }
 
         $this->categoryModel->update($id, [
-            'parent_id'  => $this->request->getPost('parent_id') ?: null,
-            'name'       => $this->request->getPost('name'),
-            'sort_order' => (int) $this->request->getPost('sort_order'),
-            'is_active'  => $this->request->getPost('is_active') ? 1 : 0,
+            'parent_id'   => $this->request->getPost('parent_id') ?: null,
+            'name'        => $this->request->getPost('name'),
+            'description' => trim((string) $this->request->getPost('description')) ?: null,
+            'faq'         => \App\Models\CategoryModel::encodeFaqFromLines((string) $this->request->getPost('faq_raw')),
+            'sort_order'  => (int) $this->request->getPost('sort_order'),
+            'is_active'   => $this->request->getPost('is_active') ? 1 : 0,
         ]);
 
         return redirect()->to('/admin/products/categories')->with('success', '저장되었습니다.');
