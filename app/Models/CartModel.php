@@ -56,7 +56,7 @@ class CartModel extends Model
      */
     private function getSkuLabels(array $skuIds): array
     {
-        if (empty($skuIds)) {
+        if ($skuIds === []) {
             return [];
         }
 
@@ -64,7 +64,7 @@ class CartModel extends Model
             ->select('sv.sku_id, o.name as option_name, ov.value')
             ->join('product_option_values ov', 'ov.id = sv.option_value_id')
             ->join('product_options o', 'o.id = ov.option_id')
-            ->whereIn('sv.sku_id', array_map('intval', $skuIds))
+            ->whereIn('sv.sku_id', array_map(intval(...), $skuIds))
             ->orderBy('o.sort_order', 'ASC')
             ->get()->getResultArray();
 
@@ -72,7 +72,7 @@ class CartModel extends Model
         foreach ($rows as $r) {
             $labels[$r['sku_id']][] = $r['option_name'] . ':' . $r['value'];
         }
-        return array_map(fn ($parts) => implode('/', $parts), $labels);
+        return array_map(fn ($parts): string => implode('/', $parts), $labels);
     }
 
     /**
@@ -144,14 +144,14 @@ class CartModel extends Model
      */
     public function mergeSession(int $userId, array $sessionCart, array $stockMap): void
     {
-        if (empty($sessionCart)) {
+        if ($sessionCart === []) {
             return;
         }
 
         $productIds = [];
         $skuIds     = [];
-        foreach ($sessionCart as $key => $_) {
-            [$pid, $sid] = $this->parseSessionKey((string) $key);
+        foreach (array_keys($sessionCart) as $key) {
+            [$pid, $sid] = static::parseSessionKey((string) $key);
             $productIds[] = $pid;
             if ($sid) {
                 $skuIds[] = $sid;
@@ -169,13 +169,13 @@ class CartModel extends Model
         }
 
         foreach ($sessionCart as $key => $sessionQty) {
-            [$productId, $skuId] = $this->parseSessionKey((string) $key);
+            [$productId, $skuId] = static::parseSessionKey((string) $key);
             $stock      = (int) ($stockMap[$key] ?? 0);
             if ($stock < 1) {
                 continue;
             }
 
-            $currentQty = (int) ($dbQtyMap[$key] ?? 0);
+            $currentQty = $dbQtyMap[$key] ?? 0;
             $addQty     = min((int) $sessionQty, $stock - $currentQty);
             if ($addQty < 1) {
                 continue;
@@ -207,7 +207,7 @@ class CartModel extends Model
         }
 
         $productStocks = [];
-        if ($productIds) {
+        if ($productIds !== []) {
             $rows = $this->db->table('products')
                 ->select('id, stock')
                 ->whereIn('id', array_unique($productIds))
@@ -216,7 +216,7 @@ class CartModel extends Model
         }
 
         $skuStocks = [];
-        if ($skuIds) {
+        if ($skuIds !== []) {
             $rows = $this->db->table('product_skus')
                 ->select('id, stock')
                 ->whereIn('id', array_unique($skuIds))

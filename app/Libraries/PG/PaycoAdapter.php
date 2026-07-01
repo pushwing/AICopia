@@ -10,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class PaycoAdapter implements PGInterface
 {
-    private string $sellerKey;
-    private string $secretKey;
+    private readonly string $sellerKey;
+    private readonly string $secretKey;
     private string $apiBase = 'https://api-pay.payco.com/v2.1';
 
     public function __construct()
@@ -117,7 +117,6 @@ class PaycoAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 

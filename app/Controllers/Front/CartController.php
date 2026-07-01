@@ -11,9 +11,9 @@ use App\Models\ProductSkuModel;
 
 class CartController extends BaseController
 {
-    private CartModel       $cartModel;
-    private ProductModel    $productModel;
-    private ProductSkuModel $skuModel;
+    private readonly CartModel       $cartModel;
+    private readonly ProductModel    $productModel;
+    private readonly ProductSkuModel $skuModel;
 
     public function __construct()
     {

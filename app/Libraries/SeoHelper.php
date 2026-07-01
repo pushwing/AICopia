@@ -12,13 +12,9 @@ class SeoHelper
     /** JSON-LD 인코딩 플래그 — <, >, &, ' 를 이스케이프해 <script> 이탈 방지 */
     private const JSON_LD_FLAGS = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 
-    /** @var array<string, mixed> */
-    private array $settings;
-
     /** @param array<string, mixed> $settings */
-    public function __construct(array $settings)
+    public function __construct(private array $settings)
     {
-        $this->settings = $settings;
     }
 
     /**
@@ -227,7 +223,7 @@ HTML;
                 'reviewBody' => trim(strip_tags($review['body'])),
             ];
             if (! empty($review['date'])) {
-                $entry['datePublished'] = date('c', strtotime((string) $review['date']));
+                $entry['datePublished'] = date('c', strtotime($review['date']));
             }
             $reviewGraph[] = $entry;
         }
@@ -277,7 +273,10 @@ HTML;
         foreach ($qnas as $qna) {
             $question = trim(strip_tags($qna['question']));
             $answer   = trim(strip_tags($qna['answer']));
-            if ($question === '' || $answer === '') {
+            if ($question === '') {
+                continue;
+            }
+            if ($answer === '') {
                 continue;
             }
             $entities[] = [

@@ -34,7 +34,7 @@ class BannerModel extends Model
      */
     public function getActiveByPosition(string $position): array
     {
-        $grouped = (array) cache()->remember('active_banners', 3600, function () {
+        $grouped = (array) cache()->remember('active_banners', 3600, function (): array {
             $rows = $this->db->table($this->table)
                 ->where('is_active', 1)->orderBy('priority', 'ASC')
                 ->get()->getResultArray();
@@ -49,7 +49,7 @@ class BannerModel extends Model
 
         return array_values(array_filter(
             (array) ($grouped[$position] ?? []),
-            fn ($b) => ($b['started_at'] === null || $b['started_at'] <= $now)
+            fn (array $b): bool => ($b['started_at'] === null || $b['started_at'] <= $now)
                    && ($b['ended_at'] === null || $b['ended_at'] >= $now)
         ));
     }

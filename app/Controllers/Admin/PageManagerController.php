@@ -9,7 +9,7 @@ use App\Models\PageModel;
 
 class PageManagerController extends BaseController
 {
-    private PageModel $pageModel;
+    private readonly PageModel $pageModel;
 
     public function __construct()
     {

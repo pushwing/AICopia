@@ -17,14 +17,14 @@ class ExpireOrders extends BaseCommand
 
     public function run(array $params): void
     {
-        $settings = (new SettingModel())->getAllAsMap();
+        $settings = new SettingModel()->getAllAsMap();
         if (! (bool) ($settings['schedule_orders_expire_enabled'] ?? 1)) {
             CLI::write('[orders:expire] 비활성화됨 — 스킵', 'yellow');
             return;
         }
 
         $minutes = (int) ($params[0] ?? 30);
-        $count   = (new OrderModel())->expirePending($minutes);
+        $count   = new OrderModel()->expirePending($minutes);
 
         CLI::write("[orders:expire] {$count}건 만료 처리 완료 ({$minutes}분 초과)", 'green');
         log_message('info', "[orders:expire] {$count}건 만료 처리");

@@ -37,7 +37,7 @@ class GradeService
         'platinum' => 'bi-trophy-fill',
     ];
 
-    private \CodeIgniter\Database\BaseConnection $db;
+    private readonly \CodeIgniter\Database\BaseConnection $db;
 
     public function __construct()
     {

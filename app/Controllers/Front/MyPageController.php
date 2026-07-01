@@ -13,13 +13,13 @@ use App\Models\WishlistModel;
 
 class MyPageController extends BaseController
 {
-    private OrderModel           $orderModel;
-    private ShippingAddressModel $addressModel;
-    private PointLogModel        $pointLogModel;
-    private WishlistModel        $wishlistModel;
+    private readonly OrderModel           $orderModel;
+    private readonly ShippingAddressModel $addressModel;
+    private readonly PointLogModel        $pointLogModel;
+    private readonly WishlistModel        $wishlistModel;
 
     // 상태 탭 정의 — key: 쿼리 파라미터 값, label: 표시명
-    private const STATUS_TABS = [
+    private const array STATUS_TABS = [
         ''                  => '전체',
         'awaiting_payment'  => '입금대기',
         'paid'              => '결제완료',
@@ -56,14 +56,14 @@ class MyPageController extends BaseController
             $status = '';
         }
 
-        $result     = $this->orderModel->getByUser($userId, compact('period', 'status', 'keyword', 'page'));
+        $result     = $this->orderModel->getByUser($userId, ['period' => $period, 'status' => $status, 'keyword' => $keyword, 'page' => $page]);
         $statusTabs = self::STATUS_TABS;
 
         // 목록 카드용 상품명 요약 — 주문 ID 배열로 한 번에 조회 (N+1 제거)
         $db       = \Config\Database::connect();
         $orderIds = array_column($result['items'], 'id');
         $nameMap  = [];
-        if ($orderIds) {
+        if ($orderIds !== []) {
             $rows = $db->table('order_items')
                 ->select('order_id, product_name')
                 ->whereIn('order_id', $orderIds)
@@ -80,7 +80,7 @@ class MyPageController extends BaseController
         }
         unset($order);
 
-        return $this->render('shop/orders/list', array_merge($result, compact('period', 'status', 'keyword', 'statusTabs')));
+        return $this->render('shop/orders/list', array_merge($result, ['period' => $period, 'status' => $status, 'keyword' => $keyword, 'statusTabs' => $statusTabs]));
     }
 
     /** GET /mypage/orders/:orderNumber */
@@ -107,13 +107,7 @@ class MyPageController extends BaseController
         $eCode               = $order['exchange_reason_code'] ?? null;
         $exchangeReasonPayer = $eCode ? ($exchangeReasonCodes[$eCode]['payer'] ?? null) : null;
 
-        return $this->render('shop/orders/detail', compact(
-            'order',
-            'returnReasonCodes',
-            'returnReasonPayer',
-            'exchangeReasonCodes',
-            'exchangeReasonPayer'
-        ));
+        return $this->render('shop/orders/detail', ['order' => $order, 'returnReasonCodes' => $returnReasonCodes, 'returnReasonPayer' => $returnReasonPayer, 'exchangeReasonCodes' => $exchangeReasonCodes, 'exchangeReasonPayer' => $exchangeReasonPayer]);
     }
 
     /** POST /mypage/orders/confirm-delivery — 배송 완료 확인 */
@@ -142,7 +136,7 @@ class MyPageController extends BaseController
     {
         $userId    = (int) session()->get('user_id');
         $addresses = $this->addressModel->getByUser($userId);
-        return $this->render('shop/addresses/index', compact('addresses'));
+        return $this->render('shop/addresses/index', ['addresses' => $addresses]);
     }
 
     /** POST /mypage/addresses */
@@ -166,7 +160,7 @@ class MyPageController extends BaseController
         $count = $this->addressModel->where('user_id', $userId)->countAllResults();
         $id    = $this->addressModel->saveAddress($userId, $data);
 
-        if (! $id) {
+        if ($id === 0) {
             return redirect()->back()->withInput()->with('error', '배송지 저장에 실패했습니다. 다시 시도해주세요.');
         }
 
@@ -255,7 +249,7 @@ class MyPageController extends BaseController
             ->limit($perPage, ($currentPage - 1) * $perPage)
             ->get()->getResultArray();
 
-        return $this->render('shop/mypage/coupons', compact('coupons', 'tab', 'total', 'currentPage', 'perPage'));
+        return $this->render('shop/mypage/coupons', ['coupons' => $coupons, 'tab' => $tab, 'total' => $total, 'currentPage' => $currentPage, 'perPage' => $perPage]);
     }
 
     /** GET /mypage/points */
@@ -267,7 +261,7 @@ class MyPageController extends BaseController
         $user         = \Config\Database::connect()->table('users')->select('point_balance')->where('id', $userId)->get()->getRow();
         $pointBalance = (int) ($user->point_balance ?? 0);
 
-        return $this->render('shop/mypage/points', array_merge($result, compact('pointBalance')));
+        return $this->render('shop/mypage/points', array_merge($result, ['pointBalance' => $pointBalance]));
     }
 
     /** POST /mypage/orders/return-request — 반품 신청 (배송 완료 후) */
@@ -394,7 +388,7 @@ class MyPageController extends BaseController
         $result      = $this->wishlistModel->getByUser($userId, $currentPage);
 
         // 개인화 추천 (찜 목록 하단)
-        $result['recommended'] = (new \App\Libraries\RecommendationService())->forUser($userId, 8);
+        $result['recommended'] = new \App\Libraries\RecommendationService()->forUser($userId, 8);
 
         return $this->render('shop/mypage/wishlist', $result);
     }

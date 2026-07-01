@@ -11,8 +11,8 @@ use App\Models\PostModel;
 
 class PostController extends BaseController
 {
-    private PostModel  $postModel;
-    private BoardModel $boardModel;
+    private readonly PostModel  $postModel;
+    private readonly BoardModel $boardModel;
 
     public function __construct()
     {
@@ -54,7 +54,7 @@ class PostController extends BaseController
             ->orderBy('posts.id', 'DESC')
             ->findAll();
 
-        $data = array_map(fn ($p) => [
+        $data = array_map(fn (array $p): array => [
             'id'         => (int) $p['id'],
             'title'      => $p['title'],
             'is_notice'  => (int) $p['is_notice'],
@@ -76,7 +76,7 @@ class PostController extends BaseController
             return redirect()->back()->with('error', '게시글을 찾을 수 없습니다.');
         }
 
-        (new PostFileModel())->deleteByPost($id);
+        new PostFileModel()->deleteByPost($id);
         $this->postModel->delete($id);
 
         return redirect()->back()->with('success', '삭제되었습니다.');

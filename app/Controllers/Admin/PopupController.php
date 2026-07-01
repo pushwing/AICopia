@@ -11,7 +11,7 @@ use App\Models\PopupModel;
 
 class PopupController extends BaseController
 {
-    private PopupModel $popupModel;
+    private readonly PopupModel $popupModel;
 
     public function __construct()
     {
@@ -31,7 +31,7 @@ class PopupController extends BaseController
         return $this->render('admin/popups/form', [
             'popup'    => null,
             'scopes'   => PopupModel::SCOPES,
-            'allMenus' => (new MenuModel())->where('is_active', 1)->orderBy('sort_order')->findAll(),
+            'allMenus' => new MenuModel()->where('is_active', 1)->orderBy('sort_order')->findAll(),
             'pageIds'  => [],
         ]);
     }
@@ -46,7 +46,7 @@ class PopupController extends BaseController
         $imagePath = null;
         $file      = $this->request->getFile('image');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('popups'))->upload($file);
+            $result = new ImageUploader('popups')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
@@ -72,7 +72,7 @@ class PopupController extends BaseController
         return $this->render('admin/popups/form', [
             'popup'    => $popup,
             'scopes'   => PopupModel::SCOPES,
-            'allMenus' => (new MenuModel())->where('is_active', 1)->orderBy('sort_order')->findAll(),
+            'allMenus' => new MenuModel()->where('is_active', 1)->orderBy('sort_order')->findAll(),
             'pageIds'  => $this->popupModel->getPageIds($id),
         ]);
     }
@@ -92,7 +92,7 @@ class PopupController extends BaseController
         $imagePath = $popup['image_path'];
         $file      = $this->request->getFile('image');
         if ($file && $file->isValid() && ! $file->hasMoved()) {
-            $result = (new ImageUploader('popups'))->upload($file);
+            $result = new ImageUploader('popups')->upload($file);
             if (! $result['success']) {
                 return redirect()->back()->withInput()->with('error', $result['error']);
             }
@@ -121,9 +121,9 @@ class PopupController extends BaseController
     private function collectData(?string $imagePath): array
     {
         $toDatetime = fn ($val) => $val
-            ? (strlen($val) <= 16
+            ? (strlen((string) $val) <= 16
                 ? str_replace('T', ' ', $val) . ':00'
-                : str_replace('T', ' ', substr($val, 0, 19)))
+                : str_replace('T', ' ', substr((string) $val, 0, 19)))
             : null;
 
         return [

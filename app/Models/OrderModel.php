@@ -97,7 +97,7 @@ class OrderModel extends Model
 
         $productIds = array_column($cartItems, 'product_id');
         $costMap    = [];
-        if (! empty($productIds)) {
+        if ($productIds !== []) {
             $rows = $this->db->table('products')
                 ->select('id, cost_price')
                 ->whereIn('id', $productIds)
@@ -427,7 +427,7 @@ class OrderModel extends Model
             if ($newStatus === 'delivered') {
                 $fields['delivered_at'] = date('Y-m-d H:i:s');
             }
-            $ok = (bool) $this->update($orderId, $fields);
+            $ok = $this->update($orderId, $fields);
             if ($ok) {
                 $this->writeStatusLog($orderId, $order['status'], $newStatus);
             }
@@ -466,7 +466,7 @@ class OrderModel extends Model
         if ($ok) {
             try {
                 $settings = cache()->get('site_settings') ?? [];
-                (new GradeService())->checkAndUpgrade((int) $order['user_id'], $settings);
+                new GradeService()->checkAndUpgrade((int) $order['user_id'], $settings);
             } catch (\Throwable $e) {
                 log_message('error', 'GradeService::checkAndUpgrade failed: ' . $e->getMessage());
             }
@@ -615,10 +615,8 @@ class OrderModel extends Model
         }
 
         // delivered_at 기준 7일 초과 시 거부 (컬럼이 없는 구 주문은 허용)
-        if (! empty($order['delivered_at'])) {
-            if (time() > strtotime($order['delivered_at']) + 7 * 24 * 3600) {
-                return false;
-            }
+        if (!empty($order['delivered_at']) && time() > strtotime((string) $order['delivered_at']) + 7 * 24 * 3600) {
+            return false;
         }
 
         $label = self::RETURN_REASON_CODES[$reasonCode]['label'];
@@ -746,10 +744,8 @@ class OrderModel extends Model
             return false;
         }
 
-        if (! empty($order['delivered_at'])) {
-            if (time() > strtotime($order['delivered_at']) + 7 * 24 * 3600) {
-                return false;
-            }
+        if (!empty($order['delivered_at']) && time() > strtotime((string) $order['delivered_at']) + 7 * 24 * 3600) {
+            return false;
         }
 
         $label = self::EXCHANGE_REASON_CODES[$reasonCode]['label'];
@@ -830,7 +826,7 @@ class OrderModel extends Model
             return false;
         }
 
-        if (empty($exchangeItems)) {
+        if ($exchangeItems === []) {
             return false;
         }
 
@@ -858,7 +854,7 @@ class OrderModel extends Model
             $row   = [
                 'order_id'         => $orderId,
                 'product_id'       => (int) $item['product_id'],
-                'sku_id'           => ! empty($item['sku_id']) ? (int) $item['sku_id'] : null,
+                'sku_id'           => empty($item['sku_id']) ? null : (int) $item['sku_id'],
                 'product_name'     => $item['product_name'],
                 'sku_option_label' => $item['sku_option_label'] ?: null,
                 'product_price'    => $price,
@@ -1044,7 +1040,7 @@ class OrderModel extends Model
         $order['items']         = $this->fetchOrderItems($orderId);
         try {
             $order['exchange_items'] = $this->db->table('exchange_items')->where('order_id', $orderId)->get()->getResultArray();
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             $order['exchange_items'] = [];
         }
         $order['payment']       = $this->db->table('payments')->where('order_id', $orderId)->orderBy('id', 'DESC')->get()->getRowArray();
@@ -1063,7 +1059,7 @@ class OrderModel extends Model
             return false;
         }
 
-        $ok = (bool) $this->update($orderId, [
+        $ok = $this->update($orderId, [
             'tracking_company' => $company,
             'tracking_number'  => $number,
         ]);

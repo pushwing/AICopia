@@ -10,8 +10,8 @@ use App\Models\UserModel;
 
 class GradeController extends BaseController
 {
-    private GradeService $gradeService;
-    private UserModel    $userModel;
+    private readonly GradeService $gradeService;
+    private readonly UserModel    $userModel;
 
     public function __construct()
     {

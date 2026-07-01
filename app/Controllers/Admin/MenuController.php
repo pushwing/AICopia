@@ -9,7 +9,7 @@ use App\Models\MenuModel;
 
 class MenuController extends BaseController
 {
-    private MenuModel $menuModel;
+    private readonly MenuModel $menuModel;
 
     public function __construct()
     {

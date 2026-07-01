@@ -12,7 +12,7 @@ use Config\Database;
 class StatsFilter implements FilterInterface
 {
     /** 로깅 제외 경로 접두사 */
-    private const SKIP_PREFIXES = [
+    private const array SKIP_PREFIXES = [
         '/admin/',
         '/auth/',
         '/payment/callback/',
@@ -20,10 +20,10 @@ class StatsFilter implements FilterInterface
     ];
 
     /** 정적 파일 확장자 */
-    private const SKIP_EXTS = ['js', 'css', 'map', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot'];
+    private const array SKIP_EXTS = ['js', 'css', 'map', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot'];
 
     /** 봇 탐지 키워드 */
-    private const BOT_KEYWORDS = ['bot', 'crawl', 'spider', 'slurp', 'facebookexternalhit', 'yandex', 'whatsapp', 'semrush', 'ahref', 'screaming'];
+    private const array BOT_KEYWORDS = ['bot', 'crawl', 'spider', 'slurp', 'facebookexternalhit', 'yandex', 'whatsapp', 'semrush', 'ahref', 'screaming'];
 
     public function before(RequestInterface $request, $arguments = null): ResponseInterface|null
     {
@@ -61,7 +61,7 @@ class StatsFilter implements FilterInterface
         }
 
         // 정적 파일 제외
-        $ext = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         if ($ext !== '' && in_array($ext, self::SKIP_EXTS, true)) {
             return null;
         }

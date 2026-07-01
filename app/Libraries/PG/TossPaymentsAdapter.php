@@ -10,8 +10,8 @@ namespace App\Libraries\PG;
  */
 class TossPaymentsAdapter implements PGInterface
 {
-    private string $clientKey;
-    private string $secretKey;
+    private readonly string $clientKey;
+    private readonly string $secretKey;
     private string $apiBase = 'https://api.tosspayments.com/v1';
 
     public function __construct()
@@ -48,7 +48,7 @@ class TossPaymentsAdapter implements PGInterface
             'orderId'    => session()->get('toss_order_id') ?? '',
         ]);
 
-        if (empty($response) || ($response['status'] ?? '') !== 'DONE') {
+        if ($response === [] || ($response['status'] ?? '') !== 'DONE') {
             return ['success' => false, 'message' => $response['message'] ?? 'PG 확인 실패'];
         }
 
@@ -98,7 +98,6 @@ class TossPaymentsAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 

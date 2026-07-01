@@ -10,7 +10,7 @@ namespace App\Libraries\AiProvider;
  */
 final class InquiryTaxonomy
 {
-    public const CATEGORIES = ['shipping', 'refund', 'product', 'payment', 'etc'];
-    public const PRIORITIES = ['high', 'normal', 'low'];
-    public const SENTIMENTS = ['positive', 'neutral', 'negative'];
+    public const array CATEGORIES = ['shipping', 'refund', 'product', 'payment', 'etc'];
+    public const array PRIORITIES = ['high', 'normal', 'low'];
+    public const array SENTIMENTS = ['positive', 'neutral', 'negative'];
 }

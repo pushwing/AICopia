@@ -16,7 +16,7 @@ class PromotionModel extends Model
         'grade_access', 'start_date', 'end_date', 'is_active', 'sort_order',
     ];
 
-    private const GRADE_ORDER = [
+    private const array GRADE_ORDER = [
         'all' => 0, 'bronze' => 1, 'silver' => 2, 'gold' => 3, 'platinum' => 4,
     ];
 

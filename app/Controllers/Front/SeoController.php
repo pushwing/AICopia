@@ -17,12 +17,12 @@ class SeoController extends BaseController
      * 크롤 허용(Disallow보다 더 구체적 → 우선). 카테고리 랜딩은 색인 대상이므로
      * 쿼리 URL 전면 차단(`/*?`)에서 예외로 허용한다.
      */
-    private const ALLOW = [
+    private const array ALLOW = [
         '/shop?category_id=',
     ];
 
     /** 봇 무관 크롤 차단 경로(비공개·기능성 URL) */
-    private const DISALLOW = [
+    private const array DISALLOW = [
         '/admin/',
         '/cart',
         '/order',
@@ -33,7 +33,7 @@ class SeoController extends BaseController
     ];
 
     /** 실시간 검색·인용용 AI 봇(브랜드 노출 목적으로 허용) */
-    private const AI_BOTS = ['OAI-SearchBot', 'ChatGPT-User', 'PerplexityBot', 'ClaudeBot'];
+    private const array AI_BOTS = ['OAI-SearchBot', 'ChatGPT-User', 'PerplexityBot', 'ClaudeBot'];
 
     /** GET /robots.txt */
     public function robots(): ResponseInterface
@@ -77,7 +77,7 @@ class SeoController extends BaseController
         $xml   = $cache->get('sitemap_xml');
 
         if (! is_string($xml)) {
-            $xml = $this->buildSitemapXml((new SitemapService())->collect());
+            $xml = $this->buildSitemapXml(new SitemapService()->collect());
             $cache->save('sitemap_xml', $xml, 3600); // 1시간 캐시
         }
 
@@ -107,8 +107,6 @@ class SeoController extends BaseController
             $xml .= '  </url>' . "\n";
         }
 
-        $xml .= '</urlset>' . "\n";
-
-        return $xml;
+        return $xml . ('</urlset>' . "\n");
     }
 }

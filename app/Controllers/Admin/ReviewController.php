@@ -9,7 +9,7 @@ use App\Models\ProductReviewModel;
 
 class ReviewController extends BaseController
 {
-    private ProductReviewModel $model;
+    private readonly ProductReviewModel $model;
 
     public function __construct()
     {
@@ -50,7 +50,7 @@ class ReviewController extends BaseController
             }
         }
 
-        $data = array_map(fn ($r) => [
+        $data = array_map(fn (array $r): array => [
             'id'           => (int) $r['id'],
             'product_name' => $r['product_name'],
             'product_slug' => $r['product_slug'],

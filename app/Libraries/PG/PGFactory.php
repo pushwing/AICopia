@@ -47,7 +47,7 @@ class PGFactory
      */
     public static function enabledLabels(): array
     {
-        $settings = (new \App\Models\SettingModel())->getAllAsMap();
+        $settings = new \App\Models\SettingModel()->getAllAsMap();
 
         $all = self::labels();
         $result = [];

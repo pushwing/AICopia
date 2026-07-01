@@ -10,7 +10,7 @@ use App\Models\SettingModel;
 
 class SettingController extends BaseController
 {
-    private SettingModel $settingModel;
+    private readonly SettingModel $settingModel;
 
     public function __construct()
     {
@@ -49,7 +49,7 @@ class SettingController extends BaseController
                 'settings'     => $this->settingModel->getAllAsMap(),
                 'bankSettings' => array_filter(
                     $this->settingModel->getGroup('shop'),
-                    fn ($s) => in_array($s['key'], ['bank_name', 'bank_account', 'bank_holder'])
+                    fn (array $s): bool => in_array($s['key'], ['bank_name', 'bank_account', 'bank_holder'])
                 ),
             ]);
         }
@@ -87,9 +87,9 @@ class SettingController extends BaseController
 
         // 파일명에서 테마 이름 추출 (영소문자·숫자·하이픈·언더스코어만 허용)
         $themeName = strtolower(pathinfo($file->getClientName(), PATHINFO_FILENAME));
-        $themeName = trim(preg_replace('/[^a-z0-9\-_]+/', '-', $themeName), '-_');
+        $themeName = trim((string) preg_replace('/[^a-z0-9\-_]+/', '-', $themeName), '-_');
 
-        if (empty($themeName) || $themeName === 'default') {
+        if (in_array($themeName, ['', '0', 'default'], true)) {
             return redirect()->back()->with('error', "'{$themeName}'은 사용할 수 없는 테마 이름입니다.");
         }
 
@@ -140,7 +140,7 @@ class SettingController extends BaseController
         }
 
         $missing = array_diff($required, $found);
-        if (! empty($missing)) {
+        if ($missing !== []) {
             $zip->close();
             return redirect()->back()->with('error', '필수 파일 누락: ' . implode(', ', $missing));
         }
@@ -185,7 +185,7 @@ class SettingController extends BaseController
             new \RecursiveDirectoryIterator($src, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::SELF_FIRST
         ) as $item) {
-            $target = $dest . '/' . substr($item->getPathname(), strlen($src) + 1);
+            $target = $dest . '/' . substr((string) $item->getPathname(), strlen($src) + 1);
             $item->isDir() ? (is_dir($target) ?: mkdir($target, 0755, true))
                            : copy($item->getPathname(), $target);
         }
@@ -267,7 +267,7 @@ class SettingController extends BaseController
         if (array_key_exists('shipping_carriers', $postData)) {
             $raw      = $postData['shipping_carriers'];
             $carriers = is_array($raw) ? $raw : [];
-            $carriers = array_values(array_filter(array_map('trim', $carriers), fn ($c) => $c !== ''));
+            $carriers = array_values(array_filter(array_map(trim(...), $carriers), fn (string $c): bool => $c !== ''));
             $postData['shipping_carriers'] = json_encode($carriers, JSON_UNESCAPED_UNICODE);
         }
 
@@ -293,7 +293,7 @@ class SettingController extends BaseController
         }
 
         try {
-            (new Mailer($settings))->sendSmtpTest($to);
+            new Mailer($settings)->sendSmtpTest($to);
             return $this->response->setJSON([
                 'success' => true,
                 'message' => "{$to} 으로 테스트 메일을 발송했습니다.",

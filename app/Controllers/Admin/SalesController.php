@@ -40,20 +40,10 @@ class SalesController extends BaseController
 
         $pgLabels = self::PG_LABELS;
 
-        return $this->render('admin/sales/index', compact(
-            'period',
-            'keyword',
-            'from',
-            'to',
-            'periodRows',
-            'methodRows',
-            'summary',
-            'orders',
-            'pgLabels'
-        ));
+        return $this->render('admin/sales/index', ['period' => $period, 'keyword' => $keyword, 'from' => $from, 'to' => $to, 'periodRows' => $periodRows, 'methodRows' => $methodRows, 'summary' => $summary, 'orders' => $orders, 'pgLabels' => $pgLabels]);
     }
 
-    private const PG_LABELS = [
+    private const array PG_LABELS = [
         'bank_transfer' => '무통장입금',
         'toss'          => '토스페이먼츠',
         'inicis'        => 'KG이니시스',
@@ -176,13 +166,13 @@ class SalesController extends BaseController
             return $this->response->setJSON(['error' => '해당 기간에 매출 데이터가 없습니다.'])->setStatusCode(422);
         }
 
-        $methodRows = array_map(fn ($m) => [
+        $methodRows = array_map(fn (array $m): array => [
             'label'   => self::PG_LABELS[$m['pg_provider']] ?? $m['pg_provider'],
             'orders'  => (int) $m['order_count'],
             'revenue' => (int) $m['revenue'],
         ], $this->salesMethodRows($base));
 
-        $periods = array_map(fn ($r) => [
+        $periods = array_map(fn (array $r): array => [
             'period'  => $r['period_key'],
             'orders'  => (int) $r['order_count'],
             'revenue' => (int) $r['revenue'],
@@ -210,7 +200,7 @@ class SalesController extends BaseController
             $key    = \App\Libraries\AiProvider\AiCache::key('sales_report', $from, $to, $period, md5(json_encode($stats['summary'])));
             $report = \App\Libraries\AiProvider\AiCache::remember(
                 $key,
-                fn () => \App\Libraries\AiCategoryAdvisor::create()->generateSalesReport($stats),
+                fn (): string => \App\Libraries\AiCategoryAdvisor::create()->generateSalesReport($stats),
                 3600
             );
             if ($report === '') {
@@ -270,7 +260,7 @@ class SalesController extends BaseController
 
         $orderIds = array_column($orders, 'id');
         $nameMap  = [];
-        if ($orderIds) {
+        if ($orderIds !== []) {
             $rows = $db->table('order_items')
                 ->select('order_id, product_name, qty')
                 ->whereIn('order_id', $orderIds)

@@ -10,8 +10,8 @@ use App\Models\MediaModel;
 
 class MediaController extends BaseController
 {
-    private MediaModel    $mediaModel;
-    private MediaUploader $uploader;
+    private readonly MediaModel    $mediaModel;
+    private readonly MediaUploader $uploader;
 
     public function __construct()
     {

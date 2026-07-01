@@ -42,7 +42,7 @@ class ProductReviewModel extends Model
             ->where('product_id', $productId)
             ->update(['is_negative' => 0]);
 
-        $negativeIds = array_values(array_filter(array_map('intval', $negativeIds)));
+        $negativeIds = array_values(array_filter(array_map(intval(...), $negativeIds)));
         if ($negativeIds !== []) {
             $this->db->table('product_reviews')
                 ->where('product_id', $productId)
@@ -87,7 +87,7 @@ class ProductReviewModel extends Model
             unset($item);
         }
 
-        return compact('items', 'total');
+        return ['items' => $items, 'total' => $total];
     }
 
     /**
@@ -168,7 +168,7 @@ class ProductReviewModel extends Model
             ->where('review_id', $reviewId)->get()->getResultArray();
 
         foreach ($images as $img) {
-            $path = FCPATH . ltrim($img['image_path'], '/');
+            $path = FCPATH . ltrim((string) $img['image_path'], '/');
             if (is_file($path)) {
                 unlink($path);
             }
@@ -248,6 +248,6 @@ class ProductReviewModel extends Model
             unset($item);
         }
 
-        return compact('items', 'total', 'page', 'perPage');
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'perPage' => $perPage];
     }
 }

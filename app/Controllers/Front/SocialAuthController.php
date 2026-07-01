@@ -12,7 +12,7 @@ use App\Models\UserModel;
 
 class SocialAuthController extends BaseController
 {
-    private UserModel $userModel;
+    private readonly UserModel $userModel;
 
     public function __construct()
     {
@@ -102,7 +102,7 @@ class SocialAuthController extends BaseController
         $this->userModel->updateLastLogin((int) $user['id']);
 
         // 비로그인 세션 카트를 DB 카트로 병합
-        (new CartModel())->mergeAndClear((int) $user['id']);
+        new CartModel()->mergeAndClear((int) $user['id']);
 
         return redirect()->to(session()->getTempdata('redirect_url') ?? '/');
     }
@@ -169,7 +169,7 @@ class SocialAuthController extends BaseController
         // 소셜 로그인 신규 가입 즉시 보너스 지급
         try {
             $settings = cache()->get('site_settings') ?? [];
-            (new GradeService())->awardSignupBonus((int) $id, $settings);
+            new GradeService()->awardSignupBonus((int) $id, $settings);
         } catch (\Throwable $e) {
             log_message('error', 'GradeService::awardSignupBonus (social) failed: ' . $e->getMessage());
         }

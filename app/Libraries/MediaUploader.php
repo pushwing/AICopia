@@ -9,11 +9,11 @@ use CodeIgniter\HTTP\Files\UploadedFile;
 
 class MediaUploader
 {
-    private const ALLOWED       = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+    private const array ALLOWED       = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
     private const MAX_SIZE      = 5 * 1024 * 1024; // 5MB
-    private const MAX_DIMENSION = 1200;             // 리사이즈 기준 (px)
+    private const int MAX_DIMENSION = 1200;             // 리사이즈 기준 (px)
 
-    private MediaModel $model;
+    private readonly MediaModel $model;
 
     public function __construct()
     {

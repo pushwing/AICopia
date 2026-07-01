@@ -31,7 +31,7 @@ class ProductModel extends Model
         'conditional' => '조건부 무료',
     ];
 
-    private const CAT_NAME_SQL = '(SELECT GROUP_CONCAT(c.name ORDER BY c.sort_order, c.id SEPARATOR \', \')
+    private const string CAT_NAME_SQL = '(SELECT GROUP_CONCAT(c.name ORDER BY c.sort_order, c.id SEPARATOR \', \')
         FROM product_categories pc JOIN categories c ON c.id = pc.category_id
         WHERE pc.product_id = products.id) AS category_name';
 
@@ -45,7 +45,7 @@ class ProductModel extends Model
         $db = $this->db;
         $db->table('product_categories')->where('product_id', $productId)->delete();
 
-        foreach (array_unique(array_filter(array_map('intval', $categoryIds))) as $cid) {
+        foreach (array_unique(array_filter(array_map(intval(...), $categoryIds))) as $cid) {
             $db->table('product_categories')->insert([
                 'product_id'  => $productId,
                 'category_id' => $cid,
@@ -64,7 +64,7 @@ class ProductModel extends Model
             ->select('category_id')
             ->where('product_id', $productId)
             ->get()->getResultArray();
-        return array_map('intval', array_column($rows, 'category_id'));
+        return array_map(intval(...), array_column($rows, 'category_id'));
     }
 
     /**
@@ -91,7 +91,7 @@ class ProductModel extends Model
             ->whereIn('products.status', ['on_sale', 'sold_out']);
 
         if ($keyword) {
-            $expanded = array_filter(array_map('trim', (array) ($params['expanded_terms'] ?? [])));
+            $expanded = array_filter(array_map(trim(...), (array) ($params['expanded_terms'] ?? [])));
 
             if ($expanded === []) {
                 // 확장어가 없으면 기존과 동일하게 상품명만 검색 (정밀도 유지)
@@ -119,7 +119,7 @@ class ProductModel extends Model
             $ids = array_column($subIds, 'id');
             $ids[] = $categoryId;
 
-            $inList = implode(',', array_map('intval', $ids));
+            $inList = implode(',', array_map(intval(...), $ids));
             $builder->where("EXISTS (SELECT 1 FROM product_categories pc2
                 WHERE pc2.product_id = products.id AND pc2.category_id IN ({$inList}))", null, false);
         }

@@ -54,7 +54,7 @@ class ProductImageModel extends Model
     /** @param array<int, array<string, mixed>> $items */
     public function attachPrimaryImages(array &$items): void
     {
-        if (empty($items)) {
+        if ($items === []) {
             return;
         }
 

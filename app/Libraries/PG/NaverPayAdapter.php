@@ -10,9 +10,9 @@ namespace App\Libraries\PG;
  */
 class NaverPayAdapter implements PGInterface
 {
-    private string $clientId;
-    private string $clientSecret;
-    private string $chainId;
+    private readonly string $clientId;
+    private readonly string $clientSecret;
+    private readonly string $chainId;
     private string $apiBase = 'https://dev.apis.naver.com/naverpay-partner/naverpay/payments/v2';
 
     public function __construct()
@@ -114,7 +114,6 @@ class NaverPayAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        curl_close($ch);
         return json_decode($result ?: '{}', true) ?? [];
     }
 

@@ -9,8 +9,8 @@ use App\Models\UserCouponModel;
 
 class CouponService
 {
-    private CouponModel     $couponModel;
-    private UserCouponModel $userCouponModel;
+    private readonly CouponModel     $couponModel;
+    private readonly UserCouponModel $userCouponModel;
 
     public function __construct()
     {
@@ -120,7 +120,7 @@ class CouponService
             $userRow = \Config\Database::connect()
                 ->table('users')->select('grade')->where('id', $userId)->get()->getRowArray();
             $userGrade    = $userRow['grade'] ?? 'bronze';
-            $targetGrades = array_map('trim', explode(',', $coupon['target_grade']));
+            $targetGrades = array_map(trim(...), explode(',', (string) $coupon['target_grade']));
             if (! in_array($userGrade, $targetGrades, true)) {
                 $gradeLabels   = \App\Libraries\GradeService::LABELS;
                 $targetLabels  = array_map(fn ($g) => $gradeLabels[$g] ?? $g, $targetGrades);

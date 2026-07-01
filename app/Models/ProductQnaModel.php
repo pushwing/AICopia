@@ -31,7 +31,7 @@ class ProductQnaModel extends Model
 
         $total = $this->where('product_id', $productId)->countAllResults();
 
-        return compact('items', 'total');
+        return ['items' => $items, 'total' => $total];
     }
 
     /**
@@ -93,7 +93,7 @@ class ProductQnaModel extends Model
             ->limit($perPage, ($page - 1) * $perPage)
             ->get()->getResultArray();
 
-        return compact('items', 'total', 'page', 'perPage');
+        return ['items' => $items, 'total' => $total, 'page' => $page, 'perPage' => $perPage];
     }
 
     public function getUnansweredCount(): int

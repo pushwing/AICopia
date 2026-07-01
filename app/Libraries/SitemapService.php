@@ -36,7 +36,10 @@ class SitemapService
             ->where('slug IS NOT NULL')
             ->get()->getResultArray();
         foreach ($products as $p) {
-            if ($p['slug'] === null || $p['slug'] === '') {
+            if ($p['slug'] === null) {
+                continue;
+            }
+            if ($p['slug'] === '') {
                 continue;
             }
             $urls[] = $this->entry(
@@ -129,7 +132,7 @@ class SitemapService
     /** DB 타임스탬프를 W3C(ISO8601) 형식으로 변환. */
     private function w3cDate(?string $timestamp): ?string
     {
-        if ($timestamp === null || $timestamp === '' || $timestamp === '0000-00-00 00:00:00') {
+        if (in_array($timestamp, [null, '', '0000-00-00 00:00:00'], true)) {
             return null;
         }
 

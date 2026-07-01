@@ -23,11 +23,11 @@ class ReviewSummaryHandler
     /** 분석 대상 최대 리뷰 수 */
     public const MAX_REVIEWS = 50;
 
-    private ProductReviewModel $reviewModel;
-    private ProductModel $productModel;
+    private readonly ProductReviewModel $reviewModel;
+    private readonly ProductModel $productModel;
 
     public function __construct(
-        private ?AiProviderInterface $provider = null,
+        private readonly ?AiProviderInterface $provider = null,
         ?ProductReviewModel $reviewModel = null,
         ?ProductModel $productModel = null
     ) {

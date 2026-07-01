@@ -20,7 +20,7 @@ class ThemeView extends View
     private function activeTheme(): string
     {
         if ($this->resolvedTheme === null) {
-            $this->resolvedTheme = (new SettingModel())->getAllAsMap()['active_theme'] ?? 'default';
+            $this->resolvedTheme = new SettingModel()->getAllAsMap()['active_theme'] ?? 'default';
         }
         return $this->resolvedTheme;
     }

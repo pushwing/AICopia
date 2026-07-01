@@ -8,7 +8,7 @@ trait HasSlug
 {
     public function generateSlug(string $name, ?int $excludeId = null): string
     {
-        $base = strtolower(preg_replace('/[^a-zA-Z0-9가-힣\s-]/', '', $name));
+        $base = strtolower((string) preg_replace('/[^a-zA-Z0-9가-힣\s-]/', '', $name));
         $slug = str_replace(' ', '-', trim($base));
 
         $original = $slug;

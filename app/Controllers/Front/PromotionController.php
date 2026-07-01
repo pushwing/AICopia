@@ -19,7 +19,7 @@ class PromotionController extends BaseController
         $userId    = (int) session()->get('user_id');
         $userGrade = null;
         if ($userId > 0) {
-            $user      = (new UserModel())->find($userId);
+            $user      = new UserModel()->find($userId);
             $userGrade = $user['grade'] ?? 'bronze';
         }
 
@@ -44,12 +44,12 @@ class PromotionController extends BaseController
         $userId    = (int) session()->get('user_id');
         $userGrade = null;
         if ($userId > 0) {
-            $user      = (new UserModel())->find($userId);
+            $user      = new UserModel()->find($userId);
             $userGrade = $user['grade'] ?? 'bronze';
         }
 
         if (! $model->checkGradeAccess($promotion['grade_access'], $userGrade)) {
-            if (! $userId) {
+            if ($userId === 0) {
                 return redirect()->to('/auth/login?redirect=' . urlencode(current_url()));
             }
             return $this->render('promotions/grade_denied', [
