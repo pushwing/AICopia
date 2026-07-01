@@ -65,7 +65,7 @@ class AuthController extends BaseController
             'user_grade'    => $user['grade'] ?? 'bronze',
         ]);
 
-        $this->userModel->updateLastLogin($user['id']);
+        $this->userModel->updateLastLogin((int) $user['id']);
 
         // 비로그인 세션 카트를 DB 카트로 병합
         (new CartModel())->mergeAndClear((int) $user['id']);
