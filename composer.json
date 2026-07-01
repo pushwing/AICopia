@@ -12,8 +12,14 @@
         "rector/rector": "^2"
     },
     "require": {
+        "php": ">=8.5",
         "phpoffice/phpspreadsheet": "^5.8",
         "codeigniter4/tasks": "^1.0"
+    },
+    "config": {
+        "platform": {
+            "php": "8.5.0"
+        }
     },
     "scripts": {
         "test": "phpunit",
