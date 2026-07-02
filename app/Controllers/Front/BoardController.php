@@ -41,23 +41,25 @@ class BoardController extends BaseController
             return redirect()->to('/auth/login')->with('error', '로그인이 필요합니다.');
         }
 
+        $boardId = (int) $board['id'];
+        $perPage = (int) $board['posts_per_page'];
         $page    = (int) ($this->request->getGet('page') ?? 1);
         $keyword = $this->request->getGet('keyword');
         $type    = $this->request->getGet('type') ?? 'title';
 
         if ($keyword) {
-            $result = $this->postModel->search($board['id'], $keyword, $type, $page, $board['posts_per_page']);
+            $result = $this->postModel->search($boardId, $keyword, $type, $page, $perPage);
             $posts   = $result['posts'];
             $total   = $result['total'];
             $notices = [];
         } else {
-            $list    = $this->postModel->getList($board['id'], $page, $board['posts_per_page']);
+            $list    = $this->postModel->getList($boardId, $page, $perPage);
             $posts   = $list['posts'];
             $notices = $list['notices'];
-            $total   = $this->postModel->getTotalCount($board['id']);
+            $total   = $this->postModel->getTotalCount($boardId);
         }
 
-        $totalPages = (int) ceil($total / $board['posts_per_page']);
+        $totalPages = (int) ceil($total / $perPage);
 
         return $this->render('board/list', [
             'board'       => $board,
