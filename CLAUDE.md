@@ -499,8 +499,9 @@ composer test                # tests 그룹이 같은 DB를 읽음
 ### 배포 (CD) — `.github/workflows/deploy.yml`
 
 - 트리거: `main`에 머지(push)되면 배포 잡이 큐에 들어가고, **`production` 환경의 Required reviewers 승인 후** SSH로 운영 서버에 배포(머지 후 수동 승인). `workflow_dispatch`로 수동 재배포도 가능.
-- 서버 배포 순서: `git reset --hard origin/main` → `composer install --no-dev` → `php spark cache:clear`.
+- 서버 배포 순서: `git reset --hard origin/main` → `composer install --no-dev` → **스켈레톤 복원(`cp -rn`)** → `php spark cache:clear`.
   - `.env`와 gitignore된 스켈레톤은 untracked라 `git reset --hard`에도 보존된다.
+  - gitignore된 표준 CI4 스켈레톤(`app/Config` 표준 파일·`system`·`spark`·`public/index.php`)은 `composer install` 직후 vendor 프레임워크에서 복원한다(`cp -rn` + `[ -e ]` 가드라 커스텀 Config·`.env`는 덮어쓰지 않음). 신규 서버·프레임워크 업데이트로 Config가 추가돼도 자동으로 채워진다.
 - **DB 마이그레이션은 수동**: 일반 배포에서는 실행하지 않는다. 마이그레이션이 필요하면 Actions 탭에서 `workflow_dispatch`로 **`run_migration = true`**를 선택해 배포를 실행하면 그때만 `php spark migrate --all`이 돈다. (서버에 직접 SSH로 `php spark migrate`를 돌려도 됨.)
 - **필수 GitHub Secrets**: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`(개인키), `DEPLOY_PATH`(서버의 git 클론 경로). 선택: `SSH_PORT`(기본 22), Variable `PRODUCTION_URL`.
 - **사전 준비(1회)**: ① 운영 서버에 이 저장소를 git clone하고 `.env`·스켈레톤·`writable/` 권한을 세팅, ② GitHub Settings → Environments에서 `production` 환경 생성 후 **Required reviewers** 지정(승인 게이트), ③ 배포용 SSH 키를 서버 `authorized_keys`에 등록하고 개인키를 `SSH_PRIVATE_KEY` Secret에 저장.
