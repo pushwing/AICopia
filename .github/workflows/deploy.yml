@@ -38,27 +38,23 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || '22' }}
-          script_stop: true
+          # script_stop 은 명령마다 $?를 검사해 non-zero면 중단하는데, if 조건의
+          # [ ... ] 나 || / && 처럼 정상적으로 non-zero를 반환하는 명령까지 실패로
+          # 오인해 중단시킨다(원격 셸이 zsh일 때 특히). 그래서 끄고, 스크립트 자체의
+          # set -euo pipefail 로 에러를 처리한다(set -e 는 if 조건의 non-zero엔 중단 안 함).
+          script_stop: false
           envs: RUN_MIGRATION
           script: |
-            set -euxo pipefail
+            set -euo pipefail
             cd "${{ secrets.DEPLOY_PATH }}"
-
-            # === 진단(임시): appleboy 실행 환경 확인 ===
-            echo ">>>DEPLOY diag: user=$(id -un) pwd=$(pwd) shell=$0"
-            echo ">>>DEPLOY diag: php=$(command -v php) composer=$(command -v composer)"
-            php -v || echo ">>>DEPLOY diag: php -v 실패"
-            echo ">>>DEPLOY step=git"
 
             # 1) 최신 main 반영 (.env·gitignore된 스켈레톤 등 untracked 파일은 보존됨)
             git fetch --all --prune
             git reset --hard origin/main
 
-            echo ">>>DEPLOY step=composer"
             # 2) 운영 의존성 설치
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-            echo ">>>DEPLOY step=skeleton"
             # 2-1) gitignore된 표준 CI4 스켈레톤 복원 (vendor 프레임워크에서).
             #      없는 항목만 복사해 커스텀 Config·.env·기존 파일은 절대 덮어쓰지 않는다(멱등).
             #      cp -n 은 coreutils 9.x에서 비호환 경고 + 스킵 시 exit 1 이라 쓰지 않는다.
@@ -69,7 +65,6 @@ jobs:
             [ -e system ]           || ln -s vendor/codeigniter4/framework/system system
             [ -f spark ]            || cp vendor/codeigniter4/framework/spark spark
             [ -f public/index.php ] || cp vendor/codeigniter4/framework/public/index.php public/index.php
-            echo ">>>DEPLOY step=migration-check"
 
             # 3) DB 마이그레이션 (수동) — workflow_dispatch에서 run_migration=true 일 때만 실행.
             #    실행 전 DB 백업을 권장한다(아래 mysqldump 주석 참고).
@@ -83,7 +78,5 @@ jobs:
               echo "마이그레이션 건너뜀(수동). 필요 시 Actions에서 run_migration=true 로 실행."
             fi
 
-            echo ">>>DEPLOY step=cache"
             # 4) 캐시 초기화
             php spark cache:clear
-            echo ">>>DEPLOY step=done"
