@@ -51,6 +51,13 @@ jobs:
             # 2) 운영 의존성 설치
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
+            # 2-1) gitignore된 표준 CI4 스켈레톤 복원 (vendor 프레임워크에서).
+            #      cp -rn / [ -e ] 가드로 커스텀 Config·.env·기존 파일은 절대 덮어쓰지 않는다(멱등).
+            cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
+            [ -e system ]           || ln -s vendor/codeigniter4/framework/system system
+            [ -f spark ]            || cp vendor/codeigniter4/framework/spark spark
+            [ -f public/index.php ] || cp vendor/codeigniter4/framework/public/index.php public/index.php
+
             # 3) DB 마이그레이션 (수동) — workflow_dispatch에서 run_migration=true 일 때만 실행.
             #    실행 전 DB 백업을 권장한다(아래 mysqldump 주석 참고).
             if [ "${RUN_MIGRATION:-false}" = "true" ]; then
