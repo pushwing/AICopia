@@ -39,7 +39,10 @@ jobs:
       # gitignore 하고 커스텀 Config만 추적한다. PHPStan 부트스트랩을 위해 복원한다.
       - name: Restore CI4 skeleton
         run: |
-          cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
+          for src in vendor/codeigniter4/framework/app/Config/*; do
+            dest="app/Config/$(basename "$src")"
+            [ -e "$dest" ] || cp -r "$src" "$dest"
+          done
           [ -e system ] || ln -s vendor/codeigniter4/framework/system system
           mkdir -p writable/cache writable/logs writable/session writable/tmp writable/uploads
 
@@ -81,10 +84,13 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist
 
       # 이 저장소는 표준 CI4 스켈레톤(app/Config 표준 파일·system·spark·env)을 gitignore 한다.
-      # vendor 프레임워크에서 복원한다(커스텀 Config는 cp -n 으로 보존).
+      # vendor 프레임워크에서 없는 항목만 복원한다(커스텀 Config 보존).
       - name: Restore CI4 skeleton
         run: |
-          cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
+          for src in vendor/codeigniter4/framework/app/Config/*; do
+            dest="app/Config/$(basename "$src")"
+            [ -e "$dest" ] || cp -r "$src" "$dest"
+          done
           [ -e system ] || ln -s vendor/codeigniter4/framework/system system
           [ -f spark ] || cp vendor/codeigniter4/framework/spark spark
           mkdir -p writable/cache writable/logs writable/session writable/tmp writable/uploads

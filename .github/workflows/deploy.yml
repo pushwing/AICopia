@@ -52,8 +52,12 @@ jobs:
             composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
             # 2-1) gitignore된 표준 CI4 스켈레톤 복원 (vendor 프레임워크에서).
-            #      cp -rn / [ -e ] 가드로 커스텀 Config·.env·기존 파일은 절대 덮어쓰지 않는다(멱등).
-            cp -rn vendor/codeigniter4/framework/app/Config/. app/Config/
+            #      없는 항목만 복사해 커스텀 Config·.env·기존 파일은 절대 덮어쓰지 않는다(멱등).
+            #      cp -n 은 coreutils 9.x에서 비호환 경고 + 스킵 시 exit 1 이라 쓰지 않는다.
+            for src in vendor/codeigniter4/framework/app/Config/*; do
+              dest="app/Config/$(basename "$src")"
+              [ -e "$dest" ] || cp -r "$src" "$dest"
+            done
             [ -e system ]           || ln -s vendor/codeigniter4/framework/system system
             [ -f spark ]            || cp vendor/codeigniter4/framework/spark spark
             [ -f public/index.php ] || cp vendor/codeigniter4/framework/public/index.php public/index.php
