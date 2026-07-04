@@ -98,5 +98,33 @@ jobs:
         with:
           webhook: ${{ env.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
+          # 커밋 메시지는 따옴표/개행이 들어올 수 있어 toJSON()으로 안전하게 이스케이프한다.
+          # 색상: 성공 초록 / 취소 노랑 / 실패 빨강.
           payload: |
-            text: "${{ needs.deploy.result == 'success' && '✅ *운영 배포 성공*' || needs.deploy.result == 'cancelled' && '⚠️ *운영 배포 취소됨*' || '❌ *운영 배포 실패*' }} — ${{ github.repository }}\n커밋: `${{ github.sha }}` · 실행자: ${{ github.actor }} · 트리거: ${{ github.event_name == 'workflow_dispatch' && '수동 실행' || 'main 머지' }}${{ github.event_name == 'workflow_dispatch' && inputs.run_migration == true && ' · ⚙️ DB 마이그레이션 포함' || '' }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|실행 로그 보기>"
+            text: "${{ needs.deploy.result == 'success' && '✅ 운영 배포 성공' || needs.deploy.result == 'cancelled' && '⚠️ 운영 배포 취소됨' || '❌ 운영 배포 실패' }} — ${{ github.repository }}"
+            attachments:
+              - color: "${{ needs.deploy.result == 'success' && '#2eb67d' || needs.deploy.result == 'cancelled' && '#ecb22e' || '#e01e5a' }}"
+                blocks:
+                  - type: header
+                    text:
+                      type: plain_text
+                      text: "${{ needs.deploy.result == 'success' && '✅ 운영 배포 성공' || needs.deploy.result == 'cancelled' && '⚠️ 운영 배포 취소됨' || '❌ 운영 배포 실패' }} — ${{ github.repository }}"
+                      emoji: true
+                  - type: section
+                    fields:
+                      - type: mrkdwn
+                        text: "*트리거*\n${{ github.event_name == 'workflow_dispatch' && '수동 실행 (workflow_dispatch)' || 'main 머지 (push)' }}"
+                      - type: mrkdwn
+                        text: "*실행자*\n${{ github.actor }}"
+                      - type: mrkdwn
+                        text: "*DB 마이그레이션*\n${{ github.event_name == 'workflow_dispatch' && inputs.run_migration == true && '⚙️ 실행됨 (migrate --all)' || '건너뜀 (수동 정책)' }}"
+                      - type: mrkdwn
+                        text: "*커밋*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|커밋 보기>"
+                  - type: section
+                    text:
+                      type: mrkdwn
+                      text: ${{ toJSON(format('>{0}', github.event.head_commit.message || '(수동 실행 — 커밋 메시지 없음)')) }}
+                  - type: section
+                    text:
+                      type: mrkdwn
+                      text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|🔍 실행 로그 보기>${{ vars.PRODUCTION_URL != '' && format(' · <{0}|🌐 운영 사이트>', vars.PRODUCTION_URL) || '' }}"
