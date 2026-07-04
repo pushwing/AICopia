@@ -151,5 +151,36 @@ jobs:
         with:
           webhook: ${{ env.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
+          # 커밋 메시지·PR 제목은 따옴표/개행이 들어올 수 있어 toJSON()으로 안전하게 이스케이프한다.
           payload: |
-            text: "❌ *CI 실패* — ${{ github.repository }}\n브랜치: `${{ github.head_ref || github.ref_name }}` · 작성자: ${{ github.actor }} · 이벤트: ${{ github.event_name }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|실행 로그 보기>${{ github.event_name == 'pull_request' && format(' · <{0}|PR 보기>', github.event.pull_request.html_url) || '' }}"
+            text: "❌ CI 실패 — ${{ github.repository }} (${{ github.head_ref || github.ref_name }})"
+            attachments:
+              - color: "#e01e5a"
+                blocks:
+                  - type: header
+                    text:
+                      type: plain_text
+                      text: "❌ CI 실패 — ${{ github.repository }}"
+                      emoji: true
+                  - type: section
+                    fields:
+                      - type: mrkdwn
+                        text: "*브랜치*\n`${{ github.head_ref || github.ref_name }}`"
+                      - type: mrkdwn
+                        text: "*작성자*\n${{ github.actor }}"
+                      - type: mrkdwn
+                        text: "*이벤트*\n${{ github.event_name }}"
+                      - type: mrkdwn
+                        text: "*커밋*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|커밋 보기>"
+                      - type: mrkdwn
+                        text: "*코드 스타일 · 정적 분석*\n${{ needs.static.result == 'success' && '✅ 통과' || needs.static.result == 'failure' && '❌ 실패' || '⏭️ 취소/건너뜀' }}"
+                      - type: mrkdwn
+                        text: "*단위 테스트*\n${{ needs.test.result == 'success' && '✅ 통과' || needs.test.result == 'failure' && '❌ 실패' || '⏭️ 취소/건너뜀' }}"
+                  - type: section
+                    text:
+                      type: mrkdwn
+                      text: ${{ toJSON(format('>{0}', github.event.pull_request.title || github.event.head_commit.message || '(커밋 메시지 없음)')) }}
+                  - type: section
+                    text:
+                      type: mrkdwn
+                      text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|🔍 실행 로그 보기>${{ github.event_name == 'pull_request' && format(' · <{0}|PR #{1} 보기>', github.event.pull_request.html_url, github.event.pull_request.number) || '' }}"
