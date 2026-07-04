@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer analyse)",
+      "Bash(composer analyse *)",
+      "Bash(composer test)",
+      "Bash(composer cs)",
+      "Bash(composer check)",
+      "Bash(composer validate)",
+      "Bash(./vendor/bin/phpunit)",
+      "Bash(./vendor/bin/phpunit *)",
+      "Bash(php vendor/bin/phpunit *)",
+      "Bash(vendor/bin/phpstan analyse *)",
+      "Bash(./vendor/bin/phpstan analyse *)",
+      "Bash(php spark routes)",
+      "Bash(php spark db:table *)",
+      "mcp__Claude_Preview__preview_screenshot"
+    ]
+  }
+}
