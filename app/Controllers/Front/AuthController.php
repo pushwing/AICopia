@@ -93,9 +93,41 @@ class AuthController extends BaseController
             'password' => 'required|min_length[8]',
             'nickname' => 'required|min_length[2]|max_length[20]',
             'phone'    => 'required|min_length[10]|max_length[20]',
+            // 성별: 선택 항목이지만 입력 시 M/F만 허용 (DB ENUM 무결성 보호)
+            'gender'   => 'permit_empty|in_list[M,F]',
+            // 생년월일: 선택 항목이지만 입력 시 유효한 날짜(Y-m-d)이며 미래 날짜 불가.
+            // Config/Validation.php는 gitignore 대상이라 커스텀 룰셋 등록 대신 클로저 룰을 사용한다.
+            'birthday' => [
+                'rules' => [
+                    'permit_empty',
+                    'valid_date[Y-m-d]',
+                    static function (?string $value, array $data, ?string &$error): bool {
+                        if ($value === null || $value === '') {
+                            return true;
+                        }
+                        $date = date_create($value);
+                        if ($date === false || $date > date_create('today')) {
+                            $error = '생년월일은 오늘 이전 날짜여야 합니다.';
+
+                            return false;
+                        }
+
+                        return true;
+                    },
+                ],
+            ],
         ];
 
-        if (! $this->validate($rules)) {
+        $messages = [
+            'gender' => [
+                'in_list' => '성별 값이 올바르지 않습니다.',
+            ],
+            'birthday' => [
+                'valid_date' => '생년월일 형식이 올바르지 않습니다.',
+            ],
+        ];
+
+        if (! $this->validate($rules, $messages)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
