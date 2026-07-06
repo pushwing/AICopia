@@ -116,6 +116,10 @@ class AuthController extends BaseController
                     },
                 ],
             ],
+            // 주소: 선택 항목이지만 입력 시 DB 컬럼 길이 초과를 방지 (shipping_addresses 스키마 기준)
+            'zipcode'  => 'permit_empty|max_length[10]',
+            'address1' => 'permit_empty|max_length[200]',
+            'address2' => 'permit_empty|max_length[100]',
         ];
 
         $messages = [
@@ -124,6 +128,15 @@ class AuthController extends BaseController
             ],
             'birthday' => [
                 'valid_date' => '생년월일 형식이 올바르지 않습니다.',
+            ],
+            'zipcode' => [
+                'max_length' => '우편번호가 너무 깁니다.',
+            ],
+            'address1' => [
+                'max_length' => '기본 주소가 너무 깁니다.',
+            ],
+            'address2' => [
+                'max_length' => '상세 주소는 100자 이내로 입력해주세요.',
             ],
         ];
 
