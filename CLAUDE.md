@@ -121,6 +121,13 @@ gh pr create --base dev --head feature/<짧은-이름>   # dev로 PR
 - `Controllers/Front/` — `Home`, `Shop`, `Cart`, `Order`, `Payment`, `MyPage`, `Coupon`, `Promotion`, `Board`, `Page`, `Auth`, `SocialAuth`.
 - `Controllers/Admin/` — `Dashboard`, `Product`, `Inventory`, `Order`, `Sales`, `Stats`, `Coupon`, `Point`, `Grade`, `Promotion`, `Supplier`, `Review`, `Qna`, `Inquiry`, `Notification`, `User`, `Banner`, `Popup`, `Menu`, `PageManager/PostManager`, `BoardManager`, `Media`, `Schedule`, `Setting`, `Welcome`.
 
+일부 관리자 컨트롤러는 기본 CRUD 외에 다음 고급 기능을 포함한다:
+- `Product` — 상품 복제·일괄 작업·엑셀 임포트/내보내기, 카테고리 관리(계층), 미분류 상품 정리, 이미지 배경 제거, 네이버 상품 검색/임포트, AI 보조(설명 생성·이미지 정보 추출·카테고리 추천).
+- `Order` — 무통장입금 확인, 반품/교환 승인·거부, 주문 메모, **배송추적 일괄 업로드**(`tracking_upload`), **AI 이상주문 탐지**(`anomalies`, `OrderAnomalyService`).
+- `Inventory` — **AI 재입고 제안**(`suggestions`). `Sales` — AI 매출 분석 리포트. `Setting` — 탭 그룹: general/mail/theme/oauth/**api**.
+
+> 화면·URL·작업 단위 사용 흐름은 [docs/manual.md](docs/manual.md)(고객+관리자 통합 매뉴얼) 참조.
+
 ### 인증 & 라우팅
 
 - 인증 필터 별칭: `auth` → `App\Filters\AuthFilter`; 사용 예 `['filter' => 'auth:member']` / `['filter' => 'auth:admin']`.
