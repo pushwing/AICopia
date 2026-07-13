@@ -2,6 +2,15 @@
 
 커밋·PR 전에 아래를 통과시킵니다. 한 번에 `composer check`(= cs + analyse + test).
 
+## 0. pre-push 훅 (자동 게이트)
+
+push 전 품질 게이트를 로컬에서 강제해 **"push → CI 실패 → 수정 → 재push" 왕복을 제거**한다. 훅 본체는 저장소에 추적되는 `.githooks/pre-push`.
+
+- **활성화**: `composer install` 시 자동(`post-install-cmd` → `core.hooksPath=.githooks`). 수동은 `composer hooks:install`.
+- **동작**: `cs` + `analyse`는 항상 실행(~2초). `test`는 `app/`·`tests/`·`composer.*`·`phpunit.xml`·`phpstan.neon`가 바뀐 push에서만 실행(문서 전용 push는 생략).
+- **테스트 DB 미설정**이면 훅이 감지해 이 문서(아래 4번)로 안내한다. 로컬 테스트 DB를 먼저 잡아야 훅의 test 단계가 통과한다.
+- **긴급 우회**: `git push --no-verify`.
+
 ## 1. 코드 스타일 — PHP-CS-Fixer
 
 ```bash

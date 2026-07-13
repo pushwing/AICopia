@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#
+# 팀 공유 pre-push 훅 (git config core.hooksPath .githooks 로 활성화)
+#
+# 목적: "push → CI 2분 → 실패 → 수정 → 다시 push" 왕복을 로컬에서 제거한다.
+#   - cs(코드 스타일) + analyse(PHPStan): 항상 실행 (~2초, 외부 의존 없음)
+#   - test(PHPUnit): 앱 코드(app/·tests/ 등)가 바뀐 push에서만 실행
+#     → 문서 전용 push는 테스트를 건너뛰어 빠르게 통과
+#
+# 최초 1회 설정: composer install 시 자동(core.hooksPath 설정) — 수동은 `composer hooks:install`
+# 테스트 DB 설정법: .claude/rules/testing.md 참고 (로컬 MySQL `aicopia_test` + tests 그룹)
+# 긴급 우회: git push --no-verify
+set -euo pipefail
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+fail() { echo -e "${RED}✗ pre-push 차단: $1${NC}"; echo -e "  고친 뒤 다시 push하세요. (긴급 우회: ${YELLOW}git push --no-verify${NC})"; exit 1; }
+
+# push되는 커밋 범위에서 변경 파일 수집 (여러 ref 처리)
+z40="0000000000000000000000000000000000000000"
+changed=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "${local_sha:-}" ] && continue
+  [ "$local_sha" = "$z40" ] && continue                       # 브랜치 삭제 push
+  if [ "$remote_sha" = "$z40" ]; then
+    base="$(git merge-base origin/dev "$local_sha" 2>/dev/null || echo "")"   # 신규 브랜치
+  else
+    base="$remote_sha"
+  fi
+  if [ -n "$base" ]; then
+    changed+=$'\n'"$(git diff --name-only "$base" "$local_sha" 2>/dev/null || true)"
+  else
+    changed+=$'\n'"$(git diff --name-only "$local_sha" 2>/dev/null || true)"
+  fi
+done
+
+echo -e "${YELLOW}▶ pre-push: 코드 스타일 검사(cs)...${NC}"
+composer cs >/tmp/prepush-cs.log 2>&1 || { cat /tmp/prepush-cs.log; fail "코드 스타일(composer cs). 'composer cs-fix'로 자동 수정 가능"; }
+
+echo -e "${YELLOW}▶ pre-push: 정적 분석(analyse)...${NC}"
+composer analyse >/tmp/prepush-analyse.log 2>&1 || { cat /tmp/prepush-analyse.log; fail "정적 분석(composer analyse)"; }
+
+# 앱/테스트 코드 변경이 있을 때만 PHPUnit 실행
+if echo "$changed" | grep -qE '^(app/|tests/|composer\.(json|lock)|phpunit\.xml|phpstan\.neon)'; then
+  echo -e "${YELLOW}▶ pre-push: 테스트(test) — 앱 코드 변경 감지...${NC}"
+  if ! composer test >/tmp/prepush-test.log 2>&1; then
+    # DB 미설정으로 인한 실패인지 구분해 안내
+    if grep -qiE 'Unable to connect|Access denied|Connection refused|Can.t connect|Unknown database|DatabaseException.*connect' /tmp/prepush-test.log; then
+      echo -e "${RED}✗ 테스트 DB에 연결하지 못했습니다.${NC}"
+      echo -e "  로컬 테스트 DB(tests 그룹)를 먼저 설정하세요 → ${YELLOW}.claude/rules/testing.md${NC}"
+      fail "테스트 DB 미설정"
+    fi
+    tail -30 /tmp/prepush-test.log
+    fail "테스트(composer test)"
+  fi
+else
+  echo -e "  (앱 코드 변경 없음 → 테스트 생략)"
+fi
+
+echo -e "${GREEN}✓ pre-push 통과 — push 진행${NC}"
+exit 0
