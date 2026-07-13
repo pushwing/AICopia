@@ -150,11 +150,16 @@ jobs:
             sleep 2
           done
 
-      - name: Migrate test DB
+      - name: Migrate test DB (템플릿)
         run: php spark migrate --all
 
-      - name: 단위 테스트 (PHPUnit)
-        run: composer test
+      # ParaTest worker(TEST_TOKEN 1..4)별 전용 DB(aicopia_test_1..4)를 템플릿에서 복제.
+      # 공유 DB 충돌(하드코딩 unique 값·수동 정리)을 피하려면 worker마다 DB가 분리돼야 한다.
+      - name: 병렬 테스트 worker DB 프로비저닝
+        run: MYSQL_PWD='' bash bin/clone-test-dbs.sh 4 127.0.0.1 root aicopia_test
+
+      - name: 단위 테스트 (ParaTest 병렬)
+        run: composer test:parallel
 
   # Slack 알림 — CI가 실패했을 때만 발송(성공 알림은 노이즈라 생략).
   # SLACK_WEBHOOK_URL 시크릿이 없으면 조용히 건너뛴다(파이프라인에 영향 없음).

@@ -69,3 +69,21 @@ composer test                # tests 그룹이 같은 DB를 읽음
 
 - 운영 DB는 절대 사용 금지. CI는 `.github/workflows/ci.yml`의 `test` 잡이 동일 흐름을 MySQL 서비스로 자동 수행.
 - 새 기능(특히 Service/Model 로직)은 테스트를 함께 작성.
+
+### 병렬 테스트 (ParaTest) — CI 기본
+
+CI는 `composer test`(순차) 대신 **`composer test:parallel`**(ParaTest 4-worker)로 실행해 시간을 대폭 단축한다(로컬 실측 77초 → 22초).
+
+- 테스트는 트랜잭션으로 격리되지 않고 **실제 커밋 + `tearDown()` 수동 정리**를 쓴다. 따라서 worker가 DB를 공유하면 하드코딩된 unique 값 충돌·락 경합이 발생 → **worker별 전용 DB가 필수**.
+- ParaTest는 worker마다 `TEST_TOKEN`(1..N)을 주입한다. `tests/bootstrap.php`가 이를 읽어 `tests` 그룹 DB명을 `aicopia_test_<token>`으로 바꾼다(testing 환경은 `defaultGroup='tests'`라 모든 연결이 따라온다). `TEST_TOKEN`이 없으면 순차 실행이라 그대로 `aicopia_test`.
+- worker DB는 템플릿(`aicopia_test`)을 마이그레이션한 뒤 **`bin/clone-test-dbs.sh`**로 복제한다.
+
+로컬에서 병렬로 돌리려면:
+
+```bash
+php spark migrate --all                                          # 템플릿(aicopia_test) 준비
+MYSQL_PWD=<비번> bin/clone-test-dbs.sh 4 127.0.0.1 <user> aicopia_test   # worker DB 4개 복제
+composer test:parallel
+```
+
+> 순차 `composer test`(단일 `aicopia_test`)는 그대로 동작한다 — pre-push 훅은 순차를 쓰므로 로컬에서 worker DB를 만들지 않아도 된다.
