@@ -317,6 +317,38 @@ paid / preparing / shipped  → [회원] refund_requested → [관리자] → re
 
 ---
 
+## 개발 플로우
+
+```mermaid
+flowchart TD
+    A["dev 브랜치 최신화<br/>git pull origin dev"] --> B{"코드 변경 vs<br/>문서만 변경"}
+
+    B -->|코드 변경| C["feature 브랜치 생성<br/>dev에서 분기"]
+    C --> D["TDD 구현<br/>Red → Green → Refactor"]
+    D --> E["로컬 품질 게이트<br/>pre-push: cs·analyse·test"]
+    E --> F["PR 생성<br/>feature → dev"]
+    F --> G["CI 실행<br/>static + test"]
+    G --> H["리뷰 후 Squash 머지<br/>feature 브랜치 자동 삭제"]
+
+    B -->|문서만 변경| I["문서만 변경 확인<br/>app/·설정 변경 없음"]
+    I --> J["dev에 직접 커밋<br/>feature·PR 생략"]
+
+    H --> K["dev → main PR<br/>merge commit"]
+    J --> K
+    K --> L["배포 승인<br/>production 환경 Required reviewer"]
+    L --> M["자동 배포<br/>reset --hard → composer install → cache:clear"]
+
+    style E fill:#f5c26b,stroke:#7a5b1e,color:#1a1a1a
+    style G fill:#f5c26b,stroke:#7a5b1e,color:#1a1a1a
+    style M fill:#8fce8f,stroke:#2f6b2f,color:#1a1a1a
+```
+
+- **코드 변경**: `feature/*` 브랜치 → TDD → 로컬 품질 게이트(pre-push 훅) → PR → CI(GitHub Actions) 통과 후 `dev`로 **Squash merge**(브랜치 자동 삭제)
+- **문서 전용 예외**: `*.md`·`.claude/rules/**`·`docs/**` 등 문서만 바뀌고 `app/`·설정·마이그레이션이 섞이지 않았다면 feature/PR 절차 없이 `dev`에 직접 커밋
+- **배포**: `dev → main`은 **merge commit**(Squash 금지), `production` 환경 Required reviewer 승인 후 SSH로 자동 배포
+
+---
+
 ## 설치 방법
 
 ### 1. 환경 설정
