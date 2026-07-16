@@ -29,7 +29,8 @@ final class FixStraySettingsGroupsMigrationTest extends CIUnitTestCase
     /** pg_enabled_*·oauth_enabled_*는 마이그레이션으로 미리 시딩되지 않아 tests DB에 없을 수 있다 */
     private array $insertedKeys = [];
 
-    private array $originalGroups = [];
+    /** [key => ['group' => ..., 'value' => ...]] — 기존 행을 건드린 경우 tearDown에서 복원 */
+    private array $originalRows = [];
 
     protected function setUp(): void
     {
@@ -44,20 +45,20 @@ final class FixStraySettingsGroupsMigrationTest extends CIUnitTestCase
         if ($this->insertedKeys !== []) {
             db_connect()->table('settings')->whereIn('key', $this->insertedKeys)->delete();
         }
-        foreach ($this->originalGroups as $key => $group) {
-            db_connect()->table('settings')->where('key', $key)->update(['group' => $group]);
+        foreach ($this->originalRows as $key => $original) {
+            db_connect()->table('settings')->where('key', $key)->update($original);
         }
         cache()->delete('site_settings');
         parent::tearDown();
     }
 
-    /** 키가 이미 있으면 group만 general로 바꾸고 원래 group을 기억, 없으면 테스트용으로 INSERT 후 나중에 삭제 */
+    /** 키가 이미 있으면 group·value를 general/지정값으로 바꾸고 원래 상태를 기억, 없으면 테스트용으로 INSERT 후 나중에 삭제 */
     private function seedAsGeneral(string $key, string $value = 'test-value'): void
     {
         $row = db_connect()->table('settings')->where('key', $key)->get()->getRowArray();
         if ($row) {
-            $this->originalGroups[$key] = $row['group'];
-            db_connect()->table('settings')->where('key', $key)->update(['group' => 'general']);
+            $this->originalRows[$key] = ['group' => $row['group'], 'value' => $row['value']];
+            db_connect()->table('settings')->where('key', $key)->update(['group' => 'general', 'value' => $value]);
             return;
         }
 
