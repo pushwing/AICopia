@@ -908,7 +908,7 @@ async function execNaverSearch(append) {
                      data-price="${price}"
                      data-image="${item.image.replace(/"/g,'&quot;')}">
                     <img src="${item.image}" class="card-img-top" style="height:140px;object-fit:cover"
-                         onerror="this.src='/favicon.ico'">
+                         referrerpolicy="no-referrer" onerror="this.src='/favicon.ico'">
                     <div class="card-body p-2">
                         <div class="small fw-semibold lh-sm mb-1" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
                             ${item.title}
