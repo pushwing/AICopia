@@ -42,9 +42,13 @@ class SettingModel extends Model
     /**
      * 설정 저장 (키가 있으면 UPDATE, 없으면 INSERT)
      *
+     * 새 키를 INSERT할 때는 $group을 사용한다. 호출부가 그룹을 명시하지 않으면
+     * 신규 키가 실제 탭과 무관하게 '기본(general)' 탭에 노출되므로 반드시
+     * 해당 설정 탭의 그룹을 넘겨야 한다.
+     *
      * @param array<string, mixed> $data
      */
-    public function saveSettings(array $data): void
+    public function saveSettings(array $data, string $group = 'general'): void
     {
         $now = date('Y-m-d H:i:s');
         foreach ($data as $key => $value) {
@@ -53,7 +57,7 @@ class SettingModel extends Model
                 $this->update($existing['id'], ['value' => $value, 'updated_at' => $now]);
             } else {
                 // 마이그레이션 없이 새 키가 들어올 경우 INSERT
-                $this->insert(['key' => $key, 'value' => $value, 'group' => 'general', 'label' => $key, 'type' => 'text', 'updated_at' => $now]);
+                $this->insert(['key' => $key, 'value' => $value, 'group' => $group, 'label' => $key, 'type' => 'text', 'updated_at' => $now]);
             }
         }
         cache()->delete('site_settings');
