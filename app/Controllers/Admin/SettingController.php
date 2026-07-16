@@ -223,7 +223,7 @@ class SettingController extends BaseController
                     $save[$bk] = $postData[$bk];
                 }
             }
-            $this->settingModel->saveSettings($save);
+            $this->settingModel->saveSettings($save, 'pg');
             return redirect()->to('/admin/settings/pg')->with('success', '결제수단 설정이 저장되었습니다.');
         }
 
@@ -233,7 +233,7 @@ class SettingController extends BaseController
             foreach ($oauthKeys as $key) {
                 $save["oauth_enabled_{$key}"] = isset($postData["oauth_enabled_{$key}"]) ? '1' : '0';
             }
-            $this->settingModel->saveSettings($save);
+            $this->settingModel->saveSettings($save, 'oauth');
             return redirect()->to('/admin/settings/oauth')->with('success', '소셜 로그인 설정이 저장되었습니다.');
         }
 
@@ -253,13 +253,13 @@ class SettingController extends BaseController
             foreach (\App\Libraries\AiProvider\AiPrompts::KEYS as $key) {
                 $save[\App\Libraries\AiProvider\AiPrompts::PREFIX . $key] = trim($postData['ai_prompt_' . $key] ?? '');
             }
-            $this->settingModel->saveSettings($save);
+            $this->settingModel->saveSettings($save, 'api');
             return redirect()->to('/admin/settings/api')->with('success', '외부 API 설정이 저장되었습니다.');
         }
 
         if ($group === 'theme') {
             $theme = $postData['active_theme'] ?? 'default';
-            $this->settingModel->saveSettings(['active_theme' => $theme]);
+            $this->settingModel->saveSettings(['active_theme' => $theme], 'theme');
             return redirect()->to('/admin/settings/theme')->with('success', "테마가 '{$theme}'으로 변경되었습니다.");
         }
 
@@ -271,7 +271,7 @@ class SettingController extends BaseController
             $postData['shipping_carriers'] = json_encode($carriers, JSON_UNESCAPED_UNICODE);
         }
 
-        $this->settingModel->saveSettings($postData);
+        $this->settingModel->saveSettings($postData, $group);
 
         return redirect()->to("/admin/settings/{$group}")->with('success', '설정이 저장되었습니다.');
     }
