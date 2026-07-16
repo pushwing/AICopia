@@ -8,7 +8,8 @@
         "codeigniter/phpstan-codeigniter": "^2.1",
         "phpunit/phpunit": "^12.0",
         "friendsofphp/php-cs-fixer": "^3",
-        "rector/rector": "^2"
+        "rector/rector": "^2",
+        "brianium/paratest": "^7.20"
     },
     "require": {
         "php": ">=8.5",
@@ -23,6 +24,7 @@
     },
     "scripts": {
         "test": "phpunit",
+        "test:parallel": "paratest -p4 --runner=WrapperRunner",
         "analyse": "phpstan analyse",
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs-fix": "php-cs-fixer fix",
@@ -32,6 +34,13 @@
             "@cs",
             "@analyse",
             "@test"
+        ],
+        "hooks:install": "git config core.hooksPath .githooks 2>/dev/null || true",
+        "post-install-cmd": [
+            "@hooks:install"
+        ],
+        "post-update-cmd": [
+            "@hooks:install"
         ]
     }
 }

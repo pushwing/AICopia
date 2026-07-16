@@ -16,5 +16,19 @@
       "Bash(php spark db:table *)",
       "mcp__Claude_Preview__preview_screenshot"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; [ -n \"$f\" ] && case \"$f\" in *.php) vendor/bin/php-cs-fixer fix \"$f\" --path-mode=intersection --quiet;; esac; } 2>/dev/null || true",
+            "statusMessage": "php-cs-fixer 적용 중..."
+          }
+        ]
+      }
+    ]
   }
 }
