@@ -21,7 +21,7 @@ class SecurityHeadersFilter implements FilterInterface
             "default-src 'self'",
             "script-src 'self' cdn.jsdelivr.net 'unsafe-inline'",
             "style-src 'self' cdn.jsdelivr.net 'unsafe-inline'",
-            "img-src 'self' data: blob:",
+            "img-src 'self' data: blob: shopping-phinf.pstatic.net",
             "font-src 'self' cdn.jsdelivr.net data:",
             "connect-src 'self'",
             "frame-ancestors 'none'",
