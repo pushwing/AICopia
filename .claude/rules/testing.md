@@ -131,15 +131,15 @@ GitHub 호스팅 러너(`ubuntu-latest`)가 아니라 이 저장소를 로컬에
 - **PHP/Composer**: 러너 머신에 로컬 개발용으로 이미 설치된 것을 그대로 쓴다(`shivammathur/setup-php` 액션 없이 `php`/`composer`가 PATH에 있다고 가정) — 버전은 로컬 개발 환경과 동일하게 유지해야 한다.
 - **MySQL**: self-hosted macOS 러너는 `services:` 도커 컨테이너를 지원하지 않는다(Linux 러너 전용 기능). 대신 `test` 잡에서 `docker run`으로 직접 기동하고 `if: always()` 스텝으로 정리한다.
 - **포트**: 이 Mac은 로컬 개발용 시스템 `mysqld`를 이미 3306에 상시 띄워두고 있어, CI 전용 MySQL 컨테이너는 호스트 포트 **13306**을 쓴다(`CI_MYSQL_PORT` env로 오버라이드 가능). `bin/clone-test-dbs.sh`도 5번째 인자로 포트를 받는다.
-- **러너 등록(1회, 저장소 밖 디렉터리에)**:
+- **러너 등록(1회)**: `bin/setup-ci-runner.sh` 실행 한 번으로 끝난다.
 
 ```bash
-mkdir -p ~/actions-runners/AICopia && cd ~/actions-runners/AICopia
-# GitHub 저장소 Settings → Actions → Runners → New self-hosted runner 안내에 따라
-# 아키텍처(ARM64)에 맞는 패키지를 받아 config.sh 실행 (등록 토큰은 그 페이지에서 발급)
-./config.sh --url https://github.com/pushwing/AICopia --token <등록토큰>
-./svc.sh install   # launchd 서비스로 상시 등록 (Mac이 켜져 있으면 자동으로 리스닝)
-./svc.sh start
+bin/setup-ci-runner.sh
 ```
+
+- `gh` CLI가 인증돼 있으면 등록 토큰을 자동 발급(`gh api .../actions/runners/registration-token`)하고, 없으면 GitHub Settings → Actions → Runners → New self-hosted runner 페이지에서 발급받은 토큰을 입력받는다.
+- 최신 러너 패키지(macOS/ARM64)를 GitHub 공식 릴리스에서 받아 `~/actions-runners/AICopia`에 설치하고, launchd 서비스로 등록·기동한다(Mac이 켜져 있으면 자동으로 리스닝).
+- 이미 등록돼 있으면 재설치 없이 상태만 출력하고 종료한다(중복 등록 방지).
+- 상태 확인/중지/제거 명령은 스크립트 실행 마지막에 출력된다.
 
 - **호스팅 러너로 되돌리려면**: `runs-on`을 `ubuntu-latest`로 바꾸고, `test` 잡의 `docker run` MySQL 기동 스텝을 다시 `services:` 블록으로 되돌리면 된다(포트도 표준값 3306으로 원복 가능).
