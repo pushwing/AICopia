@@ -278,11 +278,14 @@ $rows = $spreadsheet->getActiveSheet()->toArray();
 
 ## CI / CD
 
-- **GitHub Actions**(`.github/workflows/ci.yml`)가 `dev`·`main` 대상 PR·push마다 실행:
+**검증 게이트 정책: 검증은 로컬에서 끝낸다.** `feature/* → dev` PR에는 CI를 걸지 않고(로컬 pre-push 훅이 실질 게이트), CI는 `dev → main` 배포 PR에서만 돈다. 세부 근거·pre-push 훅 동작·self-hosted 러너 등록 방법은 → @.claude/rules/testing.md (0·5번 섹션)
+
+- **GitHub Actions**(`.github/workflows/ci.yml`)는 **`main` 대상 PR에서만** 실행(`on.pull_request.branches: [main]`) — `dev`로 가는 PR·어떤 브랜치로의 push에도 CI가 돌지 않는다:
   - `static` 잡 — `composer cs` + `composer analyse` + `composer audit`(의존성 취약점).
-  - `test` 잡 — MySQL 서비스 프로비저닝 → `tests` DB 마이그레이션 → `composer test`.
+  - `test` 잡 — `docker run`으로 MySQL 컨테이너 기동(호스트 포트 13306) → `tests` DB 마이그레이션 → `composer test:parallel`.
+- **self-hosted 러너**(`runs-on: [self-hosted, macOS, ARM64]`)에서 세 잡 모두 돈다 — GitHub 호스팅 러너(`ubuntu-latest`)가 아니라 이 저장소를 로컬 개발하는 Mac을 러너로 등록해 사용(계정 결제 문제로 호스팅 러너가 막혔던 게 계기). PHP/Composer는 러너 머신에 이미 설치된 로컬 개발 환경을 그대로 쓴다.
 - 이 저장소는 표준 CI4 스켈레톤(`app/Config/App.php`·`Constants.php`·`system/`·`public/index.php`·`spark`)을 **gitignore** 하고 커스텀 Config만 추적한다. CI는 `vendor/codeigniter4/framework`에서 누락 스켈레톤을 복원(없는 항목만 복사 + `system` 심링크)한 뒤 검사를 돌린다. 로컬도 동일 방식으로 복원 가능.
-- 권장: GitHub 브랜치 보호 규칙으로 `main`·`dev` 직접 push 차단 + CI 통과를 머지 조건으로 설정.
+- 권장: GitHub 브랜치 보호 규칙으로 `main`·`dev` 직접 push 차단 + `main` 대상 PR은 CI 통과를 머지 조건으로 설정(`dev` 대상 PR은 CI가 없으므로 코드 리뷰 승인만 조건으로).
 
 ### 배포 (CD) — `.github/workflows/deploy.yml`
 
