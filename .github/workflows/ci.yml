@@ -18,7 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # self-hosted 러너는 로컬 개발용 PHP/Composer를 그대로 쓴다(brew로 이미 설치돼 있음).
+      # 이 Mac은 다른 프로젝트 self-hosted 러너와 Homebrew php 심링크(/opt/homebrew/opt/php)를
+      # 공유한다. 그쪽 CI가 도는 동안 php@8.4로 relink되면 이 저장소가 요구하는 8.5와 충돌하므로,
+      # 버전이 고정된 /opt/homebrew/opt/php@8.5/bin을 PATH 맨 앞에 강제한다.
+      - name: PHP 8.5 경로 고정
+        run: echo "/opt/homebrew/opt/php@8.5/bin" >> "$GITHUB_PATH"
+
       - name: PHP/Composer 버전 확인
         run: php -v && composer --version
 
@@ -59,6 +64,12 @@ jobs:
       CI_MYSQL_CONTAINER: aicopia-ci-mysql-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
+
+      # 이 Mac은 다른 프로젝트 self-hosted 러너와 Homebrew php 심링크(/opt/homebrew/opt/php)를
+      # 공유한다. 그쪽 CI가 도는 동안 php@8.4로 relink되면 이 저장소가 요구하는 8.5와 충돌하므로,
+      # 버전이 고정된 /opt/homebrew/opt/php@8.5/bin을 PATH 맨 앞에 강제한다.
+      - name: PHP 8.5 경로 고정
+        run: echo "/opt/homebrew/opt/php@8.5/bin" >> "$GITHUB_PATH"
 
       - name: PHP/Composer 버전 확인
         run: php -v && composer --version

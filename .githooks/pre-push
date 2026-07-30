@@ -22,6 +22,11 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
+# 이 Mac은 다른 프로젝트 self-hosted 러너와 Homebrew php 심링크(/opt/homebrew/opt/php)를
+# 공유해 그쪽 CI가 도는 동안 php@8.4로 relink될 수 있다(이 저장소는 8.5+ 필요).
+# 버전이 고정된 php@8.5 keg 경로를 PATH 맨 앞에 둬 우연한 버전 충돌을 피한다.
+[ -d /opt/homebrew/opt/php@8.5/bin ] && PATH="/opt/homebrew/opt/php@8.5/bin:$PATH"
+
 if [ "${SKIP_HOOKS:-}" = "1" ]; then
   echo -e "${YELLOW}⚠ SKIP_HOOKS=1 — pre-push 검증 생략${NC}"
   exit 0
