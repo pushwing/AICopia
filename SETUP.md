@@ -92,7 +92,7 @@ public string $systemDirectory = __DIR__ . '/../../vendor/codeigniter4/framework
 cat > .env << 'EOF'
 CI_ENVIRONMENT = development
 
-app.baseURL = 'http://localhost:8080'
+app.baseURL = 'http://localhost:8303'
 app.appTimezone = 'Asia/Seoul'
 
 database.default.hostname = 127.0.0.1
@@ -107,7 +107,7 @@ EOF
 
 > **주의**: `hostname`은 반드시 `127.0.0.1`을 사용하세요. `localhost`로 설정하면 MySQLi가 Unix 소켓으로 연결을 시도해 WSL/Linux 환경에서 오류가 발생합니다.
 >
-> `app.baseURL`의 포트는 사용하는 개발 서버에 맞게 변경하세요 (PHP 내장 서버 기본값: `8080`, FrankenPHP 권장: `8200`).
+> `app.baseURL`의 포트는 로컬 개발 고정 포트 `8303`을 사용합니다(PHP 내장 서버·FrankenPHP 공통).
 
 ---
 
@@ -160,16 +160,10 @@ cp -r node_modules/tinymce public/tinymce
 별도 설치 없이 바로 사용 가능합니다.
 
 ```bash
-php spark serve
+php spark serve --port 8303
 ```
 
-접속: **http://localhost:8080**
-
-포트를 변경하려면:
-
-```bash
-php spark serve --port 8200
-```
+접속: **http://localhost:8303**
 
 ### FrankenPHP (선택)
 
@@ -183,7 +177,7 @@ which frankenphp
 ./serve.sh
 ```
 
-접속: **http://localhost:8200** (serve.sh 기준)
+접속: **http://localhost:8303** (serve.sh 기준)
 
 > `serve.sh`는 FrankenPHP 전용입니다. FrankenPHP가 없으면 `php spark serve`를 사용하세요.
 
@@ -195,7 +189,7 @@ which frankenphp
 |------|----|
 | 이메일 | `admin@example.com` |
 | 비밀번호 | `admin1234!` |
-| 관리자 패널 | http://localhost:8200/admin |
+| 관리자 패널 | http://localhost:8303/admin |
 
 > 최초 로그인 후 반드시 비밀번호를 변경하세요.
 
