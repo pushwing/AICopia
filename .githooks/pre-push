@@ -2,28 +2,46 @@
 #
 # 팀 공유 pre-push 훅 (git config core.hooksPath .githooks 로 활성화)
 #
-# 목적: "push → CI 2분 → 실패 → 수정 → 다시 push" 왕복을 로컬에서 제거한다.
-#   - cs(코드 스타일) + analyse(PHPStan): 항상 실행 (~2초, 외부 의존 없음)
-#   - test(PHPUnit): 앱 코드(app/·tests/ 등)가 바뀐 push에서만 실행
-#     → 문서 전용 push는 테스트를 건너뛰어 빠르게 통과
+# 목적: feature → dev PR 에는 CI 를 걸지 않으므로, 로컬 검증이 실질적인 유일한 게이트다.
+#       "dev push → CI 실패 → 수정 → 다시 push" 왕복을 로컬에서 제거한다.
+#
+# 브랜치별 동작:
+#   - main            직접 push 무조건 차단. 배포는 dev → main PR(merge commit)로만.
+#   - dev             cs(코드 스타일) + analyse(PHPStan) 항상 실행.
+#                     test(PHPUnit)는 app/·tests/ 등 코드가 바뀐 push에서만 실행
+#                     (문서 전용 push는 생략).
+#   - feature/*       검증 생략 — 작업 중 빠른 반복을 막지 않기 위해서다.
+#                     dev로 합류하는 순간(dev push 시점)에 전체 검증이 걸린다.
 #
 # 최초 1회 설정: composer install 시 자동(core.hooksPath 설정) — 수동은 `composer hooks:install`
 # 테스트 DB 설정법: .claude/rules/testing.md 참고 (로컬 MySQL `aicopia_test` + tests 그룹)
-# 긴급 우회: git push --no-verify
+# 긴급 우회: git push --no-verify  또는  SKIP_HOOKS=1 git push ...
 set -euo pipefail
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
+if [ "${SKIP_HOOKS:-}" = "1" ]; then
+  echo -e "${YELLOW}⚠ SKIP_HOOKS=1 — pre-push 검증 생략${NC}"
+  exit 0
+fi
+
 fail() { echo -e "${RED}✗ pre-push 차단: $1${NC}"; echo -e "  고친 뒤 다시 push하세요. (긴급 우회: ${YELLOW}git push --no-verify${NC})"; exit 1; }
 
-# push되는 커밋 범위에서 변경 파일 수집 (여러 ref 처리)
+# push되는 커밋 범위에서 변경 파일 수집 (여러 ref 처리) + push 대상 브랜치 판별
 z40="0000000000000000000000000000000000000000"
 changed=""
+target_branch=""
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ -z "${local_sha:-}" ] && continue
   [ "$local_sha" = "$z40" ] && continue                       # 브랜치 삭제 push
+  target_branch="${local_ref#refs/heads/}"
+
+  if [ "$target_branch" = "main" ]; then
+    fail "main 브랜치 직접 push는 금지됩니다. 배포는 dev → main PR(merge commit)로만 진행하세요."
+  fi
+
   if [ "$remote_sha" = "$z40" ]; then
     base="$(git merge-base origin/dev "$local_sha" 2>/dev/null || echo "")"   # 신규 브랜치
   else
@@ -35,6 +53,14 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     changed+=$'\n'"$(git diff --name-only "$local_sha" 2>/dev/null || true)"
   fi
 done
+
+# feature/* 브랜치는 검증하지 않는다 — 작업 중 빠른 반복을 막지 않기 위해서다.
+case "$target_branch" in
+  feature/*)
+    echo -e "  (feature 브랜치 push → 로컬 검증 생략. dev push 시점에 전체 검증)"
+    exit 0
+    ;;
+esac
 
 echo -e "${YELLOW}▶ pre-push: 코드 스타일 검사(cs)...${NC}"
 composer cs >/tmp/prepush-cs.log 2>&1 || { cat /tmp/prepush-cs.log; fail "코드 스타일(composer cs). 'composer cs-fix'로 자동 수정 가능"; }
