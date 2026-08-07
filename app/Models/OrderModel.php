@@ -45,6 +45,29 @@ class OrderModel extends Model
     ];
 
     /**
+     * 실결제 금액이 주문 가능한 값인지 검증한다.
+     *
+     * 쿠폰·포인트로 전액이 차감되면 payable_amount 가 0 이 되는데, 이 주문은
+     * PG 결제창에 0원을 요청하게 되어 결제가 성립하지 않는다(무통장입금도
+     * "0원 입금" 안내가 되어 마찬가지). 최소 결제 금액 설정이 0 이거나
+     * 없더라도 0원 주문은 항상 막아야 하므로 두 검사를 분리한다.
+     *
+     * @return string|null 거부 사유. 통과하면 null.
+     */
+    public function validatePayableAmount(int $payableAmount, int $minPayable): ?string
+    {
+        if ($payableAmount <= 0) {
+            return '쿠폰·포인트로 전액이 차감되어 결제할 금액이 없습니다. 포인트 사용량을 줄여주세요.';
+        }
+
+        if ($payableAmount < $minPayable) {
+            return '최소 결제 금액은 ' . number_format($minPayable) . '원입니다. 포인트 사용량을 조정해주세요.';
+        }
+
+        return null;
+    }
+
+    /**
      * 결제 대기 주문 생성 — 쿠폰 확정 + 포인트 차감까지 트랜잭션 내 처리
      */
     /**

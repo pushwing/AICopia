@@ -603,9 +603,14 @@ $userCoupons  = $userCoupons ?? [];
             return false;
         }
 
-        // 최소 결제 금액 검증
+        // 결제 금액 검증 (서버 OrderModel::validatePayableAmount 와 동일한 규칙)
         const pointUse = parseInt(document.getElementById('hiddenPointUse').value) || 0;
         const payable  = Math.max(0, TOTAL_AMOUNT - couponDiscount - pointUse);
+        // 전액이 차감되면 PG 에 0원을 요청하게 되어 결제가 성립하지 않는다.
+        if (payable <= 0) {
+            alert('쿠폰·포인트로 전액이 차감되어 결제할 금액이 없습니다. 포인트 사용량을 줄여주세요.');
+            return false;
+        }
         if (MIN_PAYABLE > 0 && payable < MIN_PAYABLE) {
             alert('최소 결제 금액은 ' + MIN_PAYABLE.toLocaleString('ko-KR') + '원입니다.');
             return false;

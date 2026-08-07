@@ -174,14 +174,13 @@ class OrderController extends BaseController
             }
         }
 
-        // payable_amount
+        // payable_amount — 0원 주문·최소 결제 금액 미달은 여기서 걸러진다
         $payableAmount = max(0, $totalAmount - $couponDiscountAmount - $pointUse);
         $minPayable    = max(0, (int) ($settings['min_payable_amount'] ?? 10000));
-        if ($payableAmount > 0 && $payableAmount < $minPayable) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => '최소 결제 금액은 ' . number_format($minPayable) . '원입니다. 포인트 사용량을 조정해주세요.',
-            ]);
+
+        $payableError = $this->orderModel->validatePayableAmount($payableAmount, $minPayable);
+        if ($payableError !== null) {
+            return $this->response->setJSON(['success' => false, 'message' => $payableError]);
         }
 
         // 포인트 적립 예정액 (배송완료 시점 등급 기준 — 여기선 현재 등급으로 미리 계산)
