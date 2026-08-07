@@ -693,6 +693,10 @@ $userCoupons  = $userCoupons ?? [];
         const pg = p.pg;
 
         if (pg === 'toss') {
+            // 키 설정이 잘못되면 어댑터가 error 를 담아 보낸다.
+            // 그대로 결제창을 열면 콘솔에 400 만 남아 원인을 알 수 없다.
+            if (p.error) { alert('토스페이먼츠 설정 오류: ' + p.error); return; }
+
             const toss = TossPayments(p.clientKey);
             // successUrl·failUrl 은 어댑터가 만들어 넘긴다.
             // (orderId 는 토스 규격상 주문번호라, 콜백이 쓰는 DB PK 와 다르다.)
