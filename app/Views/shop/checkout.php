@@ -351,7 +351,6 @@ $userCoupons  = $userCoupons ?? [];
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
-<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script src="https://js.tosspayments.com/v1/payment"></script>
 
 <script>
@@ -562,13 +561,11 @@ $userCoupons  = $userCoupons ?? [];
 
     // ─── 카카오 우편번호 검색 ──────────────────────────────────────────────────
     document.getElementById('btnPostcode')?.addEventListener('click', function () {
-        new daum.Postcode({
-            oncomplete: function (data) {
-                document.getElementById('zipcode').value  = data.zonecode;
-                document.getElementById('address1').value = data.roadAddress || data.jibunAddress;
-                document.getElementById('address2').focus();
-            }
-        }).open();
+        openPostcode(function (data) {
+            document.getElementById('zipcode').value  = data.zonecode;
+            document.getElementById('address1').value = data.roadAddress || data.jibunAddress;
+            document.getElementById('address2').focus();
+        });
     });
 
     // ─── 배송 메모 직접 입력 ───────────────────────────────────────────────────
