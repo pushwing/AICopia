@@ -19,7 +19,8 @@ class SecurityHeadersFilter implements FilterInterface
     {
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' cdn.jsdelivr.net 'unsafe-inline'",
+            // t1.kakaocdn.net — 카카오 우편번호(주소검색) 서비스 로더
+            "script-src 'self' cdn.jsdelivr.net t1.kakaocdn.net 'unsafe-inline'",
             "style-src 'self' cdn.jsdelivr.net 'unsafe-inline'",
             "img-src 'self' data: blob: shopping-phinf.pstatic.net",
             "font-src 'self' cdn.jsdelivr.net data:",
