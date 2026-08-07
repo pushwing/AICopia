@@ -169,3 +169,21 @@ footer a:hover {
 /* ─── 회원 등급 배지 ─────────────────────────────── */
 .badge-bronze { background-color: #a0522d; color: #fff; }
 .badge-silver { background-color: #888f94; color: #fff; }
+
+/* ─── 텍스트 레이아웃 유틸 ─────────────────────────────
+   Bootstrap 5.3 에는 min-width:0 유틸이 없다. flex 아이템은 기본이
+   min-width:auto 라 내용이 길면 줄어들지 않고 부모(카드)를 밀어낸다.
+   장바구니·주문서의 상품명처럼 긴 텍스트를 담는 flex 칸에 .min-w-0 을 준다. */
+.min-w-0 { min-width: 0; }
+
+/* 긴 상품명은 자르지 말고 두 줄까지 보여준 뒤 말줄임.
+   ⚠️ Bootstrap 의 .d-block 등 display 유틸(!important)과 함께 쓰면
+   아래 display 가 덮여 clamp 가 풀린다 — 이 클래스만 단독으로 쓴다. */
+.text-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
