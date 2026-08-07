@@ -32,9 +32,47 @@ class CartController extends BaseController
 
         $this->cartModel->mergeAndClear($userId);
 
+        // 장바구니로 돌아왔다는 건 선택을 다시 한다는 뜻 — 이전 선택은 흘려보낸다.
+        session()->remove(CartModel::CHECKOUT_SESSION_KEY);
+
         $items = $this->cartModel->getByUser($userId);
 
         return $this->render('shop/cart', ['items' => $items]);
+    }
+
+    /**
+     * POST /cart/checkout — 선택한 상품만 주문서로 넘긴다 (auth:member)
+     * 선택 항목의 cart_items.id 를 세션에 담고 주문서로 리다이렉트한다.
+     */
+    public function checkout(): \CodeIgniter\HTTP\RedirectResponse
+    {
+        $userId = (int) session()->get('user_id');
+
+        $cartIds = array_values(array_unique(array_filter(
+            array_map(intval(...), (array) $this->request->getPost('cart_ids')),
+            static fn (int $id): bool => $id > 0,
+        )));
+
+        if ($cartIds === []) {
+            return redirect()->to('/cart')->with('error', '주문할 상품을 선택해주세요.');
+        }
+
+        // user_id 조건이 함께 걸리므로 남의 장바구니 id 는 여기서 걸러진다.
+        $selected = array_filter(
+            $this->cartModel->getByUser($userId, $cartIds),
+            static fn (array $item): bool => (bool) $item['is_available'],
+        );
+
+        if ($selected === []) {
+            return redirect()->to('/cart')->with('error', '구매 가능한 상품이 없습니다.');
+        }
+
+        session()->set(
+            CartModel::CHECKOUT_SESSION_KEY,
+            array_values(array_map(static fn (array $item): int => (int) $item['id'], $selected)),
+        );
+
+        return redirect()->to('/order');
     }
 
     /**

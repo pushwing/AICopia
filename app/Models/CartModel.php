@@ -8,6 +8,9 @@ use CodeIgniter\Model;
 
 class CartModel extends Model
 {
+    /** 장바구니에서 선택해 주문서로 넘긴 cart_items.id 목록을 담는 세션 키 */
+    public const CHECKOUT_SESSION_KEY = 'checkout_cart_ids';
+
     protected $table         = 'cart_items';
     protected $primaryKey    = 'id';
     protected $useTimestamps = false;
@@ -16,11 +19,22 @@ class CartModel extends Model
     /**
      * 사용자의 장바구니 목록 (상품 정보 + SKU + 대표 이미지 JOIN)
      *
+     * $cartItemIds 를 넘기면 그 항목만 반환한다(주문서에서 선택 구매 시 사용).
+     * 빈 배열이면 장바구니 전체를 반환한다. user_id 조건이 함께 걸리므로
+     * 남의 장바구니 id 를 넘겨도 조회되지 않는다.
+     *
+     * @param  list<int>                        $cartItemIds
      * @return array<int, array<string, mixed>>
      */
-    public function getByUser(int $userId): array
+    public function getByUser(int $userId, array $cartItemIds = []): array
     {
-        $rows = $this->db->table('cart_items')
+        $builder = $this->db->table('cart_items');
+
+        if ($cartItemIds !== []) {
+            $builder->whereIn('cart_items.id', $cartItemIds);
+        }
+
+        $rows = $builder
             ->select('cart_items.id, cart_items.product_id, cart_items.sku_id, cart_items.qty,
                  products.name, products.slug, products.price, products.discount_price,
                  products.stock, products.status,
@@ -123,6 +137,20 @@ class CartModel extends Model
             $builder->where('sku_id IS NULL', null, false);
         }
         $builder->delete();
+    }
+
+    /**
+     * cart_items.id 목록으로 삭제 (주문에 포함된 항목만 정확히 비울 때 사용)
+     *
+     * @param list<int> $cartItemIds
+     */
+    public function removeByIds(int $userId, array $cartItemIds): void
+    {
+        if ($cartItemIds === []) {
+            return;
+        }
+
+        $this->where('user_id', $userId)->whereIn('id', $cartItemIds)->delete();
     }
 
     /**

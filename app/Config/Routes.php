@@ -281,6 +281,7 @@ $routes->post('shop/(:segment)/restock-alert', 'Front\ShopController::restockAle
 $routes->post('cart/add', 'Front\CartController::add');
 $routes->group('cart', ['filter' => 'auth:member'], function ($routes) {
     $routes->get('', 'Front\CartController::index');
+    $routes->post('checkout', 'Front\CartController::checkout');
     $routes->post('update', 'Front\CartController::update');
     $routes->post('delete', 'Front\CartController::delete');
     $routes->post('clear', 'Front\CartController::clear');

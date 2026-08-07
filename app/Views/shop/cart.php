@@ -6,6 +6,17 @@
 
     <h4 class="fw-bold mb-4">장바구니</h4>
 
+    <?php if (session()->getFlashdata('error')): ?>
+    <div class="alert alert-warning py-2 small">
+        <i class="bi bi-exclamation-triangle me-1"></i><?= esc(session()->getFlashdata('error')) ?>
+    </div>
+    <?php endif; ?>
+    <?php if (session()->getFlashdata('success')): ?>
+    <div class="alert alert-success py-2 small">
+        <i class="bi bi-check-circle me-1"></i><?= esc(session()->getFlashdata('success')) ?>
+    </div>
+    <?php endif; ?>
+
     <?php if (empty($items)): ?>
 
     <div class="text-center text-muted py-5">
@@ -37,6 +48,7 @@
                 $isSoldOut = ! $item['is_available'];
             ?>
             <div class="card mb-2 cart-item <?= $isSoldOut ? 'opacity-75' : '' ?>"
+                 data-cart-id="<?= (int) $item['id'] ?>"
                  data-product-id="<?= (int) $item['product_id'] ?>"
                  data-sku-id="<?= (int) ($item['sku_id'] ?? 0) ?>"
                  data-price="<?= (int) $item['display_price'] ?>">
@@ -65,7 +77,7 @@
                         <!-- 상품 정보 -->
                         <div class="flex-grow-1 min-w-0">
                             <a href="/shop/<?= esc($item['slug']) ?>"
-                               class="text-decoration-none text-dark fw-semibold d-block text-truncate mb-1">
+                               class="text-decoration-none text-dark fw-semibold text-clamp-2 mb-1">
                                 <?= esc($item['name']) ?>
                             </a>
                             <?php if (! empty($item['sku_label'])): ?>
@@ -161,9 +173,14 @@
                         <i class="bi bi-info-circle me-1"></i>배송비는 결제 시 확인됩니다.
                     </div>
 
-                    <button id="btnCheckout" class="btn btn-primary w-100 mb-2" disabled>
-                        주문하기
-                    </button>
+                    <!-- 선택한 상품의 cart_items.id 만 담아 전송한다(주문서는 이 목록만 보여준다) -->
+                    <form id="checkoutForm" method="post" action="/cart/checkout">
+                        <?= csrf_field() ?>
+                        <div id="checkoutInputs"></div>
+                        <button id="btnCheckout" type="submit" class="btn btn-primary w-100 mb-2" disabled>
+                            주문하기
+                        </button>
+                    </form>
                     <a href="/shop" class="btn btn-outline-secondary w-100">쇼핑 계속하기</a>
                 </div>
             </div>
@@ -197,9 +214,26 @@
         if (btn) btn.disabled = (count === 0);
     }
 
-    // 주문하기 버튼 — 선택 상품 product_id 목록을 세션에 저장 후 주문서로 이동
-    document.getElementById('btnCheckout')?.addEventListener('click', function () {
-        window.location.href = '/order';
+    // 주문 폼 제출 — 체크된 카드의 cart id 를 hidden 으로 실어 보낸다.
+    document.getElementById('checkoutForm')?.addEventListener('submit', function (e) {
+        const holder = document.getElementById('checkoutInputs');
+        holder.innerHTML = '';
+
+        document.querySelectorAll('.cart-item').forEach(function (card) {
+            const check = card.querySelector('.item-check');
+            if (! check || ! check.checked) return;
+
+            const input = document.createElement('input');
+            input.type  = 'hidden';
+            input.name  = 'cart_ids[]';
+            input.value = card.dataset.cartId;
+            holder.appendChild(input);
+        });
+
+        if (! holder.children.length) {
+            e.preventDefault();
+            alert('주문할 상품을 선택해주세요.');
+        }
     });
 
     // 전체 선택 토글

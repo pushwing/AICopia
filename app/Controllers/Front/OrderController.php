@@ -31,14 +31,38 @@ class OrderController extends BaseController
         $this->userCouponModel = new UserCouponModel();
     }
 
+    /**
+     * 장바구니에서 선택해 넘어온 cart_items.id 목록.
+     * 비어 있으면(직접 /order 진입 등) 장바구니 전체를 주문 대상으로 본다.
+     *
+     * @return list<int>
+     */
+    private function selectedCartIds(): array
+    {
+        $ids = session()->get(CartModel::CHECKOUT_SESSION_KEY);
+
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(intval(...), $ids), static fn (int $id): bool => $id > 0));
+    }
+
     /** GET /order — 주문서 */
     public function index(): \CodeIgniter\HTTP\RedirectResponse|string
     {
-        $userId = (int) session()->get('user_id');
-        $items  = $this->cartModel->getByUser($userId);
+        $userId      = (int) session()->get('user_id');
+        $selectedIds = $this->selectedCartIds();
+        $items       = $this->cartModel->getByUser($userId, $selectedIds);
 
         if ($items === []) {
-            return redirect()->to('/cart')->with('error', '장바구니가 비어 있습니다.');
+            // 선택했던 항목이 그 사이 삭제·주문된 경우도 여기로 온다.
+            session()->remove(CartModel::CHECKOUT_SESSION_KEY);
+
+            return redirect()->to('/cart')->with(
+                'error',
+                $selectedIds === [] ? '장바구니가 비어 있습니다.' : '선택하신 상품을 장바구니에서 찾을 수 없습니다.',
+            );
         }
 
         $available = array_filter($items, fn (array $i) => $i['is_available']);
@@ -92,7 +116,7 @@ class OrderController extends BaseController
         $userCouponId = (int) ($this->request->getPost('user_coupon_id') ?? 0);
         $pointUse     = max(0, (int) ($this->request->getPost('point_use') ?? 0));
 
-        $items = $this->cartModel->getByUser($userId);
+        $items = $this->cartModel->getByUser($userId, $this->selectedCartIds());
         $items = array_values(array_filter($items, fn (array $i) => $i['is_available']));
 
         if ($items === []) {
@@ -205,11 +229,12 @@ class OrderController extends BaseController
                 'updated_at'   => $now,
             ]);
 
-            $productIds = array_column($items, 'product_id');
-            $db->table('cart_items')
-                ->where('user_id', $userId)
-                ->whereIn('product_id', $productIds)
-                ->delete();
+            // 주문에 담긴 장바구니 행만 정확히 비운다(같은 상품의 다른 옵션·미선택 항목은 남긴다).
+            $this->cartModel->removeByIds(
+                $userId,
+                array_map(static fn (array $item): int => (int) $item['id'], $items),
+            );
+            session()->remove(CartModel::CHECKOUT_SESSION_KEY);
 
             return $this->response->setJSON([
                 'success'  => true,
