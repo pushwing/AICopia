@@ -27,6 +27,13 @@ class TossPaymentsAdapter implements PGInterface
      */
     public function buildPaymentParams(array $order): array
     {
+        $keyError = $this->validateKeys();
+        if ($keyError !== null) {
+            // 잘못된 키로 결제창을 열면 apigw 가 400 만 던져 원인을 알 수 없다.
+            // 뷰(launchPG)가 error 를 그대로 노출하도록 pg 판별자와 함께 돌려준다.
+            return ['pg' => 'toss', 'error' => $keyError];
+        }
+
         return [
             'pg'          => 'toss',
             'clientKey'   => $this->clientKey,
@@ -113,6 +120,49 @@ class TossPaymentsAdapter implements PGInterface
         ]);
         $result = curl_exec($ch);
         return json_decode($result ?: '{}', true) ?? [];
+    }
+
+    /**
+     * 설정된 키가 "결제창(API 개별 연동)" 용인지 확인한다.
+     *
+     * 토스는 연동 방식마다 키 종류를 나눠 발급한다.
+     *   결제창·브랜드페이(API 개별 연동) → test_ck_ / live_ck_ , test_sk_ / live_sk_
+     *   결제위젯                          → test_gck_ / live_gck_, test_gsk_ / live_gsk_
+     *
+     * 이 어댑터는 결제창 SDK(js.tosspayments.com/v1/payment 의 requestPayment)를 쓰므로
+     * `ck`/`sk` 키가 필요하다. 결제위젯 키를 넣으면 결제창을 열기 전 파라미터 검증
+     * 단계에서 400 이 떨어지고, 시크릿 키가 어긋나면 승인(confirm)이 INVALID_API_KEY 로
+     * 실패한다 — 후자는 고객은 결제됐는데 주문만 미완료로 남아 더 나쁘다.
+     *
+     * @return string|null 문제가 없으면 null, 있으면 사용자에게 보여줄 메시지
+     */
+    private function validateKeys(): ?string
+    {
+        if ($this->clientKey === '') {
+            return '토스페이먼츠 클라이언트 키가 설정되지 않았습니다. (.env 의 TOSS_CLIENT_KEY)';
+        }
+
+        if ($this->secretKey === '') {
+            return '토스페이먼츠 시크릿 키가 설정되지 않았습니다. (.env 의 TOSS_SECRET_KEY)';
+        }
+
+        if ($this->isWidgetKey($this->clientKey)) {
+            return '토스페이먼츠 클라이언트 키가 결제위젯용(gck)입니다. '
+                . '결제창 연동에는 test_ck_ / live_ck_ 로 시작하는 API 개별 연동 키가 필요합니다.';
+        }
+
+        if ($this->isWidgetKey($this->secretKey)) {
+            return '토스페이먼츠 시크릿 키가 결제위젯용(gsk)입니다. '
+                . '결제창 연동에는 test_sk_ / live_sk_ 로 시작하는 API 개별 연동 키가 필요합니다.';
+        }
+
+        return null;
+    }
+
+    /** 결제위젯 키는 test/live 뒤 구분자에 `g` 가 붙는다(gck·gsk). */
+    private function isWidgetKey(string $key): bool
+    {
+        return (bool) preg_match('/^(?:test|live)_g(?:ck|sk)_/', $key);
     }
 
     private function mapMethod(string $pgMethod): string
