@@ -28,12 +28,18 @@ class NicePayAdapter implements PGInterface
     public function buildPaymentParams(array $order): array
     {
         return [
-            'pg'         => 'nicepay',
-            'clientId'   => $this->clientId,
-            'orderId'    => $order['order_number'],
-            'amount'     => (int) $order['total_amount'],
-            'goodsName'  => $this->buildOrderName($order),
-            'buyerName'  => $order['receiver_name'],
+            'pg'        => 'nicepay',
+            'clientId'  => $this->clientId,
+            // AUTHNICE.requestPay() 필수값 — method 가 없으면 결제창이 열리지 않는다.
+            'method'    => 'card',
+            'orderId'   => $order['order_number'],
+            'amount'    => (int) $order['total_amount'],
+            'goodsName' => $this->buildOrderName($order),
+            'buyerName' => $order['receiver_name'],
+            'buyerTel'  => (string) ($order['receiver_phone'] ?? ''),
+            // 인증 완료 후 나이스페이가 POST 로 돌아오는 곳. order_id 가 없으면
+            // PaymentController::callback() 이 주문을 찾지 못해 결제가 끊긴다.
+            'returnUrl' => base_url('payment/callback/nicepay?order_id=' . $order['id']),
         ];
     }
 

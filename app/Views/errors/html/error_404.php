@@ -1,84 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title><?= lang('Errors.pageNotFound') ?></title>
+<?php
+/**
+ * 404 Not Found — CodeIgniter4 가 $code, $message 를 넘겨준다.
+ * 파일명이 error_{상태코드}.php 면 ExceptionHandler::determineView() 가
+ * 자동으로 골라 쓰므로 Config/Exceptions.php 에 별도 매핑이 필요 없다.
+ *
+ * $message 는 예외 원문(BaseExceptionHandler::collectVars())이라 운영에서 노출하면
+ * 내부 경로·쿼리 등이 새어 나간다. 개발 환경에서만 보여 주고 운영에서는 안내 문구로 대체한다.
+ */
+$aivCode    = $code ?? 404;
+$aivHeading = '페이지를 찾을 수 없습니다';
+$aivMessage = '주소를 다시 확인하시거나 홈으로 이동해 주세요.';
 
-    <style>
-        div.logo {
-            height: 200px;
-            width: 155px;
-            display: inline-block;
-            opacity: 0.08;
-            position: absolute;
-            top: 2rem;
-            left: 50%;
-            margin-left: -73px;
-        }
-        body {
-            height: 100%;
-            background: #fafafa;
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-            color: #777;
-            font-weight: 300;
-        }
-        h1 {
-            font-weight: lighter;
-            letter-spacing: normal;
-            font-size: 3rem;
-            margin-top: 0;
-            margin-bottom: 0;
-            color: #222;
-        }
-        .wrap {
-            max-width: 1024px;
-            margin: 5rem auto;
-            padding: 2rem;
-            background: #fff;
-            text-align: center;
-            border: 1px solid #efefef;
-            border-radius: 0.5rem;
-            position: relative;
-        }
-        pre {
-            white-space: normal;
-            margin-top: 1.5rem;
-        }
-        code {
-            background: #fafafa;
-            border: 1px solid #efefef;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            display: block;
-        }
-        p {
-            margin-top: 1.5rem;
-        }
-        .footer {
-            margin-top: 2rem;
-            border-top: 1px solid #efefef;
-            padding: 1em 2em 0 2em;
-            font-size: 85%;
-            color: #999;
-        }
-        a:active,
-        a:link,
-        a:visited {
-            color: #dd4814;
-        }
-    </style>
-</head>
-<body>
-    <div class="wrap">
-        <h1>404</h1>
+if (ENVIRONMENT !== 'production' && ! empty($message)) {
+    $aivMessage = $message;
+}
 
-        <p>
-            <?php if (ENVIRONMENT !== 'production') : ?>
-                <?= nl2br(esc($message)) ?>
-            <?php else : ?>
-                <?= lang('Errors.sorryCannotFind') ?>
-            <?php endif; ?>
-        </p>
-    </div>
-</body>
-</html>
+include __DIR__ . '/_partials/page.php';
