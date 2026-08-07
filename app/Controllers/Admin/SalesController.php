@@ -44,6 +44,7 @@ class SalesController extends BaseController
     }
 
     private const array PG_LABELS = [
+        'free'          => '무료 주문',
         'bank_transfer' => '무통장입금',
         'toss'          => '토스페이먼츠',
         'inicis'        => 'KG이니시스',

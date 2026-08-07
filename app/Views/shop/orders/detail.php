@@ -24,6 +24,7 @@ $statusBadge = [
     'exchange_completed' => ['success',   '교환 완료'],
 ];
 $pgLabels = [
+    'free'          => '무료 주문',
     'bank_transfer' => '무통장입금',
     'toss'          => '토스페이먼츠',
     'inicis'        => 'KG이니시스',
@@ -33,6 +34,7 @@ $pgLabels = [
     'payco'         => 'PAYCO',
 ];
 $methodLabels = [
+    'free'            => '쿠폰·포인트 전액 사용',
     'card'            => '신용/체크카드',
     'virtual_account' => '가상계좌',
     'transfer'        => '계좌이체',

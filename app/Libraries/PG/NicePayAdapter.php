@@ -10,6 +10,8 @@ namespace App\Libraries\PG;
  */
 class NicePayAdapter implements PGInterface
 {
+    use ResolvesPayableAmount;
+
     private readonly string $clientId;
     private readonly string $secretKey;
     private string $apiBase = 'https://api.nicepay.co.kr/v1';
@@ -33,7 +35,7 @@ class NicePayAdapter implements PGInterface
             // AUTHNICE.requestPay() 필수값 — method 가 없으면 결제창이 열리지 않는다.
             'method'    => 'card',
             'orderId'   => $order['order_number'],
-            'amount'    => (int) $order['total_amount'],
+            'amount'    => $this->payableAmount($order),
             'goodsName' => $this->buildOrderName($order),
             'buyerName' => $order['receiver_name'],
             'buyerTel'  => (string) ($order['receiver_phone'] ?? ''),
