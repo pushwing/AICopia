@@ -255,7 +255,9 @@ class OrderController extends BaseController
             session()->set('kakaopay_order_number', $order['order_number']);
         }
         if ($pgProvider === 'toss') {
-            session()->set('toss_order_id', (string) $orderId);
+            // 승인(confirm) 요청의 orderId 는 결제창에 넘긴 값과 완전히 같아야 한다.
+            // 어댑터가 만든 값을 그대로 보관해 두 값이 어긋날 여지를 없앤다.
+            session()->set('toss_order_id', (string) $pgParams['orderId']);
         }
 
         return $this->response->setJSON([

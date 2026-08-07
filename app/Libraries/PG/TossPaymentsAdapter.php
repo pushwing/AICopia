@@ -31,10 +31,22 @@ class TossPaymentsAdapter implements PGInterface
             'pg'          => 'toss',
             'clientKey'   => $this->clientKey,
             'orderNumber' => $order['order_number'],
-            'orderId'     => (string) $order['id'],
+
+            // 토스 규격: orderId 는 영문·숫자·`-`·`_` 만 허용하고 6자 이상 64자 이하다.
+            // DB PK 를 그대로 넘기면 초기 주문은 6자 미만이라 결제창을 열기 전
+            // apigw 검증에서 400(INVALID_ORDER_ID)으로 막힌다.
+            // 주문번호(ORD-YYYYMMDD-NNNNN)는 18자 + 허용 문자만 써서 규격을 만족한다.
+            'orderId'     => (string) $order['order_number'],
+
             'orderName'   => $this->buildOrderName($order),
             'amount'      => (int) $order['total_amount'],
             'customerName' => $order['receiver_name'],
+
+            // 콜백 URL 은 다른 PG 어댑터와 동일하게 어댑터가 만든다.
+            // 콜백은 주문을 DB PK 로 조회하므로 order_id 에는 반드시 id 를 넘긴다
+            // (토스가 successUrl 에 덧붙이는 orderId 는 위 주문번호라 이름이 겹치지 않는다).
+            'successUrl'  => base_url('payment/callback/toss?order_id=' . $order['id']),
+            'failUrl'     => base_url('order/fail/' . $order['order_number']),
         ];
     }
 
@@ -42,6 +54,8 @@ class TossPaymentsAdapter implements PGInterface
     public function confirm(string $pgToken, int $expectedAmount): array
     {
         // pgToken = paymentKey (토스페이먼츠 결제창에서 전달)
+        // orderId 는 결제창에 넘긴 값과 정확히 같아야 승인된다
+        // (OrderController 가 buildPaymentParams()의 orderId 를 그대로 세션에 담아 둔다).
         $response = $this->request('POST', '/payments/confirm', [
             'paymentKey' => $pgToken,
             'amount'     => $expectedAmount,

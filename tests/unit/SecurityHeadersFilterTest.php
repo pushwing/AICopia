@@ -62,6 +62,16 @@ final class SecurityHeadersFilterTest extends CIUnitTestCase
         $this->assertContains('event.tosspayments.com', $connectSrc);
     }
 
+    /**
+     * 부트스트랩 소스맵(*.map)은 개발자도구를 열면 브라우저가 fetch로 가져가는데
+     * 이것도 connect-src 대상이다. 빠지면 주문서 콘솔이 CSP 위반 메시지로 뒤덮여
+     * 실제 결제 오류를 가린다(기능 자체에는 영향 없음).
+     */
+    public function testCspAllowsBootstrapSourceMapFetch(): void
+    {
+        $this->assertContains('cdn.jsdelivr.net', $this->directive('connect-src'));
+    }
+
     /** 토스 결제창은 iframe으로 열리므로 frame-src에 결제 게이트웨이 호스트가 필요하다. */
     public function testCspAllowsTossPaymentWindowFrame(): void
     {
