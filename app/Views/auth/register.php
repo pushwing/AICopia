@@ -78,15 +78,12 @@
 
 <?= $this->endSection() ?>
 <?= $this->section('scripts') ?>
-<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
 function openKakaoPost() {
-    new daum.Postcode({
-        oncomplete: function(data) {
-            document.getElementById('zipcode').value  = data.zonecode;
-            document.getElementById('address1').value = data.roadAddress || data.jibunAddress;
-        }
-    }).open();
+    openPostcode(function (data) {
+        document.getElementById('zipcode').value  = data.zonecode;
+        document.getElementById('address1').value = data.roadAddress || data.jibunAddress;
+    });
 }
 </script>
 <?= $this->endSection() ?>

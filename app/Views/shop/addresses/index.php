@@ -115,16 +115,13 @@
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
-<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
 document.getElementById('btnPostcode')?.addEventListener('click', function () {
-    new daum.Postcode({
-        oncomplete: function (data) {
-            document.getElementById('zipcode').value  = data.zonecode;
-            document.getElementById('address1').value = data.roadAddress || data.jibunAddress;
-            document.querySelector('[name=address2]').focus();
-        }
-    }).open();
+    openPostcode(function (data) {
+        document.getElementById('zipcode').value  = data.zonecode;
+        document.getElementById('address1').value = data.roadAddress || data.jibunAddress;
+        document.querySelector('[name=address2]').focus();
+    });
 });
 </script>
 <?= $this->endSection() ?>
