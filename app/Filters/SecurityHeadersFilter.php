@@ -25,10 +25,17 @@ class SecurityHeadersFilter implements FilterInterface
 
             // t1.kakaocdn.net — 카카오 우편번호(주소검색) 서비스 로더
             // js.tosspayments.com — 주문서(shop/checkout)가 로드하는 토스페이먼츠 결제 SDK
-            "script-src 'self' cdn.jsdelivr.net t1.kakaocdn.net js.tosspayments.com 'unsafe-inline'",
+            // stdpay.inicis.com — INIStdPay SDK 본체
+            // stdux.inicis.com — INIStdPay가 이어서 로드하는 2차 스크립트(INIStdPay_third-party.js)
+            // pay.nicepay.co.kr — 나이스페이 AUTHNICE SDK
+            "script-src 'self' cdn.jsdelivr.net t1.kakaocdn.net js.tosspayments.com stdpay.inicis.com stdux.inicis.com pay.nicepay.co.kr 'unsafe-inline'",
 
-            "style-src 'self' cdn.jsdelivr.net 'unsafe-inline'",
-            "img-src 'self' data: blob: shopping-phinf.pstatic.net",
+            // stdpay.inicis.com — INIStdPay가 <link>로 주입하는 결제창 스타일(stdcss/INIStdPay.css)
+            "style-src 'self' cdn.jsdelivr.net stdpay.inicis.com 'unsafe-inline'",
+
+            // stdux.inicis.com — 이니시스 결제창 UI 이미지(닫기 버튼 등)
+            "img-src 'self' data: blob: shopping-phinf.pstatic.net stdux.inicis.com",
+
             "font-src 'self' cdn.jsdelivr.net data:",
 
             // apigw(-sandbox).tosspayments.com — 토스 SDK가 결제창을 열기 전
@@ -41,22 +48,27 @@ class SecurityHeadersFilter implements FilterInterface
 
             // payment-gateway(-sandbox).tosspayments.com — 토스 결제창은 팝업이 아니라
             // iframe으로 열린다. frame-src를 지정하지 않으면 default-src 'self'로 폴백돼 차단된다.
+            // stdpay.inicis.com — INIStdPay가 팝업 차단 해제용으로 넣는 allowPopupIframe.jsp.
+            //   (결제창 자체는 window.open 팝업이라 frame-src 대상이 아니다.)
+            // pay·sandbox-pay.nicepay.co.kr — 나이스페이 결제창은 iframe(newPayIframe)으로 열린다.
+            //   clientId 접두어가 R1_/R2_면 운영(pay), S1_/S2_면 샌드박스(sandbox-pay)를 쓴다.
             //
             // postcode.map.kakao.com — 카카오 우편번호(주소검색) 창. SDK의 open()은
             // window.open('')으로 빈 팝업을 띄운 뒤 그 안에 iframe을 삽입하는데,
             // 그 팝업 문서는 about:blank(동일 출처)라 이 페이지의 CSP를 그대로 상속한다.
             // 따라서 팝업 방식이어도 frame-src 허용이 필요하다 — 빠지면 팝업 안이
             // "이 콘텐츠는 차단되어 있습니다"로 뜨고 주소검색이 불가능해진다.
-            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com postcode.map.kakao.com",
+            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr postcode.map.kakao.com",
 
             "frame-ancestors 'none'",
             "object-src 'none'",
             "base-uri 'self'",
 
-            // stdpay.inicis.com / pay.nicepay.co.kr — 이니시스·나이스페이는 주문서에서
-            // 동적 생성한 form을 결제 도메인으로 POST 전송한다. form-action 'self'만으로는 차단된다.
+            // 이니시스·나이스페이 SDK는 파라미터 form을 결제 도메인으로 POST 전송한다.
+            // stdpay.inicis.com — INIStdPay.pay()가 form action을 payMain/pay로 바꿔 전송
+            // pay·sandbox-pay.nicepay.co.kr — AUTHNICE가 결제창 iframe을 대상으로 form 전송
             // (카카오페이·페이코는 location.href 최상위 이동이라 CSP 대상이 아니다.)
-            "form-action 'self' stdpay.inicis.com pay.nicepay.co.kr",
+            "form-action 'self' stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr",
         ]);
 
         $response->setHeader('Content-Security-Policy', $csp);

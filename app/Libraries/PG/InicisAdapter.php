@@ -32,15 +32,29 @@ class InicisAdapter implements PGInterface
         $price     = (int) $order['total_amount'];
 
         return [
-            'pg'         => 'inicis',
-            'mid'        => $this->merchantId,
-            'oid'        => $oid,
-            'price'      => $price,
-            'timestamp'  => $timestamp,
-            'signature'  => hash('sha256', "oid={$oid}&price={$price}&timestamp={$timestamp}"),
-            'mKey'       => hash('sha256', $this->signKey),
-            'goodname'   => $this->buildOrderName($order),
-            'buyername'  => $order['receiver_name'],
+            'pg'        => 'inicis',
+            // INIStdPay 표준 규격 — version·currency·gopaymethod·acceptmethod 가
+            // 빠지면 INIStdPay.pay() 가 결제창을 띄우지 않는다.
+            'version'   => '1.0',
+            'currency'  => 'WON',
+            'gopaymethod' => 'Card',
+            // HPP(1): 휴대폰결제 허용, below1000: 1000원 미만 결제 허용,
+            // va_receipt: 가상계좌 현금영수증 창 노출
+            'acceptmethod' => 'HPP(1):below1000:va_receipt',
+            'mid'       => $this->merchantId,
+            'oid'       => $oid,
+            'price'     => $price,
+            'timestamp' => $timestamp,
+            'signature' => hash('sha256', "oid={$oid}&price={$price}&timestamp={$timestamp}"),
+            'mKey'      => hash('sha256', $this->signKey),
+            'goodname'  => $this->buildOrderName($order),
+            'buyername' => $order['receiver_name'],
+            'buyertel'  => (string) ($order['receiver_phone'] ?? ''),
+            'buyeremail' => (string) ($order['receiver_email'] ?? ''),
+            // 인증 완료 후 이니시스가 POST 로 돌아오는 곳. order_id 가 없으면
+            // PaymentController::callback() 이 주문을 찾지 못해 결제가 끊긴다.
+            'returnUrl' => base_url('payment/callback/inicis?order_id=' . $order['id']),
+            'closeUrl'  => base_url('order/fail/' . $order['order_number']),
         ];
     }
 

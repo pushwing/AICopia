@@ -91,6 +91,32 @@ final class SecurityHeadersFilterTest extends CIUnitTestCase
 
         $this->assertContains('stdpay.inicis.com', $formAction);
         $this->assertContains('pay.nicepay.co.kr', $formAction);
+        $this->assertContains('sandbox-pay.nicepay.co.kr', $formAction);
+    }
+
+    /**
+     * 이니시스·나이스페이 SDK 스크립트.
+     * INIStdPay는 stdux.inicis.com 에서 2차 스크립트를 이어서 로드한다.
+     */
+    public function testCspAllowsInicisAndNicepaySdkScripts(): void
+    {
+        $scriptSrc = $this->directive('script-src');
+
+        $this->assertContains('stdpay.inicis.com', $scriptSrc);
+        $this->assertContains('stdux.inicis.com', $scriptSrc);
+        $this->assertContains('pay.nicepay.co.kr', $scriptSrc);
+    }
+
+    /** INIStdPay는 결제창 CSS를, 나이스페이는 결제창 iframe을 각각 자기 도메인에서 가져온다. */
+    public function testCspAllowsInicisStyleAndNicepayFrame(): void
+    {
+        $this->assertContains('stdpay.inicis.com', $this->directive('style-src'));
+        $this->assertContains('stdux.inicis.com', $this->directive('img-src'));
+
+        $frameSrc = $this->directive('frame-src');
+        $this->assertContains('stdpay.inicis.com', $frameSrc);
+        $this->assertContains('pay.nicepay.co.kr', $frameSrc);
+        $this->assertContains('sandbox-pay.nicepay.co.kr', $frameSrc);
     }
 
     /** 화이트리스트를 와일드카드로 넓히지 않았는지 지킨다. */
