@@ -10,6 +10,8 @@ namespace App\Libraries\PG;
  */
 class PaycoAdapter implements PGInterface
 {
+    use ResolvesPayableAmount;
+
     private readonly string $sellerKey;
     private readonly string $secretKey;
     private string $apiBase = 'https://api-pay.payco.com/v2.1';
@@ -32,7 +34,7 @@ class PaycoAdapter implements PGInterface
             'sellerKey'     => $this->sellerKey,
             'orderId'       => $order['order_number'],
             'productName'   => $this->buildOrderName($order),
-            'totalAmount'   => (int) $order['total_amount'],
+            'totalAmount'   => $this->payableAmount($order),
             'taxFreeAmount' => 0,
             'returnUrl'     => base_url('payment/callback/payco?order_id=' . $order['id']),
             'cancelUrl'     => base_url('order/fail/' . $order['order_number']),

@@ -10,6 +10,8 @@ namespace App\Libraries\PG;
  */
 class TossPaymentsAdapter implements PGInterface
 {
+    use ResolvesPayableAmount;
+
     private readonly string $clientKey;
     private readonly string $secretKey;
     private string $apiBase = 'https://api.tosspayments.com/v1';
@@ -46,7 +48,7 @@ class TossPaymentsAdapter implements PGInterface
             'orderId'     => (string) $order['order_number'],
 
             'orderName'   => $this->buildOrderName($order),
-            'amount'      => (int) $order['total_amount'],
+            'amount'      => $this->payableAmount($order),
             'customerName' => $order['receiver_name'],
 
             // 콜백 URL 은 다른 PG 어댑터와 동일하게 어댑터가 만든다.

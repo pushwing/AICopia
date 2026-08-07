@@ -23,7 +23,7 @@
                 <dt class="col-4 fw-normal text-muted">주문번호</dt>
                 <dd class="col-8"><?= esc($order['order_number']) ?></dd>
                 <dt class="col-4 fw-normal text-muted">결제 금액</dt>
-                <dd class="col-8"><?= number_format($order['total_amount']) ?>원</dd>
+                <dd class="col-8"><?= number_format($order['payable_amount'] ?? $order['total_amount']) ?>원</dd>
                 <dt class="col-4 fw-normal text-muted">주문 상태</dt>
                 <dd class="col-8">
                     <span class="badge bg-secondary">
