@@ -9,7 +9,9 @@ use App\Libraries\PG\NaverPayAdapter;
 use App\Libraries\PG\NicePayAdapter;
 use App\Libraries\PG\PaycoAdapter;
 use App\Libraries\PG\TossPaymentsAdapter;
+use CodeIgniter\Config\Factories;
 use CodeIgniter\Test\CIUnitTestCase;
+use Config\PG;
 
 /**
  * 결제창에 넘기는 금액은 반드시 payable_amount(할인 후 실결제액)여야 한다.
@@ -27,6 +29,27 @@ final class PgPayableAmountTest extends CIUnitTestCase
 
     /** 쿠폰 5,000원 + 포인트 3,000원 차감 후 실결제액. */
     private const PAYABLE_AMOUNT = 42000;
+
+    protected function tearDown(): void
+    {
+        Factories::reset('config');
+        parent::tearDown();
+    }
+
+    /**
+     * 토스 어댑터는 키가 비었거나 결제위젯용(gck/gsk)이면 결제창 파라미터 대신
+     * error 만 돌려준다. 로컬 .env 유무에 결과가 좌우되지 않도록 결제창용 키를
+     * 주입해 만든다(TossPaymentParamsTest 와 동일한 방식).
+     */
+    private function tossAdapter(): TossPaymentsAdapter
+    {
+        $config                = new PG();
+        $config->tossClientKey = 'test_ck_docsSampleClientKey0000000000';
+        $config->tossSecretKey = 'test_sk_docsSampleSecretKey0000000000';
+        Factories::injectMock('config', 'PG', $config);
+
+        return new TossPaymentsAdapter();
+    }
 
     /**
      * 쿠폰·포인트가 함께 적용된 주문 픽스처.
@@ -55,7 +78,7 @@ final class PgPayableAmountTest extends CIUnitTestCase
 
     public function testTossPassesPayableAmount(): void
     {
-        $params = (new TossPaymentsAdapter())->buildPaymentParams($this->discountedOrder());
+        $params = $this->tossAdapter()->buildPaymentParams($this->discountedOrder());
 
         $this->assertSame(self::PAYABLE_AMOUNT, $params['amount']);
     }
@@ -128,7 +151,7 @@ final class PgPayableAmountTest extends CIUnitTestCase
         $legacy = $this->discountedOrder();
         unset($legacy['payable_amount']);
 
-        $this->assertSame(self::TOTAL_AMOUNT, (new TossPaymentsAdapter())->buildPaymentParams($legacy)['amount']);
+        $this->assertSame(self::TOTAL_AMOUNT, $this->tossAdapter()->buildPaymentParams($legacy)['amount']);
         $this->assertSame(self::TOTAL_AMOUNT, (new NicePayAdapter())->buildPaymentParams($legacy)['amount']);
         $this->assertSame(self::TOTAL_AMOUNT, (new InicisAdapter())->buildPaymentParams($legacy)['price']);
         $this->assertSame(self::TOTAL_AMOUNT, (new PaycoAdapter())->buildPaymentParams($legacy)['totalAmount']);
