@@ -694,13 +694,15 @@ $userCoupons  = $userCoupons ?? [];
 
         if (pg === 'toss') {
             const toss = TossPayments(p.clientKey);
+            // successUrl·failUrl 은 어댑터가 만들어 넘긴다.
+            // (orderId 는 토스 규격상 주문번호라, 콜백이 쓰는 DB PK 와 다르다.)
             await toss.requestPayment('카드', {
                 amount:       p.amount,
                 orderId:      p.orderId,
                 orderName:    p.orderName,
                 customerName: p.customerName,
-                successUrl:   location.origin + '/payment/callback/toss?order_id=' + p.orderId,
-                failUrl:      location.origin + '/order/fail/' + p.orderNumber,
+                successUrl:   p.successUrl,
+                failUrl:      p.failUrl,
             });
             return;
         }

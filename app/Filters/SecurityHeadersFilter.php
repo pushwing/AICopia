@@ -44,7 +44,10 @@ class SecurityHeadersFilter implements FilterInterface
             // log·event.tosspayments.com — SDK가 보내는 로그·지표 수집(결제 기능 자체와는 무관).
             // 막아도 결제는 되지만 SDK가 재시도하며 주문서 콘솔에 오류를 계속 쌓고,
             // 결제 장애 문의 시 토스 측이 이 로그를 근거로 확인하므로 함께 허용한다.
-            "connect-src 'self' apigw.tosspayments.com apigw-sandbox.tosspayments.com log.tosspayments.com event.tosspayments.com",
+            // cdn.jsdelivr.net — 부트스트랩 소스맵(*.map). 개발자도구를 열면 브라우저가
+            // 소스맵을 fetch 하는데 이것도 connect-src 대상이라, 빠지면 주문서 콘솔에
+            // CSP 위반 메시지가 계속 쌓여 실제 결제 오류를 가린다(기능 영향은 없다).
+            "connect-src 'self' cdn.jsdelivr.net apigw.tosspayments.com apigw-sandbox.tosspayments.com log.tosspayments.com event.tosspayments.com",
 
             // payment-gateway(-sandbox).tosspayments.com — 토스 결제창은 팝업이 아니라
             // iframe으로 열린다. frame-src를 지정하지 않으면 default-src 'self'로 폴백돼 차단된다.
