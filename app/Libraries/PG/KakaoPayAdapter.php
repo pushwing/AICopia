@@ -10,6 +10,8 @@ namespace App\Libraries\PG;
  */
 class KakaoPayAdapter implements PGInterface
 {
+    use ResolvesPayableAmount;
+
     private readonly string $secretKey;
     private readonly string $cid;
     private string $apiBase = 'https://open-api.kakaopay.com/online/v1/payment';
@@ -48,19 +50,31 @@ class KakaoPayAdapter implements PGInterface
      */
     private function ready(array $order): array
     {
+        return $this->request('POST', '/ready', $this->buildReadyPayload($order));
+    }
+
+    /**
+     * ready 요청 본문 조립 — 네트워크 호출과 분리해 두어야 금액 산출을 단위 테스트할 수 있다.
+     *
+     * @param  array<string, mixed> $order
+     * @return array<string, mixed>
+     */
+    private function buildReadyPayload(array $order): array
+    {
         $baseUrl = base_url();
-        return $this->request('POST', '/ready', [
+
+        return [
             'cid'              => $this->cid,
             'partner_order_id' => $order['order_number'],
             'partner_user_id'  => (string) $order['user_id'],
             'item_name'        => $this->buildOrderName($order),
             'quantity'         => array_sum(array_column($order['items'] ?? [], 'qty')) ?: 1,
-            'total_amount'     => (int) $order['total_amount'],
+            'total_amount'     => $this->payableAmount($order),
             'tax_free_amount'  => 0,
             'approval_url'     => $baseUrl . 'payment/callback/kakaopay?order_id=' . $order['id'],
             'fail_url'         => $baseUrl . 'order/fail/' . $order['order_number'],
             'cancel_url'       => $baseUrl . 'order/fail/' . $order['order_number'],
-        ]);
+        ];
     }
 
     /**

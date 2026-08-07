@@ -114,7 +114,7 @@ $statusBadge = [
                     <div>
                         <div class="fw-semibold mb-1"><?= esc($orderName) ?></div>
                         <div class="text-muted small">
-                            총 <?= number_format($order['total_amount']) ?>원
+                            총 <?= number_format($order['payable_amount'] ?? $order['total_amount']) ?>원
                         </div>
                     </div>
                     <div class="d-flex gap-2">

@@ -10,6 +10,8 @@ namespace App\Libraries\PG;
  */
 class TossPaymentsAdapter implements PGInterface
 {
+    use ResolvesPayableAmount;
+
     private readonly string $clientKey;
     private readonly string $secretKey;
     private string $apiBase = 'https://api.tosspayments.com/v1';
@@ -33,7 +35,7 @@ class TossPaymentsAdapter implements PGInterface
             'orderNumber' => $order['order_number'],
             'orderId'     => (string) $order['id'],
             'orderName'   => $this->buildOrderName($order),
-            'amount'      => (int) $order['total_amount'],
+            'amount'      => $this->payableAmount($order),
             'customerName' => $order['receiver_name'],
         ];
     }

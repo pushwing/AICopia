@@ -10,6 +10,8 @@ namespace App\Libraries\PG;
  */
 class InicisAdapter implements PGInterface
 {
+    use ResolvesPayableAmount;
+
     private readonly string $merchantId;
     private readonly string $signKey;
     private string $apiBase = 'https://iniapi.inicis.com/api/v1';
@@ -29,7 +31,7 @@ class InicisAdapter implements PGInterface
     {
         $timestamp = time() * 1000;
         $oid       = $order['order_number'];
-        $price     = (int) $order['total_amount'];
+        $price     = $this->payableAmount($order);
 
         return [
             'pg'        => 'inicis',

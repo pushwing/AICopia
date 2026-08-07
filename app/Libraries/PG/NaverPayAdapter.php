@@ -10,6 +10,8 @@ namespace App\Libraries\PG;
  */
 class NaverPayAdapter implements PGInterface
 {
+    use ResolvesPayableAmount;
+
     private readonly string $clientId;
     private readonly string $clientSecret;
     private readonly string $chainId;
@@ -29,14 +31,16 @@ class NaverPayAdapter implements PGInterface
      */
     public function buildPaymentParams(array $order): array
     {
+        $payable = $this->payableAmount($order);
+
         return [
             'pg'          => 'naverpay',
             'clientId'    => $this->clientId,
             'chainId'     => $this->chainId,
             'orderId'     => $order['order_number'],
             'productName' => $this->buildOrderName($order),
-            'totalPayAmount' => (int) $order['total_amount'],
-            'taxScopeAmount' => (int) $order['total_amount'],
+            'totalPayAmount' => $payable,
+            'taxScopeAmount' => $payable,
             'taxExScopeAmount' => 0,
             'returnUrl'   => base_url('payment/callback/naverpay?order_id=' . $order['id']),
         ];
