@@ -251,8 +251,8 @@ $userCoupons  = $userCoupons ?? [];
                     </div>
                 </div>
 
-                <!-- 결제 수단 -->
-                <div class="card">
+                <!-- 결제 수단 (실결제액이 0원이면 JS 가 통째로 감춘다) -->
+                <div class="card" id="pgSection">
                     <div class="card-header fw-semibold bg-white">
                         <i class="bi bi-credit-card me-2 text-primary"></i>결제 수단
                     </div>
@@ -399,10 +399,16 @@ $userCoupons  = $userCoupons ?? [];
         const displayPayable = document.getElementById('displayPayable');
         if (displayPayable) displayPayable.textContent = payable.toLocaleString('ko-KR') + '원';
 
+        // 결제수단 영역 — 0원이면 고를 결제수단이 없으므로 감춘다
+        const pgSection = document.getElementById('pgSection');
+        if (pgSection) pgSection.classList.toggle('d-none', payable === 0);
+
         // 버튼 텍스트
         const btn = document.getElementById('btnOrder');
         if (btn && ! btn.disabled) {
-            btn.textContent = payable.toLocaleString('ko-KR') + '원 결제하기';
+            btn.textContent = payable === 0
+                ? '0원 주문 완료하기'
+                : payable.toLocaleString('ko-KR') + '원 결제하기';
         }
 
         // 포인트 적립 예상
@@ -600,17 +606,15 @@ $userCoupons  = $userCoupons ?? [];
                 return false;
             }
         }
-        if (! document.querySelector('[name=pg_provider]:checked')) {
-            alert('결제 수단을 선택해주세요.');
-            return false;
-        }
-
         // 결제 금액 검증 (서버 OrderModel::validatePayableAmount 와 동일한 규칙)
         const pointUse = parseInt(document.getElementById('hiddenPointUse').value) || 0;
         const payable  = Math.max(0, TOTAL_AMOUNT - couponDiscount - pointUse);
-        // 전액이 차감되면 PG 에 0원을 요청하게 되어 결제가 성립하지 않는다.
-        if (payable <= 0) {
-            alert('쿠폰·포인트로 전액이 차감되어 결제할 금액이 없습니다. 포인트 사용량을 줄여주세요.');
+
+        // 0원이면 결제 자체가 없다 — 결제수단도 최소금액도 따지지 않는다.
+        if (payable === 0) return true;
+
+        if (! document.querySelector('[name=pg_provider]:checked')) {
+            alert('결제 수단을 선택해주세요.');
             return false;
         }
         if (MIN_PAYABLE > 0 && payable < MIN_PAYABLE) {
@@ -767,7 +771,8 @@ $userCoupons  = $userCoupons ?? [];
             return;
         }
 
-        if (pg === 'bank_transfer') {
+        // 무료 주문은 서버가 이미 결제완료로 확정했다 — 주문완료 화면으로 보내기만 한다.
+        if (pg === 'free' || pg === 'bank_transfer') {
             location.href = p.redirectUrl;
             return;
         }

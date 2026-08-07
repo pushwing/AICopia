@@ -8,9 +8,9 @@ use CodeIgniter\Test\CIUnitTestCase;
 /**
  * 결제 가능 금액 검증 — OrderModel::validatePayableAmount()
  *
- * 쿠폰·포인트로 전액이 차감되면 payable_amount 가 0 이 되는데, 이 주문은
- * PG 결제창에 0원을 요청하게 되어 결제가 성립하지 않는다(무통장입금도
- * "0원 입금" 안내가 되어 마찬가지). 주문 생성 단계에서 막아야 한다.
+ * payable_amount 가 0 인 주문(100% 할인 쿠폰·포인트 전액 사용)은 PG 를 거치지
+ * 않고 즉시 확정하는 무료 주문 경로로 간다(→ confirmFree, FreeOrderTest 참조).
+ * 따라서 0원은 여기서 통과시키고, 1원 이상일 때만 최소 결제 금액을 따진다.
  *
  * @internal
  */
@@ -24,30 +24,22 @@ final class PayableAmountGuardTest extends CIUnitTestCase
         $this->model = new OrderModel();
     }
 
-    // ─── 0원 주문 차단 ────────────────────────────────────────────────────────
+    // ─── 0원 주문 = 무료 주문 경로 ────────────────────────────────────────────
 
-    /** 쿠폰·포인트로 전액 차감된 주문은 거부한다. */
-    public function testZeroPayableIsRejected(): void
+    /** 쿠폰·포인트로 전액 차감된 주문은 무료 주문으로 통과시킨다. */
+    public function testZeroPayableIsAllowedAsFreeOrder(): void
     {
-        $error = $this->model->validatePayableAmount(0, 10000);
-
-        $this->assertNotNull($error, '0원 주문이 통과했습니다.');
-        $this->assertStringContainsString('결제할 금액', $error);
+        $this->assertNull($this->model->validatePayableAmount(0, 10000));
     }
 
-    /**
-     * 최소 결제 금액 설정이 0(또는 미설정)이어도 0원 주문은 막아야 한다.
-     * 최소금액 검증에 기대는 방식은 이 구멍을 놓친다.
-     */
-    public function testZeroPayableIsRejectedEvenWhenMinimumIsZero(): void
+    /** 무료 주문은 최소 결제 금액 검사 대상이 아니다 — 결제 자체가 없다. */
+    public function testZeroPayableIgnoresMinimumRegardlessOfSetting(): void
     {
-        $error = $this->model->validatePayableAmount(0, 0);
-
-        $this->assertNotNull($error, '최소 결제 금액이 0이면 0원 주문이 통과합니다.');
-        $this->assertStringContainsString('결제할 금액', $error);
+        $this->assertNull($this->model->validatePayableAmount(0, 0));
+        $this->assertNull($this->model->validatePayableAmount(0, 50000));
     }
 
-    /** 음수는 발생해선 안 되지만, 들어와도 0원과 같이 막는다. */
+    /** 음수는 계산 오류를 뜻하므로 무료 주문으로 넘기지 않고 거부한다. */
     public function testNegativePayableIsRejected(): void
     {
         $this->assertNotNull($this->model->validatePayableAmount(-1, 0));

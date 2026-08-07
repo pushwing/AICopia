@@ -47,20 +47,20 @@ class OrderModel extends Model
     /**
      * 실결제 금액이 주문 가능한 값인지 검증한다.
      *
-     * 쿠폰·포인트로 전액이 차감되면 payable_amount 가 0 이 되는데, 이 주문은
-     * PG 결제창에 0원을 요청하게 되어 결제가 성립하지 않는다(무통장입금도
-     * "0원 입금" 안내가 되어 마찬가지). 최소 결제 금액 설정이 0 이거나
-     * 없더라도 0원 주문은 항상 막아야 하므로 두 검사를 분리한다.
+     * payable_amount 가 0 인 주문(100% 할인 쿠폰·포인트 전액 사용)은 PG 를 거치지
+     * 않고 즉시 확정하는 무료 주문 경로로 가므로 통과시킨다(→ confirmFree()).
+     * 최소 결제 금액은 실제로 결제가 일어나는 1원 이상일 때만 따진다.
      *
      * @return string|null 거부 사유. 통과하면 null.
      */
     public function validatePayableAmount(int $payableAmount, int $minPayable): ?string
     {
-        if ($payableAmount <= 0) {
-            return '쿠폰·포인트로 전액이 차감되어 결제할 금액이 없습니다. 포인트 사용량을 줄여주세요.';
+        // 음수는 금액 계산이 깨졌다는 뜻이라 무료 주문으로 넘기지 않는다.
+        if ($payableAmount < 0) {
+            return '주문 금액을 계산할 수 없습니다. 장바구니를 다시 확인해주세요.';
         }
 
-        if ($payableAmount < $minPayable) {
+        if ($payableAmount > 0 && $payableAmount < $minPayable) {
             return '최소 결제 금액은 ' . number_format($minPayable) . '원입니다. 포인트 사용량을 조정해주세요.';
         }
 
@@ -273,10 +273,26 @@ class OrderModel extends Model
     }
 
     /**
+     * 실결제액이 0원인 주문을 PG 없이 즉시 확정한다.
+     *
+     * 100% 할인 쿠폰이나 포인트 전액 사용으로 payable_amount 가 0 이 되면
+     * 결제창에 요청할 금액이 없다. 재고 차감·장바구니 비우기·상태 로그는
+     * PG 결제와 동일해야 하므로 confirmPaid() 를 그대로 태운다.
+     */
+    public function confirmFree(int $orderId): bool
+    {
+        return $this->confirmPaid($orderId, 'free', null, 'free', ['reason' => 'payable_amount = 0']);
+    }
+
+    /**
      * 결제 확정 — PG 콜백 수신 후 호출
+     *
+     * $pgTid 는 무료 주문처럼 PG 거래가 없는 경우 null 이다. payments.pg_tid 에
+     * UNIQUE 제약이 있어 빈 문자열을 쓰면 두 번째 무료 주문이 중복으로 거부된다
+     * (MySQL 은 NULL 중복만 허용한다).
      */
     /** @param array<string, mixed> $rawResponse */
-    public function confirmPaid(int $orderId, string $pgProvider, string $pgTid, string $method, array $rawResponse): bool
+    public function confirmPaid(int $orderId, string $pgProvider, ?string $pgTid, string $method, array $rawResponse): bool
     {
         $this->db->transStart();
 
@@ -339,7 +355,9 @@ class OrderModel extends Model
             $builder->delete();
         }
 
-        $this->writeStatusLog($orderId, 'pending', 'paid', 'PG 결제 확인 (' . $pgProvider . ')');
+        $this->writeStatusLog($orderId, 'pending', 'paid', $pgProvider === 'free'
+            ? '무료 주문 자동 확정 (쿠폰·포인트로 전액 차감)'
+            : 'PG 결제 확인 (' . $pgProvider . ')');
 
         $this->db->transComplete();
 

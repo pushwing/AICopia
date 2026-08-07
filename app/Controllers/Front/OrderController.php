@@ -102,7 +102,9 @@ class OrderController extends BaseController
             'receiver_phone' => 'required|max_length[20]',
             'zipcode'        => 'required|max_length[10]',
             'address1'       => 'required|max_length[200]',
-            'pg_provider'    => 'required|in_list[' . implode(',', PGFactory::providers()) . ']',
+            // 실결제액이 0원이면 결제수단 자체가 없으므로 필수가 아니다.
+            // 금액을 계산한 뒤(아래) 1원 이상일 때만 선택 여부를 따진다.
+            'pg_provider'    => 'permit_empty|in_list[' . implode(',', PGFactory::providers()) . ']',
         ];
 
         if (! $this->validate($rules)) {
@@ -174,13 +176,19 @@ class OrderController extends BaseController
             }
         }
 
-        // payable_amount — 0원 주문·최소 결제 금액 미달은 여기서 걸러진다
+        // payable_amount — 0원이면 PG 를 거치지 않는 무료 주문이 된다
         $payableAmount = max(0, $totalAmount - $couponDiscountAmount - $pointUse);
         $minPayable    = max(0, (int) ($settings['min_payable_amount'] ?? 10000));
+        $isFreeOrder   = $payableAmount === 0;
 
         $payableError = $this->orderModel->validatePayableAmount($payableAmount, $minPayable);
         if ($payableError !== null) {
             return $this->response->setJSON(['success' => false, 'message' => $payableError]);
+        }
+
+        // 결제가 실제로 일어나는 주문만 결제수단이 필요하다.
+        if (! $isFreeOrder && ($pgProvider === null || $pgProvider === '')) {
+            return $this->response->setJSON(['success' => false, 'message' => '결제 수단을 선택해주세요.']);
         }
 
         // 포인트 적립 예정액 (배송완료 시점 등급 기준 — 여기선 현재 등급으로 미리 계산)
@@ -206,6 +214,30 @@ class OrderController extends BaseController
 
         if ($saveAddress) {
             $this->addressModel->saveAddress($userId, $shippingData);
+        }
+
+        // 무료 주문 — 결제창 없이 바로 확정한다(재고 차감·장바구니 비우기는 confirmFree 안에서).
+        if ($isFreeOrder) {
+            $order = $this->orderModel->getWithItems($orderId, $userId);
+
+            if (! $this->orderModel->confirmFree($orderId)) {
+                log_message('error', "무료 주문 확정 실패 (재고 부족): order_id={$orderId}");
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => '재고가 부족해 주문을 완료할 수 없습니다.',
+                ]);
+            }
+
+            session()->remove(CartModel::CHECKOUT_SESSION_KEY);
+
+            return $this->response->setJSON([
+                'success'  => true,
+                'orderId'  => $orderId,
+                'pgParams' => [
+                    'pg'          => 'free',
+                    'redirectUrl' => '/order/complete/' . $order['order_number'],
+                ],
+            ]);
         }
 
         // 무통장입금
