@@ -80,9 +80,22 @@ class PaymentController extends BaseController
         );
 
         if (! $confirmed) {
-            session()->setFlashdata('pg_error', '재고 부족으로 결제를 완료할 수 없습니다. 자동 환불 처리됩니다.');
-            // TODO: PG 자동 취소 요청 ($pg->cancel($result['tid'], $result['amount'], '재고 부족'))
-            log_message('error', "결제 확정 실패 (재고 부족): order_id={$orderId}, tid={$result['tid']}");
+            // 쿠폰·포인트는 confirmPaid() 안에서 이미 복구되고 주문도 취소됐다.
+            // 다만 PG 결제는 이 시점에 이미 승인(청구)된 상태이고, 자동 취소는
+            // 아직 구현돼 있지 않다 — 실제로 환불이 나가기 전까지 "자동 환불"이라고
+            // 안내해선 안 된다.
+            session()->setFlashdata(
+                'pg_error',
+                '재고 부족으로 주문이 취소되었습니다. 사용하신 쿠폰·포인트는 복구되었습니다. '
+                . '결제하신 금액은 확인 후 환불해 드립니다. 고객센터로 문의해 주세요.'
+            );
+            // TODO(#113): PG 자동 취소 요청 ($pg->cancel($result['tid'], $result['amount'], '재고 부족'))
+            //             구현 전까지는 아래 critical 로그가 수동 환불의 유일한 단서다.
+            log_message(
+                'critical',
+                "결제 확정 실패 (재고 부족) — 수동 환불 필요: order_id={$orderId}, "
+                . "pg={$pgProvider}, tid={$result['tid']}, amount={$result['amount']}"
+            );
             return redirect()->to('/order/fail/' . $order['order_number']);
         }
 

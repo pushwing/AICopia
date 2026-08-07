@@ -309,8 +309,15 @@ class OrderController extends BaseController
     {
         $ok = $this->orderModel->confirmBankTransfer($id);
 
+        // 재고 부족으로 실패하면 쿠폰·포인트는 복구되고 주문은 취소되지만,
+        // 입금액 환불은 자동화할 수 없으므로 관리자에게 명시적으로 알린다.
         return redirect()->to("/admin/orders/{$id}")
-            ->with($ok ? 'success' : 'error', $ok ? '입금 확인 처리가 완료되었습니다.' : '입금 확인에 실패했습니다. (재고 부족 또는 이미 처리된 주문)');
+            ->with(
+                $ok ? 'success' : 'error',
+                $ok
+                    ? '입금 확인 처리가 완료되었습니다.'
+                    : '입금 확인에 실패했습니다. 재고가 부족한 경우 주문은 취소되고 쿠폰·포인트는 복구되었습니다 — 입금액은 수동으로 환불해 주세요. (이미 처리된 주문이면 변경 없음)'
+            );
     }
 
     /** POST /admin/orders/:id/refund */

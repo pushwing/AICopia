@@ -224,7 +224,8 @@ class OrderController extends BaseController
                 log_message('error', "무료 주문 확정 실패 (재고 부족): order_id={$orderId}");
                 return $this->response->setJSON([
                     'success' => false,
-                    'message' => '재고가 부족해 주문을 완료할 수 없습니다.',
+                    // 쿠폰·포인트는 confirmFree() 안에서 복구됐으므로 바로 다시 쓸 수 있다.
+                    'message' => '재고가 부족해 주문을 완료할 수 없습니다. 사용하신 쿠폰·포인트는 복구되었습니다.',
                 ]);
             }
 
