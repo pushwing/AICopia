@@ -613,6 +613,16 @@ $userCoupons  = $userCoupons ?? [];
         return true;
     }
 
+    // 사용자가 결제를 취소했을 때 PG SDK 가 주는 코드.
+    // PAY_PROCESS_CANCELED — 결제창에서 취소(닫기 포함)
+    // PAY_PROCESS_ABORTED  — 결제가 진행되지 않은 채 중단
+    // USER_CANCEL          — 일부 간편결제 흐름에서 취소 시 내려온다
+    const PAYMENT_CANCELED_CODES = ['PAY_PROCESS_CANCELED', 'PAY_PROCESS_ABORTED', 'USER_CANCEL'];
+
+    function isPaymentCanceled(e) {
+        return !! e && PAYMENT_CANCELED_CODES.includes(e.code);
+    }
+
     // ─── 주문 생성 → PG 결제창 ────────────────────────────────────────────────
     document.getElementById('btnOrder')?.addEventListener('click', async function () {
         if (! validate()) return;
@@ -637,17 +647,21 @@ $userCoupons  = $userCoupons ?? [];
 
             if (! data.success) {
                 alert(data.message || '주문 생성에 실패했습니다.');
-                btn.disabled    = false;
-                updateSummary(); // 버튼 텍스트 복원
-                return;
+                return;   // 버튼 복구는 finally 가 처리한다
             }
 
             await launchPG(data.pgParams);
 
         } catch (e) {
-            alert('오류가 발생했습니다. 다시 시도해주세요.');
+            // 결제창을 그냥 닫은 것은 오류가 아니다 — 경고창 없이 주문서로 되돌린다.
+            if (! isPaymentCanceled(e)) {
+                alert(e?.message || '오류가 발생했습니다. 다시 시도해주세요.');
+            }
+        } finally {
+            // 결제창이 닫히거나 실패하면 다시 결제할 수 있어야 한다.
+            // (성공 시엔 successUrl 로 페이지가 넘어가 이 복구는 화면에 남지 않는다.)
             btn.disabled = false;
-            updateSummary();
+            updateSummary();   // 버튼 텍스트 복원
         }
     });
 
