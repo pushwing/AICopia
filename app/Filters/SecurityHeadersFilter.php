@@ -41,7 +41,13 @@ class SecurityHeadersFilter implements FilterInterface
 
             // payment-gateway(-sandbox).tosspayments.com — 토스 결제창은 팝업이 아니라
             // iframe으로 열린다. frame-src를 지정하지 않으면 default-src 'self'로 폴백돼 차단된다.
-            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com",
+            //
+            // postcode.map.kakao.com — 카카오 우편번호(주소검색) 창. SDK의 open()은
+            // window.open('')으로 빈 팝업을 띄운 뒤 그 안에 iframe을 삽입하는데,
+            // 그 팝업 문서는 about:blank(동일 출처)라 이 페이지의 CSP를 그대로 상속한다.
+            // 따라서 팝업 방식이어도 frame-src 허용이 필요하다 — 빠지면 팝업 안이
+            // "이 콘텐츠는 차단되어 있습니다"로 뜨고 주소검색이 불가능해진다.
+            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com postcode.map.kakao.com",
 
             "frame-ancestors 'none'",
             "object-src 'none'",
