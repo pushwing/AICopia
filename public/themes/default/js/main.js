@@ -12,18 +12,22 @@
     });
 })();
 
-// 다음(카카오) 우편번호 서비스 — 버튼 클릭 시점에 CDN 스크립트를 지연 로드한다.
+// 카카오(구 다음) 우편번호 서비스 — 버튼 클릭 시점에 CDN 스크립트를 지연 로드한다.
 // 스크립트를 <script> 태그로 미리 심어두면 로드가 실패했을 때(광고 차단 확장·네트워크 오류 등)
-// 클릭 시 `daum is not defined` ReferenceError 만 나고 주소 입력이 완전히 막힌다.
+// 클릭 시 `kakao is not defined` ReferenceError 만 나고 주소 입력이 완전히 막힌다.
+//
+// 도메인·네임스페이스는 카카오 이관에 맞춰 t1.kakaocdn.net · kakao.Postcode 를 쓴다.
+// 번들이 window.kakao 와 window.daum 을 서로 alias 하므로 구 네임스페이스도 동작하지만,
+// 레거시 다음 도메인은 순차 종료 중이라 신규 경로로 통일한다.
 (function () {
     'use strict';
 
-    var POSTCODE_SRC = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+    var POSTCODE_SRC = 'https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
     var loadingPromise = null;
 
     // 스크립트를 한 번만 로드하고 Promise 를 캐시한다. 실패 시 캐시를 비워 다음 클릭에서 재시도한다.
     function loadPostcodeScript() {
-        if (window.daum && window.daum.Postcode) {
+        if (window.kakao && window.kakao.Postcode) {
             return Promise.resolve();
         }
         if (loadingPromise) {
@@ -35,11 +39,11 @@
             script.src   = POSTCODE_SRC;
             script.async = true;
             script.onload = function () {
-                if (window.daum && window.daum.Postcode) {
+                if (window.kakao && window.kakao.Postcode) {
                     resolve();
                     return;
                 }
-                reject(new Error('스크립트는 로드됐지만 daum.Postcode 가 없습니다.'));
+                reject(new Error('스크립트는 로드됐지만 kakao.Postcode 가 없습니다.'));
             };
             script.onerror = function () {
                 reject(new Error('우편번호 스크립트 로드 실패: ' + POSTCODE_SRC));
@@ -69,7 +73,7 @@
      */
     window.openPostcode = function (oncomplete) {
         loadPostcodeScript().then(function () {
-            new window.daum.Postcode({ oncomplete: oncomplete }).open();
+            new window.kakao.Postcode({ oncomplete: oncomplete }).open();
         })['catch'](function (err) {
             console.error('[postcode]', err);
             enableManualAddressInput();
