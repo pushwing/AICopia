@@ -651,6 +651,43 @@ $userCoupons  = $userCoupons ?? [];
         }
     });
 
+    // 외부 결제 SDK 를 필요한 시점에만 1회 로드한다.
+    // (모든 PG SDK 를 주문서에서 미리 받아두면 쓰지도 않을 스크립트를 매번 내려받게 된다.)
+    const loadedScripts = {};
+    function loadScript(src) {
+        if (loadedScripts[src]) return loadedScripts[src];
+
+        loadedScripts[src] = new Promise(function (resolve, reject) {
+            const el = document.createElement('script');
+            el.src    = src;
+            el.onload = resolve;
+            el.onerror = function () {
+                delete loadedScripts[src];   // 실패는 캐시하지 않아 재시도 가능하게 둔다
+                reject(new Error('결제 모듈을 불러오지 못했습니다: ' + src));
+            };
+            document.head.appendChild(el);
+        });
+
+        return loadedScripts[src];
+    }
+
+    // PG 파라미터를 hidden input 으로 펼친 form 을 만든다(전송은 SDK 가 담당).
+    function buildParamForm(p, formId) {
+        const frm = document.createElement('form');
+        frm.id = formId;
+
+        Object.entries(p).forEach(function ([k, v]) {
+            if (k === 'pg') return;          // 프론트 분기용 키라 PG 로 넘기지 않는다
+            const input = document.createElement('input');
+            input.type  = 'hidden';
+            input.name  = k;
+            input.value = v;
+            frm.appendChild(input);
+        });
+
+        return frm;
+    }
+
     // ─── PG별 결제창 실행 ─────────────────────────────────────────────────────
     async function launchPG(p) {
         const pg = p.pg;
@@ -684,20 +721,42 @@ $userCoupons  = $userCoupons ?? [];
             return;
         }
 
-        if (pg === 'inicis' || pg === 'nicepay') {
-            const frm = document.createElement('form');
+        if (pg === 'inicis') {
+            // INIStdPay 는 폼을 직접 전송하는 방식이 아니다.
+            // SDK 를 로드한 뒤 파라미터를 담은 form 의 id 를 넘겨 호출해야 결제창이 열린다.
+            await loadScript('https://stdpay.inicis.com/stdjs/INIStdPay.js');
+
+            const frm = buildParamForm(p, 'SendPayForm_id');
             frm.method = 'post';
-            frm.action = pg === 'inicis'
-                ? 'https://stdpay.inicis.com/stdjs/INIStdPay.js'
-                : 'https://pay.nicepay.co.kr/v1/js/';
-            Object.entries(p).forEach(function ([k, v]) {
-                if (k === 'pg') return;
-                const input = document.createElement('input');
-                input.type  = 'hidden'; input.name = k; input.value = v;
-                frm.appendChild(input);
-            });
             document.body.appendChild(frm);
-            frm.submit();
+
+            if (typeof INIStdPay === 'undefined') {
+                throw new Error('이니시스 결제 모듈을 불러오지 못했습니다.');
+            }
+            INIStdPay.pay('SendPayForm_id');
+            return;
+        }
+
+        if (pg === 'nicepay') {
+            // 나이스페이는 폼 전송이 아니라 AUTHNICE.requestPay() 호출 방식이다.
+            await loadScript('https://pay.nicepay.co.kr/v1/js/');
+
+            if (typeof AUTHNICE === 'undefined') {
+                throw new Error('나이스페이 결제 모듈을 불러오지 못했습니다.');
+            }
+            AUTHNICE.requestPay({
+                clientId:  p.clientId,
+                method:    p.method,
+                orderId:   p.orderId,
+                amount:    p.amount,
+                goodsName: p.goodsName,
+                buyerName: p.buyerName,
+                buyerTel:  p.buyerTel,
+                returnUrl: p.returnUrl,
+                fnError(result) {
+                    alert('결제에 실패했습니다: ' + (result && result.errorMsg ? result.errorMsg : '알 수 없는 오류'));
+                },
+            });
             return;
         }
 
