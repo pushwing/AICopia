@@ -71,6 +71,19 @@ final class SecurityHeadersFilterTest extends CIUnitTestCase
         $this->assertContains('payment-gateway-sandbox.tosspayments.com', $frameSrc);
     }
 
+    /**
+     * 카카오 우편번호(주소검색) 창도 iframe으로 열리므로 frame-src 허용이 필요하다.
+     *
+     * SDK의 open()은 window.open('')으로 빈 팝업을 띄운 뒤 그 안에
+     * postcode.map.kakao.com iframe을 삽입한다. 이 팝업 문서는 about:blank(동일 출처)라
+     * 부모 페이지의 CSP를 그대로 상속하므로, frame-src에서 빠지면 팝업 안이
+     * "이 콘텐츠는 차단되어 있습니다"로 표시되고 주소검색이 아예 불가능해진다.
+     */
+    public function testCspAllowsKakaoPostcodeFrame(): void
+    {
+        $this->assertContains('postcode.map.kakao.com', $this->directive('frame-src'));
+    }
+
     /** 이니시스·나이스페이는 결제 도메인으로 form POST를 보내므로 form-action 허용이 필요하다. */
     public function testCspAllowsInicisAndNicepayFormPost(): void
     {
