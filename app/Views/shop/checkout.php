@@ -9,7 +9,9 @@ $shippingFee  = (int) ($shippingFee  ?? 0);
 $pointBalance = (int) ($pointBalance ?? 0);
 $_grade        = $authUser['grade'] ?? 'bronze';
 $pointEarnRate = (float) ($settings['point_earn_rate_' . $_grade] ?? $settings['point_earn_rate'] ?? 1);
-$minPayable   = (int) ($settings['min_payable_amount'] ?? 0);
+// 기본값은 OrderController::create() 와 반드시 같아야 한다 — 어긋나면 클라이언트가
+// 통과시킨 주문을 서버가 거부해 안내가 어긋난다.
+$minPayable   = (int) ($settings['min_payable_amount'] ?? 10000);
 $userCoupons  = $userCoupons ?? [];
 ?>
 
