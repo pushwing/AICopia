@@ -50,6 +50,18 @@ final class SecurityHeadersFilterTest extends CIUnitTestCase
         $this->assertContains('apigw-sandbox.tosspayments.com', $connectSrc);
     }
 
+    /**
+     * 토스 SDK의 로그·지표 수집 엔드포인트.
+     * 결제 기능에는 영향이 없지만, 막으면 SDK가 재시도하며 주문서 콘솔에 오류가 쌓인다.
+     */
+    public function testCspAllowsTossTelemetryEndpoints(): void
+    {
+        $connectSrc = $this->directive('connect-src');
+
+        $this->assertContains('log.tosspayments.com', $connectSrc);
+        $this->assertContains('event.tosspayments.com', $connectSrc);
+    }
+
     /** 토스 결제창은 iframe으로 열리므로 frame-src에 결제 게이트웨이 호스트가 필요하다. */
     public function testCspAllowsTossPaymentWindowFrame(): void
     {

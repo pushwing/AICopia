@@ -34,7 +34,10 @@ class SecurityHeadersFilter implements FilterInterface
             // apigw(-sandbox).tosspayments.com — 토스 SDK가 결제창을 열기 전
             // 결제 파라미터를 XHR로 조회하는 엔드포인트. 차단되면 NETWORK_ERROR로 결제가 실패한다.
             // 라이브 키는 apigw, 테스트 키는 apigw-sandbox를 쓰므로 둘 다 필요하다.
-            "connect-src 'self' apigw.tosspayments.com apigw-sandbox.tosspayments.com",
+            // log·event.tosspayments.com — SDK가 보내는 로그·지표 수집(결제 기능 자체와는 무관).
+            // 막아도 결제는 되지만 SDK가 재시도하며 주문서 콘솔에 오류를 계속 쌓고,
+            // 결제 장애 문의 시 토스 측이 이 로그를 근거로 확인하므로 함께 허용한다.
+            "connect-src 'self' apigw.tosspayments.com apigw-sandbox.tosspayments.com log.tosspayments.com event.tosspayments.com",
 
             // payment-gateway(-sandbox).tosspayments.com — 토스 결제창은 팝업이 아니라
             // iframe으로 열린다. frame-src를 지정하지 않으면 default-src 'self'로 폴백돼 차단된다.
