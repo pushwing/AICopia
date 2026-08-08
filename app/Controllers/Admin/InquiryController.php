@@ -21,16 +21,19 @@ class InquiryController extends BaseController
 
     public function index(): string
     {
-        $page     = max(1, (int) ($this->request->getGet('page') ?? 1));
-        $filter   = $this->request->getGet('filter') ?? '';
-        $category = $this->request->getGet('category') ?? '';
-        $limit    = 20;
+        $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+        // filter·category 는 뷰의 링크에 그대로 실리므로 화이트리스트 통과 값만 넘긴다 (이슈 #120)
+        $filter   = $this->request->getGet('filter') === 'unread' ? 'unread' : '';
+        $category = in_array($this->request->getGet('category'), InquiryTaxonomy::CATEGORIES, true)
+            ? (string) $this->request->getGet('category')
+            : '';
+        $limit = 20;
 
         $builder = $this->model->builder();
         if ($filter === 'unread') {
             $builder->where('is_read', 0);
         }
-        if (in_array($category, InquiryTaxonomy::CATEGORIES, true)) {
+        if ($category !== '') {
             $builder->where('category', $category);
         }
 

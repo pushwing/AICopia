@@ -26,11 +26,14 @@ $catColors = ['shipping' => 'info', 'refund' => 'warning', 'product' => 'primary
 
 <!-- AI 분류 필터 -->
 <div class="d-flex flex-wrap gap-1 mb-3">
-    <?php $catQs = $filter ? '&filter=' . $filter : ''; ?>
-    <a href="/admin/inquiries<?= $filter ? '?filter=' . $filter : '' ?>"
+    <?php
+    // http_build_query 로 값을 퍼센트 인코딩하고, esc() 로 & 를 &amp; 처리한다 (이슈 #120)
+    $filterQs = $filter ? '?' . http_build_query(['filter' => $filter]) : '';
+    ?>
+    <a href="/admin/inquiries<?= esc($filterQs) ?>"
        class="btn btn-sm <?= $category === '' ? 'btn-dark' : 'btn-outline-secondary' ?>">전체 분류</a>
     <?php foreach ($catLabels as $key => $label): ?>
-    <a href="/admin/inquiries?category=<?= $key . $catQs ?>"
+    <a href="/admin/inquiries?<?= esc(http_build_query(array_filter(['category' => $key, 'filter' => $filter]))) ?>"
        class="btn btn-sm <?= $category === $key ? 'btn-' . $catColors[$key] : 'btn-outline-' . $catColors[$key] ?>"><?= esc($label) ?></a>
     <?php endforeach; ?>
 </div>
@@ -81,11 +84,12 @@ $catColors = ['shipping' => 'info', 'refund' => 'warning', 'product' => 'primary
 <nav class="mt-3 d-flex justify-content-center">
     <ul class="pagination pagination-sm">
         <?php
-        $qs = ($filter ? '&filter=' . $filter : '') . ($category ? '&category=' . $category : '');
+        $qs = http_build_query(array_filter(['filter' => $filter, 'category' => $category]));
+        $qs = $qs ? '&' . $qs : '';
         for ($p = 1; $p <= $totalPages; $p++):
         ?>
         <li class="page-item <?= $p === $currentPage ? 'active' : '' ?>">
-            <a class="page-link" href="?page=<?= $p ?><?= $qs ?>"><?= $p ?></a>
+            <a class="page-link" href="?page=<?= $p ?><?= esc($qs) ?>"><?= $p ?></a>
         </li>
         <?php endfor; ?>
     </ul>
