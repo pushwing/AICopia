@@ -15,7 +15,8 @@
         "php": ">=8.5",
         "phpoffice/phpspreadsheet": "^5.8",
         "codeigniter4/tasks": "^1.0",
-        "codeigniter4/framework": "^4.7"
+        "codeigniter4/framework": "^4.7",
+        "symfony/html-sanitizer": "^8.1"
     },
     "config": {
         "platform": {
