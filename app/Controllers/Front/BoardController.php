@@ -308,6 +308,22 @@ class BoardController extends BaseController
             return redirect()->back()->with('error', '파일을 찾을 수 없습니다.');
         }
 
+        // 첨부는 순차 정수 id 로 노출되므로, 부모 글·게시판의 접근 권한을
+        // view() 와 동일하게 다시 검사한다. (이슈 #118)
+        $post  = $this->postModel->find((int) $file['post_id']);
+        $board = $post ? $this->boardModel->find((int) $post['board_id']) : null;
+        if (! $post || ! $board) {
+            return redirect()->back()->with('error', '파일을 찾을 수 없습니다.');
+        }
+
+        if (! $this->checkPermission($board['read_permission'])) {
+            return redirect()->to('/auth/login')->with('error', '로그인이 필요합니다.');
+        }
+
+        if ($post['is_secret'] && ! $this->canAccessSecret($post)) {
+            return redirect()->back()->with('error', '비밀글입니다.');
+        }
+
         $fullPath = FCPATH . $file['file_path'];
         if (! file_exists($fullPath)) {
             return redirect()->back()->with('error', '파일이 존재하지 않습니다.');
