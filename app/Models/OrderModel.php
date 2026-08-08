@@ -313,8 +313,19 @@ class OrderModel extends Model
         foreach ($items as $item) {
             if (! $this->deductItemStock($item)) {
                 $this->db->transRollback();
-                // PG 결제는 이미 승인된 상태일 수 있다 — 결제 취소는 호출부 책임.
-                $this->compensateFailedConfirm($orderId, '재고 부족으로 결제 확정 실패 — 주문 취소');
+                // PG 청구는 이미 끝난 상태다 — 취소는 관리자가 실행하므로
+                // 그때까지 추적할 수 있도록 청구 사실을 함께 남긴다.
+                $this->compensateFailedConfirm(
+                    $orderId,
+                    '재고 부족으로 결제 확정 실패 — 주문 취소',
+                    $pgTid === null ? null : [
+                        'pg_provider' => $pgProvider,
+                        'pg_tid'      => $pgTid,
+                        'method'      => $method,
+                        'amount'      => (int) $order['payable_amount'],
+                        'raw'         => $rawResponse,
+                    ],
+                );
                 return false;
             }
         }
@@ -1156,8 +1167,11 @@ class OrderModel extends Model
      * 환급된다(restorePoints 에는 중복 방어가 없다).
      *
      * 실패한 트랜잭션이 롤백된 뒤 호출해야 하며, 자체 트랜잭션으로 처리한다.
+     *
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null $charge
+     *        이미 일어난 PG 청구. 무료 주문·무통장처럼 PG 거래가 없으면 null.
      */
-    private function compensateFailedConfirm(int $orderId, string $note): void
+    private function compensateFailedConfirm(int $orderId, string $note, ?array $charge = null): void
     {
         // 직전 롤백으로 트랜잭션 상태가 false 로 남아 있으면 이 트랜잭션도 롤백된다.
         $this->db->resetTransStatus();
@@ -1189,9 +1203,64 @@ class OrderModel extends Model
             ->whereIn('status', ['pending', 'ready'])
             ->update(['status' => 'cancelled', 'cancelled_at' => $now, 'updated_at' => $now]);
 
+        // PG 청구가 이미 일어났다면 그 사실을 남긴다. 재고 차감이 payments INSERT
+        // 보다 먼저라 롤백되면 흔적이 통째로 사라져, 고객은 청구됐는데 시스템에는
+        // 단서가 로그뿐이었다. 주문은 cancelled 인데 결제가 paid 로 남아 있는 조합이
+        // 곧 "환불 필요" 신호가 된다(→ findRefundPending()).
+        if ($charge !== null && $charge['pg_tid'] !== '') {
+            $this->db->table('payments')->ignore(true)->insert([
+                'order_id'     => $orderId,
+                'pg_provider'  => $charge['pg_provider'],
+                'pg_tid'       => $charge['pg_tid'],
+                'method'       => $charge['method'],
+                'amount'       => (int) $charge['amount'],
+                'status'       => 'paid',
+                'raw_response' => json_encode($charge['raw'], JSON_UNESCAPED_UNICODE),
+                'paid_at'      => $now,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ]);
+        }
+
         $this->writeStatusLog($orderId, $order['status'], 'cancelled', $note);
 
         $this->db->transComplete();
+    }
+
+    /**
+     * 환불이 필요한 주문 — 취소됐는데 PG 청구가 살아 있는 건.
+     *
+     * 정상 취소 경로(cancelOrder·markRefunded)는 결제행도 함께 정리하므로,
+     * 이 조합은 확정 실패로 청구만 남은 경우에만 나온다.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findRefundPending(): array
+    {
+        return $this->refundPendingBuilder()->orderBy('o.id', 'DESC')->get()->getResultArray();
+    }
+
+    /**
+     * 특정 주문의 환불 대상 결제 1건. 없으면 null.
+     *
+     * 관리자 화면의 "환불 필요" 표시와 실제 취소 가능 여부가 어긋나지 않도록
+     * findRefundPending() 과 같은 조건을 쓴다.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findRefundPendingPayment(int $orderId): ?array
+    {
+        return $this->refundPendingBuilder()->where('o.id', $orderId)->get()->getRowArray();
+    }
+
+    private function refundPendingBuilder(): \CodeIgniter\Database\BaseBuilder
+    {
+        return $this->db->table('orders o')
+            ->select('o.id, o.order_number, o.user_id, o.cancelled_at,
+                      p.id AS payment_id, p.pg_provider, p.pg_tid, p.amount')
+            ->join('payments p', 'p.order_id = o.id AND p.status = "paid"', 'inner')
+            ->where('o.status', 'cancelled')
+            ->where('p.pg_tid IS NOT NULL', null, false);
     }
 
     private function writeStatusLog(int $orderId, string $from, string $to, ?string $note = null): void
