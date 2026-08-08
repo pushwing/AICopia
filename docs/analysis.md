@@ -553,7 +553,7 @@ php spark serve         # http://localhost:8080
 
 **기본 관리자 계정:**
 - 이메일: `admin@example.com`
-- 비밀번호: `admin1234!`
+- 비밀번호: 설치마다 랜덤 생성 — `php spark migrate` 콘솔 출력에 1회만 표시되며, 최초 로그인 시 변경이 강제된다
 
 **크론 등록 (운영 서버):**
 ```
