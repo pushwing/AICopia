@@ -56,11 +56,24 @@ class SocialAuthController extends BaseController
         }
 
         // state 검증 (CSRF 방지)
-        if (! $code || $state !== session()->get('oauth_state')) {
+        //
+        // 양쪽 값의 "존재"를 먼저 강제한다 — 단순 `!==` 비교만 하면 쿼리에도 세션에도
+        // state 가 없을 때 null !== null 이 false 라 그대로 통과한다. 정상 플로우 완료 후
+        // oauth_state 를 지우므로 대부분의 세션이 그 상태다. (이슈 #121)
+        $expectedState    = session()->get('oauth_state');
+        $expectedProvider = session()->get('oauth_provider');
+
+        if (
+            ! $code
+            || ! is_string($state) || $state === ''
+            || ! is_string($expectedState) || $expectedState === ''
+            || ! hash_equals($expectedState, $state)
+            || $provider !== $expectedProvider
+        ) {
             return redirect()->to('/auth/login')->with('error', '잘못된 요청입니다. 다시 시도해주세요.');
         }
 
-        session()->remove('oauth_state');
+        session()->remove(['oauth_state', 'oauth_provider']);
 
         try {
             $oauth   = OAuthFactory::make($provider);

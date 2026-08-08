@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Libraries\GradeService;
+use App\Libraries\ItemPricing;
 use CodeIgniter\Model;
 
 class OrderModel extends Model
@@ -68,6 +69,22 @@ class OrderModel extends Model
     }
 
     /**
+     * 조건부 UPDATE 를 실행하고 실제로 반영됐는지 돌려준다.
+     *
+     * 검증과 소비 사이에 상태가 바뀌는 경쟁 상태를 막기 위한 "조건을 WHERE 에 걸고
+     * 반영 행 수를 확인한다" 패턴의 공통 구현이다. affectedRows() 를 이 한 곳에서만
+     * 읽어, 호출부마다 독립적인 판정을 얻는다.
+     *
+     * @param array<int, mixed> $bindings
+     */
+    private function runGuardedUpdate(string $sql, array $bindings): bool
+    {
+        $this->db->query($sql, $bindings);
+
+        return $this->db->affectedRows() > 0;
+    }
+
+    /**
      * 결제 대기 주문 생성 — 쿠폰 확정 + 포인트 차감까지 트랜잭션 내 처리
      */
     /**
@@ -84,11 +101,9 @@ class OrderModel extends Model
         int $pointUsed = 0,
         int $pointEarned = 0
     ): int {
-        $totalProduct = 0;
-        foreach ($cartItems as $item) {
-            $price        = (int) ($item['discount_price'] ?? $item['price']);
-            $totalProduct += $price * (int) $item['qty'];
-        }
+        // 옵션 추가금까지 포함한 실제 단가로 합산한다 — order_items 와 같은 계산이어야
+        // total_product_price 와 SUM(order_items.subtotal) 이 어긋나지 않는다. (이슈 #124)
+        $totalProduct = ItemPricing::totalProductPrice($cartItems);
 
         $shippingFee   = $this->calculateShippingFee($cartItems, $totalProduct);
         $totalAmount   = $totalProduct + $shippingFee;
@@ -132,10 +147,8 @@ class OrderModel extends Model
 
         $items = [];
         foreach ($cartItems as $item) {
-            $basePrice = (int) ($item['discount_price'] ?? $item['price']);
-            $priceDiff = (int) ($item['price_diff'] ?? 0);
-            $price     = $basePrice + $priceDiff;
-            $qty       = (int) $item['qty'];
+            $price = ItemPricing::unitPrice($item);
+            $qty   = (int) $item['qty'];
             $items[]   = [
                 'order_id'         => $orderId,
                 'product_id'       => (int) $item['product_id'],
@@ -151,16 +164,41 @@ class OrderModel extends Model
         }
         $this->db->table('order_items')->insertBatch($items);
 
+        // 주문 총액과 라인 합계는 정의상 같아야 한다. 어긋나면 청구액과 기록이
+        // 따로 노는 상태이므로 주문을 만들지 않는다. (이슈 #124)
+        if (array_sum(array_column($items, 'subtotal')) !== $totalProduct) {
+            $this->db->transRollback();
+            log_message('critical', "[Order] 금액 정합성 불일치 — order_number={$orderNumber}");
+
+            return 0;
+        }
+
         // 쿠폰 확정 (free_shipping은 couponDiscountAmount=배송비이므로 couponId 존재 여부로만 판단)
+        //
+        // 검증은 트랜잭션 밖에서 끝났으므로, 그 사이 쿠폰이 소진됐을 수 있다.
+        // 아래 포인트 차감과 동일하게 조건부 UPDATE + affectedRows 검사로 확정한다. (이슈 #123)
         if ($couponId) {
-            $this->db->query('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?', [$couponId]);
+            // 이 UPDATE 가 coupons 행 잠금을 잡아 동일 쿠폰에 대한 동시 요청을 직렬화한다.
+            $couponClaimed = $this->runGuardedUpdate(
+                'UPDATE coupons SET used_count = used_count + 1
+                 WHERE id = ? AND (total_qty IS NULL OR used_count < total_qty)',
+                [$couponId]
+            );
+            if (! $couponClaimed) {
+                $this->db->transRollback();
+                return 0;
+            }
 
             if ($userCouponId) {
-                $this->db->table('user_coupons')
-                    ->where('id', $userCouponId)
-                    ->where('user_id', $userId)
-                    ->where('status', 'issued')
-                    ->update(['status' => 'used', 'order_id' => $orderId, 'used_at' => $now, 'updated_at' => $now]);
+                $consumed = $this->runGuardedUpdate(
+                    'UPDATE user_coupons SET status = ?, order_id = ?, used_at = ?, updated_at = ?
+                     WHERE id = ? AND user_id = ? AND status = ?',
+                    ['used', $orderId, $now, $now, $userCouponId, $userId, 'issued']
+                );
+                if (! $consumed) {
+                    $this->db->transRollback();
+                    return 0;
+                }
             } else {
                 // 코드 입력 — issued 상태 쿠폰이 있으면 사용 처리, 없으면 신규 INSERT
                 $existingUC = $this->db->table('user_coupons')
@@ -170,9 +208,15 @@ class OrderModel extends Model
                     ->get()->getRowArray();
 
                 if ($existingUC) {
-                    $this->db->table('user_coupons')
-                        ->where('id', $existingUC['id'])
-                        ->update(['status' => 'used', 'order_id' => $orderId, 'used_at' => $now, 'updated_at' => $now]);
+                    $consumed = $this->runGuardedUpdate(
+                        'UPDATE user_coupons SET status = ?, order_id = ?, used_at = ?, updated_at = ?
+                         WHERE id = ? AND status = ?',
+                        ['used', $orderId, $now, $now, $existingUC['id'], 'issued']
+                    );
+                    if (! $consumed) {
+                        $this->db->transRollback();
+                        return 0;
+                    }
                 } else {
                     $this->db->table('user_coupons')->insert([
                         'user_id'    => $userId,

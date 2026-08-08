@@ -13,6 +13,9 @@ use App\Models\PostModel;
 
 class BoardController extends BaseController
 {
+    /** 게시판 검색 타입 허용값 */
+    private const array SEARCH_TYPES = ['title', 'content', 'all'];
+
     private readonly BoardModel      $boardModel;
     private readonly PostModel       $postModel;
     private readonly PostFileModel   $fileModel;
@@ -45,7 +48,10 @@ class BoardController extends BaseController
         $perPage = (int) $board['posts_per_page'];
         $page    = (int) ($this->request->getGet('page') ?? 1);
         $keyword = $this->request->getGet('keyword');
-        $type    = $this->request->getGet('type') ?? 'title';
+        // 검색 타입은 화이트리스트로 고정한다 — 뷰의 페이지네이션 링크에 그대로 실린다 (이슈 #122)
+        $type = in_array($this->request->getGet('type'), self::SEARCH_TYPES, true)
+            ? (string) $this->request->getGet('type')
+            : 'title';
 
         if ($keyword) {
             $result = $this->postModel->search($boardId, $keyword, $type, $page, $perPage);
@@ -306,6 +312,22 @@ class BoardController extends BaseController
         $file = $this->fileModel->find($fileId);
         if (! $file) {
             return redirect()->back()->with('error', '파일을 찾을 수 없습니다.');
+        }
+
+        // 첨부는 순차 정수 id 로 노출되므로, 부모 글·게시판의 접근 권한을
+        // view() 와 동일하게 다시 검사한다. (이슈 #118)
+        $post  = $this->postModel->find((int) $file['post_id']);
+        $board = $post ? $this->boardModel->find((int) $post['board_id']) : null;
+        if (! $post || ! $board) {
+            return redirect()->back()->with('error', '파일을 찾을 수 없습니다.');
+        }
+
+        if (! $this->checkPermission($board['read_permission'])) {
+            return redirect()->to('/auth/login')->with('error', '로그인이 필요합니다.');
+        }
+
+        if ($post['is_secret'] && ! $this->canAccessSecret($post)) {
+            return redirect()->back()->with('error', '비밀글입니다.');
         }
 
         $fullPath = FCPATH . $file['file_path'];

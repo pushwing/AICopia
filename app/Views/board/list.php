@@ -79,12 +79,15 @@
 </table>
 
 <!-- 페이지네이션 -->
-<?php if ($totalPages > 1): ?>
+<?php if ($totalPages > 1):
+    // http_build_query 로 값을 퍼센트 인코딩하고, esc() 로 & 를 &amp; 처리한다 (이슈 #122)
+    $qs = $keyword ? '&' . http_build_query(['keyword' => $keyword, 'type' => $searchType]) : '';
+?>
 <nav class="d-flex justify-content-center mt-3">
     <ul class="pagination pagination-sm">
         <?php for ($p = 1; $p <= $totalPages; $p++): ?>
             <li class="page-item <?= $p === $currentPage ? 'active' : '' ?>">
-                <a class="page-link" href="?page=<?= $p ?><?= $keyword ? '&keyword=' . urlencode($keyword) . '&type=' . $searchType : '' ?>"><?= $p ?></a>
+                <a class="page-link" href="?page=<?= $p ?><?= esc($qs) ?>"><?= $p ?></a>
             </li>
         <?php endfor; ?>
     </ul>
