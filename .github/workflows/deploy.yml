@@ -73,7 +73,19 @@ jobs:
               # mysqldump -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" \
               #   > "writable/backups/$(date +%F_%H%M%S).sql"
               echo "마이그레이션 실행..."
-              php spark migrate --all
+              # spark 는 마이그레이션 도중 예외가 나도 종료코드 0 을 돌려준다.
+              # (2026-08-08 배포에서 vendor 마이그레이션이 'Duplicate column name' 으로
+              #  중단됐는데 배포는 성공으로 집계돼, 뒤따르던 App 마이그레이션이
+              #  적용되지 않은 채 새 코드만 올라간 적이 있다.)
+              # 그래서 종료코드와 함께 출력까지 검사해 실패를 명시적으로 잡는다.
+              migrate_rc=0
+              migrate_out="$(php spark migrate --all 2>&1)" || migrate_rc=$?
+              echo "$migrate_out"
+
+              if [ "$migrate_rc" -ne 0 ] || printf '%s' "$migrate_out" | grep -qE '^\[.*Exception\]|Caused by:'; then
+                echo "마이그레이션 실패 — 배포를 중단합니다. 위 출력을 확인하세요." >&2
+                exit 1
+              fi
             else
               echo "마이그레이션 건너뜀(수동). 필요 시 Actions에서 run_migration=true 로 실행."
             fi
