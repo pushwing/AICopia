@@ -72,6 +72,35 @@ $canConfirmBank     = $isBankTransfer && $currentStatus === 'awaiting_payment';
     </div>
 </div>
 
+<?php if (! empty($refundPending)): ?>
+<!-- 확정 실패로 취소됐지만 PG 청구가 살아 있는 주문 — 환불이 남아 있다 -->
+<div class="alert alert-danger d-flex align-items-start gap-3 mb-4">
+    <i class="bi bi-exclamation-octagon-fill fs-4"></i>
+    <div class="flex-grow-1">
+        <div class="fw-semibold mb-1">환불이 필요한 주문입니다</div>
+        <div class="small mb-2">
+            재고 부족으로 주문은 취소됐지만 <strong>PG 결제는 승인된 상태로 남아 있습니다.</strong>
+            쿠폰·포인트는 이미 복구되었습니다. 고객에게 청구된 금액을 환불해 주세요.
+            <?php if ($payment): ?>
+            <br>
+            <span class="text-muted">
+                PG: <?= esc($pgLabels[$payment['pg_provider']] ?? $payment['pg_provider']) ?>
+                · TID: <code><?= esc($payment['pg_tid'] ?? '-') ?></code>
+                · 금액: <strong><?= number_format((int) ($payment['amount'] ?? 0)) ?>원</strong>
+            </span>
+            <?php endif; ?>
+        </div>
+        <form method="post" action="/admin/orders/<?= (int) $order['id'] ?>/pg-cancel" class="d-inline"
+              onsubmit="return confirm('PG 에 결제 취소를 요청합니다. 계속할까요?');">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-sm btn-danger">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>PG 취소 요청
+            </button>
+        </form>
+        <span class="small text-muted ms-2">실패하면 PG 콘솔에서 직접 취소해 주세요.</span>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="row g-4">
 
