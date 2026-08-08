@@ -51,14 +51,28 @@ class SeedBoardData extends Migration
         ]);
 
         // 관리자 계정
+        //
+        // 고정 비밀번호를 심으면 이 솔루션을 설치한 모든 인스턴스가 동일한(그리고
+        // 문서에 공개된) 자격증명을 갖게 된다. 매 설치마다 다른 비밀번호를 만들어
+        // 콘솔에 1회만 출력하고, 최초 로그인 시 변경을 강제한다. (이슈 #119)
+        $initialPassword = env('ADMIN_INITIAL_PASSWORD') ?: bin2hex(random_bytes(12));
+
         $this->db->table('users')->insert([
             'username'   => 'admin',
-            'email'      => 'admin@example.com',
-            'password'   => password_hash('admin1234!', PASSWORD_DEFAULT),
+            'email'      => env('ADMIN_INITIAL_EMAIL') ?: 'admin@example.com',
+            'password'   => password_hash($initialPassword, PASSWORD_DEFAULT),
             'nickname'   => '관리자',
             'role'       => 'admin',
             'created_at' => date('Y-m-d H:i:s'),
         ]);
+
+        // 이 출력은 마이그레이션을 실행한 사람만 볼 수 있다. 놓치더라도 비밀번호
+        // 찾기로 재설정하면 되고, 어느 쪽이든 최초 로그인 때 변경해야 한다.
+        if (is_cli()) {
+            fwrite(STDOUT, PHP_EOL
+                . "  관리자 초기 비밀번호: {$initialPassword}" . PHP_EOL
+                . '  최초 로그인 후 반드시 변경해야 합니다 (변경 전까지 다른 화면 접근이 막힙니다).' . PHP_EOL . PHP_EOL);
+        }
     }
 
     public function down()
