@@ -63,6 +63,8 @@ class AuthController extends BaseController
             'user_nickname' => $user['nickname'],
             'user_role'     => $user['role'],
             'user_grade'    => $user['grade'] ?? 'bronze',
+            // 초기 비밀번호 사용 계정은 변경 전까지 다른 화면으로 나가지 못한다 (이슈 #119)
+            'must_change_password' => (bool) ($user['must_change_password'] ?? false),
         ]);
 
         $this->userModel->updateLastLogin((int) $user['id']);
@@ -304,8 +306,10 @@ class AuthController extends BaseController
             }
 
             $this->userModel->update($userId, [
-                'password' => password_hash($this->request->getPost('new_password'), PASSWORD_DEFAULT),
+                'password'             => password_hash($this->request->getPost('new_password'), PASSWORD_DEFAULT),
+                'must_change_password' => 0,
             ]);
+            session()->remove('must_change_password');
 
             return redirect()->to('/auth/profile?tab=password')->with('success', '비밀번호가 변경되었습니다.');
         }

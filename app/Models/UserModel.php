@@ -13,6 +13,7 @@ class UserModel extends Model
     protected $useTimestamps = true;
     protected $allowedFields = [
         'username', 'email', 'password', 'nickname', 'role', 'grade', 'is_active', 'last_login',
+        'must_change_password',
         'social_provider', 'social_id', 'social_token', 'avatar',
         'phone', 'gender', 'birthday',
         'email_verify_token', 'email_verify_token_at',

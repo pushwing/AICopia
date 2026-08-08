@@ -61,7 +61,7 @@ cp vendor/codeigniter4/framework/env .env   # 이후 편집: DB, CI_ENVIRONMENT,
 php spark migrate              # 테이블 생성 + 기본 데이터 시드
 ```
 
-기본 관리자: `admin@example.com` / `admin1234!` (`2024-01-01-000002_SeedBoardData`에서 시드).
+기본 관리자: `admin@example.com` (`2024-01-01-000002_SeedBoardData`에서 시드). 비밀번호는 설치마다 랜덤 생성되어 `php spark migrate` 콘솔 출력에 1회만 표시되며, 최초 로그인 시 변경이 강제된다(`must_change_password` + `ForcePasswordChangeFilter`).
 
 리눅스 업로드 권한: `chmod -R 755 public/uploads writable`
 
