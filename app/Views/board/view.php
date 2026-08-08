@@ -19,7 +19,8 @@
     </div>
     <div class="card-body">
         <div class="post-content">
-            <?= $post['content'] ?>
+            <?php // 저장 시점에도 정화하지만, 이미 저장된 행까지 무해화하려면 출력에서도 거른다 (이슈 #117) ?>
+            <?= \App\Libraries\BoardHtmlSanitizer::sanitize($post['content']) ?>
         </div>
 
         <!-- 이미지 첨부 -->

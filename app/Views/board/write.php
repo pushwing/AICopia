@@ -60,7 +60,7 @@
             </div>
 
             <div class="mb-3">
-                <textarea name="content" id="content-editor" class="form-control" rows="12"><?= old('content', $post['content'] ?? '') ?></textarea>
+                <textarea name="content" id="content-editor" class="form-control" rows="12"><?= esc(old('content', $post['content'] ?? '', false)) ?></textarea>
             </div>
 
             <!-- 기존 파일 목록 (수정 시) -->

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
+use App\Libraries\BoardHtmlSanitizer;
 use App\Libraries\FileUploader;
 use App\Models\BoardModel;
 use App\Models\PostCommentModel;
@@ -157,7 +158,7 @@ class BoardController extends BaseController
             'board_id'   => $board['id'],
             'user_id'    => session()->get('user_id'),
             'title'      => $this->request->getPost('title'),
-            'content'    => $this->sanitizeContent($this->request->getPost('content')),
+            'content'    => BoardHtmlSanitizer::sanitize($this->request->getPost('content')),
             'author_name' => $isGuest
                             ? $this->request->getPost('author_name')
                             : session()->get('user_nickname'),
@@ -261,7 +262,7 @@ class BoardController extends BaseController
 
         $this->postModel->update($postId, [
             'title'     => $this->request->getPost('title'),
-            'content'   => $this->sanitizeContent($this->request->getPost('content')),
+            'content'   => BoardHtmlSanitizer::sanitize($this->request->getPost('content')),
             'is_notice' => $this->getUserRole() === 'admin' ? (int) $this->request->getPost('is_notice') : $post['is_notice'],
             'is_secret' => (int) $this->request->getPost('is_secret'),
         ]);
@@ -466,28 +467,4 @@ class BoardController extends BaseController
         return $role === 'admin' || ($userId && $post['user_id'] == $userId);
     }
 
-    /**
-     * 에디터 HTML에서 XSS 위험 패턴 제거
-     * 완전한 sanitize는 HTMLPurifier 도입 권장 (composer require ezyang/htmlpurifier)
-     */
-    private function sanitizeContent(?string $html): string
-    {
-        if ($html === null || $html === '') {
-            return '';
-        }
-
-        // <script> 블록 제거
-        $html = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $html);
-
-        // on* 이벤트 핸들러 속성 제거 (onclick, onload, onerror 등)
-        $html = preg_replace('/\s+on\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', (string) $html);
-
-        // javascript: / vbscript: / data: 링크 제거
-        $html = preg_replace('/\b(javascript|vbscript|data)\s*:/i', '', (string) $html);
-
-        // <iframe>, <object>, <embed>, <form> 태그 제거
-        $html = preg_replace('/<\/?(iframe|object|embed|form)\b[^>]*>/i', '', (string) $html);
-
-        return $html;
-    }
 }
