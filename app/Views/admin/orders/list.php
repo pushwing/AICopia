@@ -123,10 +123,15 @@
               }},
             { headerName: '결제금액', field: 'total_amount', width: 110, type: 'numericColumn',
               cellRenderer: function(p) { return '<span class="small">' + p.value.toLocaleString() + '원</span>'; }},
-            { headerName: '상태', field: 'status', width: 115,
+            { headerName: '상태', field: 'status', width: 155,
               cellRenderer: function(p) {
-                  var cls = STATUS_BADGE[p.value] || 'secondary';
-                  return '<span class="badge bg-' + cls + '">' + esc(p.data.status_label) + '</span>';
+                  var cls  = STATUS_BADGE[p.value] || 'secondary';
+                  var html = '<span class="badge bg-' + cls + '">' + esc(p.data.status_label) + '</span>';
+                  // 취소됐는데 PG 청구가 살아 있는 주문 — 환불이 남아 있다.
+                  if (p.data.refund_pending) {
+                      html += ' <span class="badge bg-danger" title="PG 결제가 취소되지 않았습니다">환불 필요</span>';
+                  }
+                  return html;
               }},
             { headerName: '', width: 90, sortable: false, filter: false, resizable: false,
               cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },

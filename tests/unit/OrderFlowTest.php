@@ -409,7 +409,12 @@ final class OrderFlowTest extends CIUnitTestCase
         $this->assertSame(7, (int) $p['stock']);
     }
 
-    /** G-03: 재고 부족 → false 반환, 주문 여전히 pending */
+    /**
+     * G-03: 재고 부족 → false 반환, 재고는 그대로, 주문은 취소로 확정 (이슈 #113)
+     *
+     * 예전에는 pending 으로 방치돼 쿠폰·포인트가 30분간 묶였다. 이제 실패한 자리에서
+     * 보상하고 취소로 전이한다(보상 자체는 OrderConfirmCompensationTest 가 본다).
+     */
     public function testConfirmPaid_insufficientStock_returnsFalse(): void
     {
         $db      = db_connect();
@@ -424,7 +429,7 @@ final class OrderFlowTest extends CIUnitTestCase
         $this->assertFalse($result);
 
         $order = $db->table('orders')->where('id', $orderId)->get()->getRowArray();
-        $this->assertSame('pending', $order['status']);
+        $this->assertSame('cancelled', $order['status']);
 
         $p = $db->table('products')->where('id', $product['id'])->get()->getRowArray();
         $this->assertSame(2, (int) $p['stock']);
@@ -578,7 +583,12 @@ final class OrderFlowTest extends CIUnitTestCase
         $this->assertSame(3, (int) $p['stock']);
     }
 
-    /** B-02: 재고 부족 → false, order status 불변 */
+    /**
+     * B-02: 재고 부족 → false, 재고는 그대로, 주문은 취소로 확정 (이슈 #113)
+     *
+     * awaiting_payment 는 expirePending() 대상이 아니라 예전에는 복구 경로가 아예
+     * 없었다 — 쿠폰·포인트가 영구히 묶이던 자리다.
+     */
     public function testConfirmBankTransfer_insufficientStock_rollsBack(): void
     {
         $db      = db_connect();
@@ -590,7 +600,7 @@ final class OrderFlowTest extends CIUnitTestCase
         $this->assertFalse($result);
 
         $order = $db->table('orders')->where('id', $orderId)->get()->getRowArray();
-        $this->assertSame('awaiting_payment', $order['status']);
+        $this->assertSame('cancelled', $order['status']);
 
         $p = $db->table('products')->where('id', $product['id'])->get()->getRowArray();
         $this->assertSame(1, (int) $p['stock']);

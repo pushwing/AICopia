@@ -237,7 +237,11 @@ final class FreeOrderTest extends CIUnitTestCase
         $this->assertSame(7, $stock);
     }
 
-    /** 재고가 모자라면 확정하지 않고 주문을 pending 으로 남긴다. */
+    /**
+     * 재고가 모자라면 확정하지 않고 주문을 취소로 되돌린다 (이슈 #113).
+     *
+     * 결제 이력은 남기지 않는다 — 애초에 결제가 없었다.
+     */
     public function testConfirmFreeFailsWhenStockInsufficient(): void
     {
         $db      = db_connect();
@@ -249,7 +253,7 @@ final class FreeOrderTest extends CIUnitTestCase
         $this->trackSideEffects($orderId);
 
         $order = $db->table('orders')->where('id', $orderId)->get()->getRowArray();
-        $this->assertSame('pending', $order['status']);
+        $this->assertSame('cancelled', $order['status']);
         $this->assertSame(0, $db->table('payments')->where('order_id', $orderId)->countAllResults());
     }
 

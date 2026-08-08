@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Libraries\PG\PGFactory;
+use App\Libraries\PgCancellationService;
 use App\Models\OrderMemoModel;
 use App\Models\OrderModel;
 
@@ -91,8 +93,16 @@ class OrderController extends BaseController
             ->orderBy('o.id', 'DESC')
             ->get()->getResultArray();
 
+        // 환불이 남은 주문은 목록에서도 눈에 띄어야 한다 — 상세로 들어가야만
+        // 보이면 실제로는 발견되지 않는다.
+        $refundPendingIds = array_flip(array_map(
+            static fn (array $row): int => (int) $row['id'],
+            $this->orderModel->findRefundPending(),
+        ));
+
         $data = array_map(fn (array $r): array => [
             'id'             => (int) $r['id'],
+            'refund_pending' => isset($refundPendingIds[(int) $r['id']]),
             'order_number'   => $r['order_number'],
             'created_at'     => $r['created_at'],
             'user_email'     => $r['user_email'] ?? '',
@@ -246,8 +256,12 @@ class OrderController extends BaseController
         $eCode               = $order['exchange_reason_code'] ?? null;
         $exchangeReasonPayer = $eCode ? (\App\Models\OrderModel::EXCHANGE_REASON_CODES[$eCode]['payer'] ?? null) : null;
 
+        // 취소된 주문에 PG 청구가 살아 있으면 환불이 남아 있다는 뜻이다.
+        $refundPending = $this->orderModel->findRefundPendingPayment($id) !== null;
+
         return $this->render('admin/orders/detail', [
             'order'               => $order,
+            'refundPending'       => $refundPending,
             'statusLabels'        => self::STATUS_LABELS,
             'nextStatus'          => self::NEXT_STATUS,
             'returnReasonPayer'   => $returnReasonPayer,
@@ -309,8 +323,44 @@ class OrderController extends BaseController
     {
         $ok = $this->orderModel->confirmBankTransfer($id);
 
+        // 재고 부족으로 실패하면 쿠폰·포인트는 복구되고 주문은 취소되지만,
+        // 입금액 환불은 자동화할 수 없으므로 관리자에게 명시적으로 알린다.
         return redirect()->to("/admin/orders/{$id}")
-            ->with($ok ? 'success' : 'error', $ok ? '입금 확인 처리가 완료되었습니다.' : '입금 확인에 실패했습니다. (재고 부족 또는 이미 처리된 주문)');
+            ->with(
+                $ok ? 'success' : 'error',
+                $ok
+                    ? '입금 확인 처리가 완료되었습니다.'
+                    : '입금 확인에 실패했습니다. 재고가 부족한 경우 주문은 취소되고 쿠폰·포인트는 복구되었습니다 — 입금액은 수동으로 환불해 주세요. (이미 처리된 주문이면 변경 없음)'
+            );
+    }
+
+    /**
+     * POST /admin/orders/:id/pg-cancel — 확정 실패로 남은 PG 청구를 취소한다.
+     *
+     * 이 저장소의 환불은 원래 전부 수동(PG 콘솔)이라, 자동으로 돌리지 않고
+     * 관리자가 이 버튼을 눌렀을 때만 실행한다.
+     */
+    public function cancelPgCharge(int $id): \CodeIgniter\HTTP\RedirectResponse
+    {
+        $payment = $this->orderModel->findRefundPendingPayment($id);
+
+        if ($payment === null) {
+            return redirect()->to("/admin/orders/{$id}")
+                ->with('error', '환불할 PG 결제가 없습니다. (이미 취소되었거나 대상이 아님)');
+        }
+
+        $result = new PgCancellationService()->cancelCharge(
+            PGFactory::make($payment['pg_provider']),
+            $id,
+        );
+
+        return redirect()->to("/admin/orders/{$id}")
+            ->with(
+                $result['success'] ? 'success' : 'error',
+                $result['success']
+                    ? 'PG 결제를 취소했습니다. ' . $result['message']
+                    : 'PG 취소에 실패했습니다: ' . $result['message'] . ' — PG 콘솔에서 직접 취소해 주세요.'
+            );
     }
 
     /** POST /admin/orders/:id/refund */

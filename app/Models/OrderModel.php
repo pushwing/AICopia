@@ -248,6 +248,8 @@ class OrderModel extends Model
         foreach ($items as $item) {
             if (! $this->deductItemStock($item)) {
                 $this->db->transRollback();
+                // 입금은 이미 받은 상태다 — 입금액 환불은 관리자가 수동으로 처리한다.
+                $this->compensateFailedConfirm($orderId, '재고 부족으로 입금 확인 실패 — 주문 취소, 입금액 환불 필요');
                 return false;
             }
         }
@@ -311,6 +313,19 @@ class OrderModel extends Model
         foreach ($items as $item) {
             if (! $this->deductItemStock($item)) {
                 $this->db->transRollback();
+                // PG 청구는 이미 끝난 상태다 — 취소는 관리자가 실행하므로
+                // 그때까지 추적할 수 있도록 청구 사실을 함께 남긴다.
+                $this->compensateFailedConfirm(
+                    $orderId,
+                    '재고 부족으로 결제 확정 실패 — 주문 취소',
+                    $pgTid === null ? null : [
+                        'pg_provider' => $pgProvider,
+                        'pg_tid'      => $pgTid,
+                        'method'      => $method,
+                        'amount'      => (int) $order['payable_amount'],
+                        'raw'         => $rawResponse,
+                    ],
+                );
                 return false;
             }
         }
@@ -1139,6 +1154,115 @@ class OrderModel extends Model
     }
 
     /** 주문 상태 변경 로그 기록 */
+    /**
+     * 확정 실패 보상 — 소진한 쿠폰·포인트를 되돌리고 주문을 취소로 확정한다.
+     *
+     * createPending() 은 주문 생성 시점에 쿠폰을 소진하고 포인트를 차감하는데,
+     * 확정 트랜잭션이 롤백돼도 그건 되돌아가지 않는다. pending 주문은 30분 뒤
+     * expirePending() 이 걷어가지만 awaiting_payment(무통장)는 그 대상이 아니라
+     * 영구히 묶였다 — 그래서 실패한 자리에서 바로 되돌린다.
+     *
+     * 주문을 취소 상태로 함께 전이시키는 것이 핵심이다. pending 으로 남겨두면
+     * expirePending() 이 같은 쿠폰·포인트를 한 번 더 복구해 포인트가 두 배로
+     * 환급된다(restorePoints 에는 중복 방어가 없다).
+     *
+     * 실패한 트랜잭션이 롤백된 뒤 호출해야 하며, 자체 트랜잭션으로 처리한다.
+     *
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null $charge
+     *        이미 일어난 PG 청구. 무료 주문·무통장처럼 PG 거래가 없으면 null.
+     */
+    private function compensateFailedConfirm(int $orderId, string $note, ?array $charge = null): void
+    {
+        // 직전 롤백으로 트랜잭션 상태가 false 로 남아 있으면 이 트랜잭션도 롤백된다.
+        $this->db->resetTransStatus();
+        $this->db->transStart();
+
+        $order = $this->db->table('orders')
+            ->where('id', $orderId)
+            ->whereIn('status', ['pending', 'awaiting_payment'])
+            ->get()->getRowArray();
+
+        if (! $order) {
+            $this->db->transComplete();
+            return;
+        }
+
+        $this->restoreCoupon($order);
+        $this->restorePoints($order, 'stock');
+
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->table('orders')->where('id', $orderId)->update([
+            'status'       => 'cancelled',
+            'cancelled_at' => $now,
+        ]);
+
+        // 취소된 주문에 미결 결제행이 남으면 관리자 화면 상태가 어긋난다.
+        $this->db->table('payments')
+            ->where('order_id', $orderId)
+            ->whereIn('status', ['pending', 'ready'])
+            ->update(['status' => 'cancelled', 'cancelled_at' => $now, 'updated_at' => $now]);
+
+        // PG 청구가 이미 일어났다면 그 사실을 남긴다. 재고 차감이 payments INSERT
+        // 보다 먼저라 롤백되면 흔적이 통째로 사라져, 고객은 청구됐는데 시스템에는
+        // 단서가 로그뿐이었다. 주문은 cancelled 인데 결제가 paid 로 남아 있는 조합이
+        // 곧 "환불 필요" 신호가 된다(→ findRefundPending()).
+        if ($charge !== null && $charge['pg_tid'] !== '') {
+            $this->db->table('payments')->ignore(true)->insert([
+                'order_id'     => $orderId,
+                'pg_provider'  => $charge['pg_provider'],
+                'pg_tid'       => $charge['pg_tid'],
+                'method'       => $charge['method'],
+                'amount'       => (int) $charge['amount'],
+                'status'       => 'paid',
+                'raw_response' => json_encode($charge['raw'], JSON_UNESCAPED_UNICODE),
+                'paid_at'      => $now,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ]);
+        }
+
+        $this->writeStatusLog($orderId, $order['status'], 'cancelled', $note);
+
+        $this->db->transComplete();
+    }
+
+    /**
+     * 환불이 필요한 주문 — 취소됐는데 PG 청구가 살아 있는 건.
+     *
+     * 정상 취소 경로(cancelOrder·markRefunded)는 결제행도 함께 정리하므로,
+     * 이 조합은 확정 실패로 청구만 남은 경우에만 나온다.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findRefundPending(): array
+    {
+        return $this->refundPendingBuilder()->orderBy('o.id', 'DESC')->get()->getResultArray();
+    }
+
+    /**
+     * 특정 주문의 환불 대상 결제 1건. 없으면 null.
+     *
+     * 관리자 화면의 "환불 필요" 표시와 실제 취소 가능 여부가 어긋나지 않도록
+     * findRefundPending() 과 같은 조건을 쓴다.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findRefundPendingPayment(int $orderId): ?array
+    {
+        return $this->refundPendingBuilder()->where('o.id', $orderId)->get()->getRowArray();
+    }
+
+    private function refundPendingBuilder(): \CodeIgniter\Database\BaseBuilder
+    {
+        return $this->db->table('orders o')
+            ->select('o.id, o.order_number, o.user_id, o.cancelled_at,
+                      p.id AS payment_id, p.pg_provider, p.pg_tid, p.amount')
+            ->join('payments p', 'p.order_id = o.id AND p.status = "paid"', 'inner')
+            ->where('o.status', 'cancelled')
+            ->where('p.pg_tid IS NOT NULL', null, false);
+    }
+
     private function writeStatusLog(int $orderId, string $from, string $to, ?string $note = null): void
     {
         [$actorType, $actorId, $actorName] = $this->resolveActor();
@@ -1244,6 +1368,7 @@ class OrderModel extends Model
 
         $note = match ($reason) {
             'expire' => '주문 만료 포인트 환급',
+            'stock'  => '재고 부족 주문 취소 포인트 환급',
             default  => '주문 취소 포인트 환급',
         };
 
