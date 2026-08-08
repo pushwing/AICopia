@@ -13,6 +13,9 @@ use App\Models\PostModel;
 
 class BoardController extends BaseController
 {
+    /** 게시판 검색 타입 허용값 */
+    private const array SEARCH_TYPES = ['title', 'content', 'all'];
+
     private readonly BoardModel      $boardModel;
     private readonly PostModel       $postModel;
     private readonly PostFileModel   $fileModel;
@@ -45,7 +48,10 @@ class BoardController extends BaseController
         $perPage = (int) $board['posts_per_page'];
         $page    = (int) ($this->request->getGet('page') ?? 1);
         $keyword = $this->request->getGet('keyword');
-        $type    = $this->request->getGet('type') ?? 'title';
+        // 검색 타입은 화이트리스트로 고정한다 — 뷰의 페이지네이션 링크에 그대로 실린다 (이슈 #122)
+        $type = in_array($this->request->getGet('type'), self::SEARCH_TYPES, true)
+            ? (string) $this->request->getGet('type')
+            : 'title';
 
         if ($keyword) {
             $result = $this->postModel->search($boardId, $keyword, $type, $page, $perPage);
