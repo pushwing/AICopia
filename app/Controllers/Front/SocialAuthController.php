@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
+use App\Exceptions\SocialEmailNotVerifiedException;
 use App\Libraries\GradeService;
 use App\Libraries\OAuth\OAuthFactory;
 use App\Models\CartModel;
@@ -94,7 +95,17 @@ class SocialAuthController extends BaseController
             return redirect()->to('/auth/login')->with('error', '소셜 로그인 중 오류가 발생했습니다.');
         }
 
-        $user = $this->findOrCreateUser($provider, $profile, $token);
+        try {
+            $user = $this->findOrCreateUser($provider, $profile, $token);
+        } catch (SocialEmailNotVerifiedException $e) {
+            log_message('warning', '[SocialAuth] ' . $e->getMessage());
+
+            return redirect()->to('/auth/login')->with(
+                'error',
+                '이 소셜 계정의 이메일이 확인되지 않아 기존 계정과 연결할 수 없습니다. '
+                . '기존 계정의 이메일·비밀번호로 로그인해주세요.',
+            );
+        }
 
         if (! $user) {
             return redirect()->to('/auth/login')->with('error', '계정 처리 중 오류가 발생했습니다.');
@@ -145,7 +156,11 @@ class SocialAuthController extends BaseController
         }
 
         // 2. 같은 이메일로 일반 가입된 계정 있으면 소셜 연동
-        if (! empty($profile['email'])) {
+        //
+        // 제공자가 이메일 소유를 검증했다고 명시한 경우에만 붙인다. 그렇지 않으면
+        // 제공자에 남의 이메일을 설정한 것만으로 그 계정을 가져갈 수 있다. 이 앱의
+        // 로컬 가입도 인증 메일로 소유를 증명받으므로 기준을 맞춘다. (이슈 #137)
+        if (! empty($profile['email']) && ($profile['email_verified'] ?? false) === true) {
             $existing = $this->userModel->where('email', $profile['email'])->first();
             if ($existing) {
                 $this->userModel->update($existing['id'], [
@@ -156,6 +171,12 @@ class SocialAuthController extends BaseController
                 ]);
                 return $this->userModel->find($existing['id']);
             }
+        }
+
+        // 검증되지 않은 이메일이 기존 계정과 겹치면 연동도 신규 생성도 할 수 없다.
+        // (users.email 이 UNIQUE 라 3번에서 어차피 실패한다 — 원인을 분명히 알린다.)
+        if (! empty($profile['email']) && $this->userModel->where('email', $profile['email'])->first()) {
+            throw new SocialEmailNotVerifiedException($provider, (string) $profile['email']);
         }
 
         // 3. 신규 유저 자동 생성
