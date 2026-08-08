@@ -136,7 +136,8 @@ $userCoupons  = $userCoupons ?? [];
                     </div>
                     <div class="card-body p-0">
                         <?php foreach ($available as $item):
-                            $price = (int) ($item['discount_price'] ?? $item['price']);
+                            // CartModel 이 옵션 추가금까지 반영해 계산해 둔 값 (이슈 #124)
+                            $price = (int) $item['display_price'];
                         ?>
                         <div class="d-flex align-items-center gap-3 p-3 border-bottom">
                             <?php if ($item['primary_image']): ?>

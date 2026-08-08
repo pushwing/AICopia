@@ -29,6 +29,8 @@ final class CheckoutPaymentCancelTest extends CIUnitTestCase
             'name'           => '기본 티셔츠',
             'price'          => 22000,
             'discount_price' => null,
+            // CartModel::getByUser() 가 옵션 추가금까지 반영해 채워 주는 값 (이슈 #124)
+            'display_price'  => 22000,
             'qty'            => 1,
             'primary_image'  => null,
             'option_label'   => null,

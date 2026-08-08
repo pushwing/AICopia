@@ -7,6 +7,7 @@ namespace App\Controllers\Front;
 use App\Controllers\BaseController;
 use App\Libraries\CouponService;
 use App\Libraries\GradeService;
+use App\Libraries\ItemPricing;
 use App\Libraries\PG\PGFactory;
 use App\Models\CartModel;
 use App\Models\OrderModel;
@@ -70,10 +71,7 @@ class OrderController extends BaseController
             return redirect()->to('/cart')->with('error', '구매 가능한 상품이 없습니다.');
         }
 
-        $totalProduct = array_sum(array_map(
-            fn (array $i): int|float => ($i['discount_price'] ?? $i['price']) * $i['qty'],
-            $available
-        ));
+        $totalProduct = ItemPricing::totalProductPrice($available);
 
         $shippingFee    = $this->orderModel->calculateShippingFee($available, $totalProduct);
         $totalAmount    = $totalProduct + $shippingFee;
@@ -137,11 +135,8 @@ class OrderController extends BaseController
             }
         }
 
-        // 서버 금액 재계산
-        $totalProduct = array_sum(array_map(
-            fn (array $i): int => ((int) ($i['discount_price'] ?? $i['price'])) * (int) $i['qty'],
-            $items
-        ));
+        // 서버 금액 재계산 (옵션 추가금 포함 — 이슈 #124)
+        $totalProduct = ItemPricing::totalProductPrice($items);
         $shippingFee = $this->orderModel->calculateShippingFee($items, $totalProduct);
         $totalAmount = $totalProduct + $shippingFee;
 
