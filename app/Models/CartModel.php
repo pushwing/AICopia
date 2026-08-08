@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Libraries\ItemPricing;
 use CodeIgniter\Model;
 
 class CartModel extends Model
@@ -54,9 +55,7 @@ class CartModel extends Model
 
         foreach ($rows as &$row) {
             $row['primary_image'] = $row['file_path'] ? base_url($row['file_path']) : null;
-            $priceDiff            = (int) ($row['price_diff'] ?? 0);
-            $basePrice            = (int) ($row['discount_price'] ?? $row['price']);
-            $row['display_price'] = $basePrice + $priceDiff;
+            $row['display_price'] = ItemPricing::unitPrice($row);
             $effectiveStock       = $row['sku_id'] ? (int) ($row['sku_stock'] ?? 0) : (int) $row['stock'];
             $row['is_available']  = $row['status'] !== 'hidden' && $effectiveStock > 0;
             $row['sku_label']     = $row['sku_id'] ? ($skuLabels[$row['sku_id']] ?? '') : '';

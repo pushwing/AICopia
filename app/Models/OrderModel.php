@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Libraries\GradeService;
+use App\Libraries\ItemPricing;
 use CodeIgniter\Model;
 
 class OrderModel extends Model
@@ -100,11 +101,9 @@ class OrderModel extends Model
         int $pointUsed = 0,
         int $pointEarned = 0
     ): int {
-        $totalProduct = 0;
-        foreach ($cartItems as $item) {
-            $price        = (int) ($item['discount_price'] ?? $item['price']);
-            $totalProduct += $price * (int) $item['qty'];
-        }
+        // 옵션 추가금까지 포함한 실제 단가로 합산한다 — order_items 와 같은 계산이어야
+        // total_product_price 와 SUM(order_items.subtotal) 이 어긋나지 않는다. (이슈 #124)
+        $totalProduct = ItemPricing::totalProductPrice($cartItems);
 
         $shippingFee   = $this->calculateShippingFee($cartItems, $totalProduct);
         $totalAmount   = $totalProduct + $shippingFee;
@@ -148,10 +147,8 @@ class OrderModel extends Model
 
         $items = [];
         foreach ($cartItems as $item) {
-            $basePrice = (int) ($item['discount_price'] ?? $item['price']);
-            $priceDiff = (int) ($item['price_diff'] ?? 0);
-            $price     = $basePrice + $priceDiff;
-            $qty       = (int) $item['qty'];
+            $price = ItemPricing::unitPrice($item);
+            $qty   = (int) $item['qty'];
             $items[]   = [
                 'order_id'         => $orderId,
                 'product_id'       => (int) $item['product_id'],
@@ -166,6 +163,15 @@ class OrderModel extends Model
             ];
         }
         $this->db->table('order_items')->insertBatch($items);
+
+        // 주문 총액과 라인 합계는 정의상 같아야 한다. 어긋나면 청구액과 기록이
+        // 따로 노는 상태이므로 주문을 만들지 않는다. (이슈 #124)
+        if (array_sum(array_column($items, 'subtotal')) !== $totalProduct) {
+            $this->db->transRollback();
+            log_message('critical', "[Order] 금액 정합성 불일치 — order_number={$orderNumber}");
+
+            return 0;
+        }
 
         // 쿠폰 확정 (free_shipping은 couponDiscountAmount=배송비이므로 couponId 존재 여부로만 판단)
         //
