@@ -66,6 +66,14 @@ class WishlistModel extends Model
                       ->limit($perPage, $offset)
                       ->get()->getResultArray();
 
+        // 이미지 경로는 다른 목록(ProductImageModel::attachPrimaryImages)과 동일하게 절대 URL로 통일
+        foreach ($items as &$item) {
+            $item['primary_image'] = $item['primary_image'] !== null && $item['primary_image'] !== ''
+                ? base_url((string) $item['primary_image'])
+                : null;
+        }
+        unset($item);
+
         return [
             'items'       => $items,
             'total'       => $total,

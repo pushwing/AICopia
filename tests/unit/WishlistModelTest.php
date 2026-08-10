@@ -23,9 +23,11 @@ final class WishlistModelTest extends CIUnitTestCase
     private WishlistModel $model;
 
     private array $cleanup = [
-        'wishlists' => [],
-        'products'  => [],
-        'users'     => [],
+        'wishlists'      => [],
+        'product_images' => [],
+        'media'          => [],
+        'products'       => [],
+        'users'          => [],
     ];
 
     protected function setUp(): void
@@ -90,6 +92,48 @@ final class WishlistModelTest extends CIUnitTestCase
         $id                       = (int) $db->insertID();
         $this->cleanup['products'][] = $id;
         return $id;
+    }
+
+    /** 상품에 대표 이미지를 연결하고 저장된 file_path 를 돌려준다. */
+    private function attachPrimaryImage(int $productId): string
+    {
+        $db       = db_connect();
+        $filePath = 'uploads/media/wl-' . uniqid() . '.jpg';
+
+        $db->table('media')->insert([
+            'original_name' => 'wl.jpg',
+            'stored_name'   => basename($filePath),
+            'file_path'     => $filePath,
+            'file_size'     => 1024,
+            'mime_type'     => 'image/jpeg',
+            'created_at'    => date('Y-m-d H:i:s'),
+        ]);
+        $mediaId                   = (int) $db->insertID();
+        $this->cleanup['media'][] = $mediaId;
+
+        $db->table('product_images')->insert([
+            'product_id' => $productId,
+            'media_id'   => $mediaId,
+            'is_primary' => 1,
+            'sort_order' => 0,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+        $this->cleanup['product_images'][] = (int) $db->insertID();
+
+        return $filePath;
+    }
+
+    /** 찜 행을 추가하고 정리 목록에 등록한다. */
+    private function wish(int $userId, int $productId): void
+    {
+        $this->model->toggle($userId, $productId);
+
+        $row = db_connect()->table('wishlists')
+            ->where('user_id', $userId)->where('product_id', $productId)
+            ->get()->getRowArray();
+        if ($row) {
+            $this->cleanup['wishlists'][] = (int) $row['id'];
+        }
     }
 
     // ── toggle ────────────────────────────────────────────────────────────────
@@ -249,5 +293,37 @@ final class WishlistModelTest extends CIUnitTestCase
         $result = $this->model->getByUser($userId2);
 
         $this->assertSame(0, $result['total'], '다른 유저의 찜 목록이 노출되면 안 된다');
+    }
+
+    public function testGetByUserReturnsAbsoluteImageUrl(): void
+    {
+        $userId    = $this->insertUser();
+        $productId = $this->insertProduct();
+        $filePath  = $this->attachPrimaryImage($productId);
+        $this->wish($userId, $productId);
+
+        $result = $this->model->getByUser($userId);
+
+        $this->assertCount(1, $result['items']);
+        $this->assertSame(
+            base_url($filePath),
+            $result['items'][0]['primary_image'],
+            'primary_image 는 base_url() 이 적용된 절대 URL 이어야 한다'
+        );
+    }
+
+    public function testGetByUserReturnsNullImageWhenProductHasNoImage(): void
+    {
+        $userId    = $this->insertUser();
+        $productId = $this->insertProduct();
+        $this->wish($userId, $productId);
+
+        $result = $this->model->getByUser($userId);
+
+        $this->assertCount(1, $result['items']);
+        $this->assertNull(
+            $result['items'][0]['primary_image'],
+            '대표 이미지가 없으면 base_url() 을 붙이지 말고 null 이어야 한다'
+        );
     }
 }
