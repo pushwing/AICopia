@@ -129,6 +129,32 @@ final class SecurityHeadersFilterTest extends CIUnitTestCase
         $this->assertContains('sandbox-pay.nicepay.co.kr', $frameSrc);
     }
 
+    /**
+     * 이니시스 테스트 환경(stg)은 결제창 도메인이 stgstdpay.inicis.com 으로 완전히 다르다.
+     * 어댑터가 테스트 MID 일 때 이 도메인으로 SDK·결제창을 붙이므로, CSP 에서 빠지면
+     * 테스트 결제가 통째로 막힌다(토스 sandbox·나이스 sandbox 와 같은 취급).
+     */
+    public function testCspAllowsInicisStagingDomain(): void
+    {
+        $this->assertContains('stgstdpay.inicis.com', $this->directive('script-src'));
+        $this->assertContains('stgstdpay.inicis.com', $this->directive('style-src'));
+        $this->assertContains('stgstdpay.inicis.com', $this->directive('frame-src'));
+        $this->assertContains('stgstdpay.inicis.com', $this->directive('form-action'));
+    }
+
+    /**
+     * stg 는 정적 리소스 CDN 을 운영과 공유한다(stgstdux.inicis.com 은 존재하지 않음).
+     * 쓰지 않는 호스트를 화이트리스트에 얹지 않는다.
+     */
+    public function testCspDoesNotAllowNonexistentInicisStagingCdn(): void
+    {
+        $request  = service('request');
+        $response = service('response');
+        $csp      = $this->filter->after($request, $response, null)->getHeaderLine('Content-Security-Policy');
+
+        $this->assertStringNotContainsString('stgstdux.inicis.com', $csp);
+    }
+
     /** 화이트리스트를 와일드카드로 넓히지 않았는지 지킨다. */
     public function testCspContainsNoWildcardSource(): void
     {
