@@ -24,7 +24,8 @@ $recoTitle = $recoTitle ?? '회원님을 위한 추천 상품';
                 <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
                     <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
                         <?php if (! empty($p['primary_image'])): ?>
-                        <img src="/<?= esc(ltrim($p['primary_image'], '/')) ?>"
+                        <?php /* primary_image 는 attachPrimaryImages() 가 base_url() 로 만든 절대 URL 이므로 그대로 사용 */ ?>
+                        <img src="<?= esc($p['primary_image']) ?>"
                              alt="<?= esc($p['name']) ?>"
                              style="width:100%;height:100%;object-fit:cover" loading="lazy">
                         <?php else: ?>

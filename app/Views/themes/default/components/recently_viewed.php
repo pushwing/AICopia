@@ -18,7 +18,8 @@ if (empty($recentProducts)) return;
             <div class="position-relative rounded overflow-hidden mb-1"
                  style="aspect-ratio:1;background:#f8f9fa">
                 <?php if (! empty($rp['primary_image'])): ?>
-                <img src="/<?= esc(ltrim($rp['primary_image'], '/')) ?>"
+                <?php /* primary_image 는 attachPrimaryImages() 가 base_url() 로 만든 절대 URL 이므로 그대로 사용 */ ?>
+                <img src="<?= esc($rp['primary_image']) ?>"
                      alt="<?= esc($rp['name']) ?>"
                      style="width:100%;height:100%;object-fit:cover"
                      loading="lazy">
