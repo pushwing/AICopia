@@ -153,6 +153,7 @@ class OrderModel extends Model
                 'order_id'         => $orderId,
                 'product_id'       => (int) $item['product_id'],
                 'sku_id'           => isset($item['sku_id']) && $item['sku_id'] ? (int) $item['sku_id'] : null,
+                'parent_product_id' => isset($item['parent_product_id']) && $item['parent_product_id'] ? (int) $item['parent_product_id'] : null,
                 'sku_option_label' => ($item['sku_label'] ?? '') ?: null,
                 'product_name'     => $item['name'],
                 'product_price'    => $price,
