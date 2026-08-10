@@ -25,7 +25,7 @@ final class AdminProductAddonSaveTest extends CIUnitTestCase
     private string $prefix;
 
     /** @var array<string, array<int, int>> */
-    private array $cleanup = ['product_addons' => [], 'products' => []];
+    private array $cleanup = ['product_addons' => [], 'products' => [], 'product_skus' => []];
 
     protected function setUp(): void
     {
@@ -39,10 +39,13 @@ final class AdminProductAddonSaveTest extends CIUnitTestCase
         if ($this->cleanup['product_addons'] !== []) {
             $db->table('product_addons')->whereIn('id', $this->cleanup['product_addons'])->delete();
         }
+        if ($this->cleanup['product_skus'] !== []) {
+            $db->table('product_skus')->whereIn('id', $this->cleanup['product_skus'])->delete();
+        }
         if ($this->cleanup['products'] !== []) {
             $db->table('products')->whereIn('id', $this->cleanup['products'])->delete();
         }
-        $this->cleanup = ['product_addons' => [], 'products' => []];
+        $this->cleanup = ['product_addons' => [], 'products' => [], 'product_skus' => []];
 
         service('request')->setGlobal('post', []);
         service('request')->setGlobal('get', []);
@@ -158,6 +161,38 @@ final class AdminProductAddonSaveTest extends CIUnitTestCase
         $ids  = array_map(static fn (array $r): int => (int) $r['id'], $body['items'] ?? []);
 
         $this->assertNotContains($hidden, $ids, '판매중이 아닌 상품은 후보에서 빠져야 한다');
+    }
+
+    public function testAddonSearchExcludesSkuBearingProduct(): void
+    {
+        $this->insertProduct('MAIN');
+        $hasSku = $this->insertProduct('HASSKU');
+
+        $db = db_connect();
+        $db->table('product_skus')->insert([
+            'product_id' => $hasSku,
+            'price_diff' => 0,
+            'stock'      => 5,
+            'sku_code'   => null,
+        ]);
+        $this->cleanup['product_skus'][] = (int) $db->insertID();
+
+        service('request')->setGlobal('get', ['q' => $this->prefix]);
+
+        $controller = new \App\Controllers\Admin\ProductController();
+        $controller->initController(service('request'), service('response'), service('logger'));
+
+        $response = $controller->addonSearch();
+        service('request')->setGlobal('get', []);
+
+        $body = json_decode((string) $response->getBody(), true);
+        $ids  = array_map(static fn (array $r): int => (int) $r['id'], $body['items'] ?? []);
+
+        $this->assertNotContains(
+            $hasSku,
+            $ids,
+            'SKU(옵션)를 가진 상품은 애드온 후보 검색 결과에서 제외돼야 한다 — 재고 무결성 보호',
+        );
     }
 
     // ── update() 를 통한 실제 저장 경로 (신규) ──────────────────────────────────

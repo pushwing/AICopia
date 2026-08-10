@@ -81,6 +81,13 @@ class ProductAddonModel extends Model
             ->where('p.status', 'on_sale')
             ->where('p.stock >', 0)
             ->where('p.deleted_at IS NULL', null, false)
+            // 애드온 흐름은 product_id/qty만 넘기고 sku_id를 넘기지 않아, 옵션(SKU)이 있는
+            // 상품을 애드온으로 노출하면 옵션 재고가 차감되지 않아 재고 무결성이 깨진다.
+            // 옵션 지원은 후속 작업 — 그때까지 product_addons에 잘못 연결돼 남아 있더라도
+            // SKU 보유 상품은 노출 단계에서 항상 걸러낸다.
+            ->whereNotIn('p.id', static function (\CodeIgniter\Database\BaseBuilder $builder) {
+                return $builder->select('product_id')->from('product_skus');
+            })
             ->orderBy('pa.sort_order', 'ASC')->orderBy('pa.id', 'ASC')
             ->get()->getResultArray();
     }

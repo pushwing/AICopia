@@ -19,7 +19,7 @@ final class ProductAddonModelTest extends CIUnitTestCase
     private string $prefix;
 
     /** @var array<string, array<int, int>> */
-    private array $cleanup = ['product_addons' => [], 'products' => []];
+    private array $cleanup = ['product_addons' => [], 'products' => [], 'product_skus' => []];
 
     protected function setUp(): void
     {
@@ -30,12 +30,12 @@ final class ProductAddonModelTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         $db = db_connect();
-        foreach (['product_addons', 'products'] as $table) {
+        foreach (['product_addons', 'product_skus', 'products'] as $table) {
             if ($this->cleanup[$table] !== []) {
                 $db->table($table)->whereIn('id', $this->cleanup[$table])->delete();
             }
         }
-        $this->cleanup = ['product_addons' => [], 'products' => []];
+        $this->cleanup = ['product_addons' => [], 'products' => [], 'product_skus' => []];
         parent::tearDown();
     }
 
@@ -137,6 +137,34 @@ final class ProductAddonModelTest extends CIUnitTestCase
         $shown = array_column($model->getForDisplay($main), 'id');
 
         $this->assertSame([$onSale], array_map(intval(...), $shown), '소프트 삭제된 상품은 애드온 목록에서 제외돼야 한다');
+    }
+
+    public function testGetForDisplayExcludesSkuBearingProductEvenWhenLinked(): void
+    {
+        $main    = $this->insertProduct('MAIN');
+        $onSale  = $this->insertProduct('OK');
+        $hasSku  = $this->insertProduct('HASSKU');
+
+        $db = db_connect();
+        $db->table('product_skus')->insert([
+            'product_id' => $hasSku,
+            'price_diff' => 0,
+            'stock'      => 5,
+            'sku_code'   => null,
+        ]);
+        $this->cleanup['product_skus'][] = (int) $db->insertID();
+
+        $model = new ProductAddonModel();
+        $model->saveForProduct($main, [$onSale, $hasSku]);
+        $this->trackAddonRows($main);
+
+        $shown = array_column($model->getForDisplay($main), 'id');
+
+        $this->assertSame(
+            [$onSale],
+            array_map(intval(...), $shown),
+            'SKU(옵션)가 있는 상품은 product_addons 에 연결돼 있어도 노출에서 제외돼야 한다',
+        );
     }
 
     public function testIsLinked(): void
