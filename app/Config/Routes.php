@@ -281,6 +281,7 @@ $routes->post('shop/(:segment)/restock-alert', 'Front\ShopController::restockAle
 // ─── 장바구니 ──────────────────────────────────────────────────────────────────
 // add: 비로그인도 허용 (세션 저장), 나머지: 로그인 필요
 $routes->post('cart/add', 'Front\CartController::add');
+$routes->post('cart/add-bundle', 'Front\CartController::addBundle');
 $routes->group('cart', ['filter' => 'auth:member'], function ($routes) {
     $routes->get('', 'Front\CartController::index');
     $routes->post('checkout', 'Front\CartController::checkout');

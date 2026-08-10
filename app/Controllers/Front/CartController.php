@@ -6,6 +6,7 @@ namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
 use App\Models\CartModel;
+use App\Models\ProductAddonModel;
 use App\Models\ProductModel;
 use App\Models\ProductSkuModel;
 
@@ -137,6 +138,124 @@ class CartController extends BaseController
             'cartCount' => $count,
             'csrf_hash' => csrf_hash(),
         ]);
+    }
+
+    /**
+     * POST /cart/add-bundle — 본품 + 추가구성상품을 한 요청으로 담는다.
+     *
+     * 요청마다 CSRF 토큰이 회전하므로 /cart/add 를 N 번 부르는 대신 한 번에 처리한다.
+     */
+    public function addBundle(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        $productId = (int) $this->request->getPost('product_id');
+        $qty       = max(1, (int) $this->request->getPost('qty'));
+        $skuId     = $this->request->getPost('sku_id') ? (int) $this->request->getPost('sku_id') : null;
+        $addons    = $this->request->getPost('addons');
+        $addons    = is_array($addons) ? $addons : [];
+
+        $main = $this->resolvePurchasable($productId, $skuId, $qty);
+        if ($main === null) {
+            return $this->response->setJSON(['success' => false, 'message' => '구매할 수 없는 상품입니다.', 'csrf_hash' => csrf_hash()]);
+        }
+
+        $addonModel = new ProductAddonModel();
+        $accepted   = [];
+        $skipped    = [];
+
+        foreach ($addons as $addon) {
+            $addonId  = (int) ($addon['product_id'] ?? 0);
+            $addonSku = isset($addon['sku_id']) && $addon['sku_id'] ? (int) $addon['sku_id'] : null;
+            $addonQty = max(1, (int) ($addon['qty'] ?? 1));
+
+            if (! $addonModel->isLinked($productId, $addonId)) {
+                $skipped[] = '추가구성상품이 아닌 항목은 담지 않았습니다.';
+                continue;
+            }
+
+            $resolved = $this->resolvePurchasable($addonId, $addonSku, $addonQty);
+            if ($resolved === null) {
+                $skipped[] = '품절이거나 판매하지 않는 추가구성상품은 담지 않았습니다.';
+                continue;
+            }
+
+            $accepted[] = $resolved;
+        }
+
+        $this->storeInCart($main['product_id'], $main['sku_id'], $main['qty'], null);
+        foreach ($accepted as $item) {
+            $this->storeInCart($item['product_id'], $item['sku_id'], $item['qty'], $productId);
+        }
+
+        $userId = session()->get('user_id');
+        $count  = $userId ? $this->cartModel->getCount((int) $userId) : count(session()->get('cart') ?? []);
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => '장바구니에 담겼습니다.',
+            'cartCount' => $count,
+            'skipped'   => array_values(array_unique($skipped)),
+            'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * 살 수 있는 상품인지 확인하고 재고까지 클리핑한 수량을 돌려준다.
+     *
+     * @return array{product_id: int, sku_id: int|null, qty: int}|null
+     */
+    private function resolvePurchasable(int $productId, ?int $skuId, int $qty): ?array
+    {
+        $row = $this->productModel->db
+            ->table('products')
+            ->select('id, stock, status, deleted_at')
+            ->where('id', $productId)
+            ->where('status', 'on_sale')
+            ->where('deleted_at IS NULL', null, false)
+            ->get()->getRowArray();
+
+        if (! $row) {
+            return null;
+        }
+
+        if ($skuId !== null) {
+            $sku = $this->skuModel->findForProduct($skuId, $productId);
+            if (! $sku) {
+                return null;
+            }
+            $stock = (int) $sku['stock'];
+        } else {
+            $stock = (int) $row['stock'];
+        }
+
+        if ($stock < 1) {
+            return null;
+        }
+
+        return ['product_id' => $productId, 'sku_id' => $skuId, 'qty' => min($qty, $stock)];
+    }
+
+    /** 회원이면 DB, 비회원이면 세션에 담는다 */
+    private function storeInCart(int $productId, ?int $skuId, int $qty, ?int $parentProductId): void
+    {
+        $userId = session()->get('user_id');
+
+        if ($userId) {
+            $this->cartModel->upsert((int) $userId, $productId, $qty, $skuId, $parentProductId);
+
+            return;
+        }
+
+        $cart    = session()->get('cart') ?? [];
+        $parents = session()->get('cart_addon_of') ?? [];
+        $sessKey = CartModel::sessionKey($productId, $skuId);
+
+        $cart[$sessKey] = ($cart[$sessKey] ?? 0) + $qty;
+        if ($parentProductId !== null && ! isset($parents[$sessKey])) {
+            $parents[$sessKey] = $parentProductId;
+        }
+
+        session()->set('cart', $cart);
+        session()->set('cart_addon_of', $parents);
     }
 
     /**
