@@ -25,6 +25,7 @@ abstract class AbstractOAuthProvider
         // .env 우선 적용
         $cfg['client_id']     = env("oauth.{$this->providerName}.client_id", $cfg['client_id']);
         $cfg['client_secret'] = env("oauth.{$this->providerName}.client_secret", $cfg['client_secret']);
+        $cfg['scope']         = env("oauth.{$this->providerName}.scope", $cfg['scope']);
         $cfg['redirect_uri']  = base_url("auth/social/{$this->providerName}/callback");
 
         $this->config = $cfg;
