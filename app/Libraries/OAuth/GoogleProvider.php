@@ -34,8 +34,10 @@ class GoogleProvider extends AbstractOAuthProvider
         return [
             'social_id' => $data['sub'],
             'email'     => $data['email'] ?? null,
-            'nickname'  => $data['name'] ?? $data['given_name'] ?? '구글유저',
-            'avatar'    => $data['picture'] ?? null,
+            // 기존 계정 연동 여부를 가르는 값이라 클레임이 없으면 미검증으로 본다 (이슈 #137)
+            'email_verified' => ($data['email_verified'] ?? false) === true,
+            'nickname'       => $data['name'] ?? $data['given_name'] ?? '구글유저',
+            'avatar'         => $data['picture'] ?? null,
         ];
     }
 }

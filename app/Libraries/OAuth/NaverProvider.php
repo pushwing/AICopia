@@ -32,8 +32,11 @@ class NaverProvider extends AbstractOAuthProvider
         return [
             'social_id' => (string) $r['id'],
             'email'     => $r['email'] ?? null,
-            'nickname'  => $r['nickname'] ?? $r['name'] ?? '네이버유저',
-            'avatar'    => $r['profile_image'] ?? null,
+            // 네이버 프로필 API 는 이메일 검증 여부를 알려주지 않는다. 증명이 없으므로
+            // 미검증으로 취급해 기존 계정 자동 연동 대상에서 제외한다 (이슈 #137)
+            'email_verified' => false,
+            'nickname'       => $r['nickname'] ?? $r['name'] ?? '네이버유저',
+            'avatar'         => $r['profile_image'] ?? null,
         ];
     }
 }
