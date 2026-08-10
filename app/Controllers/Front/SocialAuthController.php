@@ -178,11 +178,11 @@ class SocialAuthController extends BaseController
             ->first();
 
         if ($user) {
-            // 토큰 및 아바타 갱신
+            // 토큰 및 아바타 갱신 + 아직 비어 있는 프로필 항목 채우기
             $this->userModel->update($user['id'], [
                 'social_token' => $token,
                 'avatar'       => $profile['avatar'],
-            ]);
+            ] + $this->fillableProfileFields($user, $profile));
             return $this->userModel->find($user['id']);
         }
 
@@ -199,7 +199,7 @@ class SocialAuthController extends BaseController
                     'social_id'       => $profile['social_id'],
                     'social_token'    => $token,
                     'avatar'          => $profile['avatar'],
-                ]);
+                ] + $this->fillableProfileFields($existing, $profile));
                 return $this->userModel->find($existing['id']);
             }
         }
@@ -225,6 +225,10 @@ class SocialAuthController extends BaseController
             'social_token'    => $token,
             'avatar'          => $profile['avatar'],
             'is_active'       => 1,
+            // 제공자가 동의받아 내려준 항목 (없으면 null)
+            'phone'    => $profile['phone']    ?? null,
+            'gender'   => $profile['gender']   ?? null,
+            'birthday' => $profile['birthday'] ?? null,
         ]);
 
         if (! $id) {
@@ -240,6 +244,37 @@ class SocialAuthController extends BaseController
         }
 
         return $this->userModel->find($id);
+    }
+
+    /**
+     * 제공자가 준 프로필 항목 중 "계정에 아직 비어 있는" 것만 골라 갱신 페이로드로 만든다.
+     *
+     * 소셜 값으로 무조건 덮어쓰면 사용자가 마이페이지에서 직접 고친 값이 로그인할 때마다
+     * 되돌아간다. 반대로 아예 쓰지 않으면 이 기능이 없던 시절 가입한 계정은 영영 빈 칸이다.
+     *
+     * @param  array<string, mixed> $user    DB 에 저장된 현재 회원 행
+     * @param  array<string, mixed> $profile 제공자 프로필
+     * @return array<string, mixed>
+     */
+    private function fillableProfileFields(array $user, array $profile): array
+    {
+        $payload = [];
+
+        foreach (['phone', 'gender', 'birthday'] as $field) {
+            $incoming = $profile[$field] ?? null;
+
+            if ($incoming === null || $incoming === '') {
+                continue;
+            }
+
+            $current = $user[$field] ?? null;
+
+            if ($current === null || $current === '') {
+                $payload[$field] = $incoming;
+            }
+        }
+
+        return $payload;
     }
 
     /**
