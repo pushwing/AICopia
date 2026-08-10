@@ -711,6 +711,89 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         return frm;
     }
 
+    // ─── 이니시스 오버레이 탈출 장치 ──────────────────────────────────────────
+    // INIStdPay 는 결제창을 새 창이 아니라 주문서 위에 씌운 전체화면 모달
+    // (#inicisModalDiv, backdrop:'static') 안의 iframe 으로 띄운다.
+    // 그런데 SDK 는 자기가 만든 닫기 버튼을 모달에 붙이지 않는다
+    // (INIStdPay.js 의 INIModal_init 이 modal-header 를 만들고도 body 만 append 한다).
+    // 그래서 오버레이를 걷을 주체는 iframe 안 결제창뿐인데, 결제창이 정상 진입하지
+    // 못하면(키·도메인·CSP 문제) 그 주체가 사라져 오버레이만 남고 주문서가 굳는다.
+    // 어떤 이유로 결제창이 죽더라도 사용자가 주문서로 돌아올 수 있게 탈출구를 붙인다.
+    const INICIS_OVERLAY_IDS = ['inicisModalDiv', 'inicisModalDivMsg'];
+
+    function installInicisOverlayEscape() {
+        const startedAt = Date.now();
+
+        // 오버레이는 SDK 가 basicInfo 조회를 마친 뒤에야 뜨므로 폴링으로 기다린다.
+        const timer = setInterval(function () {
+            if (document.getElementById('inicisModalDiv')) {
+                clearInterval(timer);
+                attachEscape();
+            } else if (Date.now() - startedAt > 20000) {
+                clearInterval(timer);   // 결제창이 끝내 안 뜬 경우 — 폴링만 남기지 않는다
+            }
+        }, 300);
+    }
+
+    function attachEscape() {
+        if (document.getElementById('inicisEscapeBtn')) return;   // 재시도 시 중복 부착 방지
+
+        const btn = document.createElement('button');
+        btn.type        = 'button';
+        btn.id          = 'inicisEscapeBtn';
+        btn.className   = 'btn btn-sm btn-light shadow';
+        btn.textContent = '✕ 결제 취소';
+        btn.setAttribute('aria-label', '이니시스 결제창 닫기');
+        // 이니시스 모달보다 확실히 위에 오도록 최대 z-index 로 고정한다.
+        btn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:2147483647;';
+        btn.addEventListener('click', closeInicisOverlay);
+
+        document.body.appendChild(btn);
+
+        // ESC 는 보조 수단이다 — 사용자가 결제창(크로스오리진 iframe)을 한 번이라도
+        // 클릭하면 키 이벤트가 그쪽으로 가서 부모 document 까지 오지 않는다.
+        // 결제창이 아예 안 뜬(= 먹통) 경우엔 포커스가 부모에 남아 있어 동작한다.
+        document.addEventListener('keydown', onEscapeKey, true);
+    }
+
+    function onEscapeKey(e) {
+        if (e.key === 'Escape') closeInicisOverlay();
+    }
+
+    function closeInicisOverlay() {
+        // SDK 가 정상 경로를 제공하면 그걸 먼저 쓴다(내부 상태까지 정리해 준다).
+        try {
+            if (window.INIStdPay && typeof INIStdPay.viewOff === 'function') INIStdPay.viewOff();
+        } catch (e) { /* SDK 내부 상태가 깨졌어도 아래 수동 정리로 복구한다 */ }
+
+        // SDK 가 부모 document 에 건 우클릭·드래그·선택 차단을 되돌린다.
+        // (SDK 의 viewOffTriger 는 contextmenu 를 풀지 않아 그냥 두면 계속 막힌다.)
+        try {
+            if (window.$jINI) $jINI(document).unbind('contextmenu selectstart dragstart');
+        } catch (e) { /* SDK 의 jQuery 가 없으면 애초에 바인딩도 없다 */ }
+
+        INICIS_OVERLAY_IDS.forEach(function (id) {
+            document.querySelectorAll('#' + id).forEach(function (el) { el.remove(); });
+        });
+
+        // 이니시스 SDK 는 자체 번들 부트스트랩을 쓰므로 딤 배경 클래스가
+        // .modal-backdrop 이 아니라 .inipay_modal-backdrop 이다.
+        document.querySelectorAll('.inipay_modal-backdrop').forEach(function (el) { el.remove(); });
+
+        // 주문서 자체 모달이 열려 있으면 그쪽 딤 배경·스크롤 잠금은 건드리지 않는다.
+        if (! document.querySelector('.modal.show')) {
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }
+
+        // SDK 가 결제창을 다시 붙이지 못하도록 파라미터 폼도 함께 치운다.
+        document.querySelectorAll('#SendPayForm_id').forEach(function (el) { el.remove(); });
+
+        document.getElementById('inicisEscapeBtn')?.remove();
+        document.removeEventListener('keydown', onEscapeKey, true);
+    }
+
     // ─── PG별 결제창 실행 ─────────────────────────────────────────────────────
     async function launchPG(p) {
         const pg = p.pg;
@@ -772,19 +855,30 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         }
 
         if (pg === 'inicis') {
+            // 키가 없으면 여기서 끊는다. 빈 mid 로 결제창을 태우면 이니시스가 결제창 대신
+            // 안내 페이지를 오버레이 iframe 안에 그리고, 그 페이지는 부모를 closeUrl 로
+            // 보내지 않아 아래 오버레이가 영영 남는다(= 주문서 먹통).
+            if (p.error) { alert('이니시스 설정 오류: ' + p.error); return; }
+
             // INIStdPay 는 폼을 직접 전송하는 방식이 아니다.
             // SDK 를 로드한 뒤 파라미터를 담은 form 의 id 를 넘겨 호출해야 결제창이 열린다.
             await loadScript('https://stdpay.inicis.com/stdjs/INIStdPay.js');
 
             const frm = buildParamForm(p, 'SendPayForm_id');
             frm.method = 'post';
+            // 한글 goodname·buyername 이 EUC-KR 로 깨지지 않도록 폼 인코딩을 고정한다.
+            frm.acceptCharset = 'UTF-8';
             document.body.appendChild(frm);
 
             if (typeof INIStdPay === 'undefined') {
                 throw new Error('이니시스 결제 모듈을 불러오지 못했습니다.');
             }
             INIStdPay.pay('SendPayForm_id');
+            // 두 장치는 역할이 다르므로 함께 건다.
+            // - 안내 배너: 10초가 지나도 아무 일이 없으면 새로고침 탈출구를 노출
+            // - 탈출 버튼: 오버레이가 실제로 뜬 뒤 그것을 걷어내는 취소 버튼을 부착
             armPaymentStuckHint(10000);
+            installInicisOverlayEscape();
             return;
         }
 

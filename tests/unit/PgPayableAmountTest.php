@@ -52,6 +52,20 @@ final class PgPayableAmountTest extends CIUnitTestCase
     }
 
     /**
+     * 이니시스 어댑터도 MID·사인키가 비면 결제창 파라미터 대신 error 만 돌려준다.
+     * 로컬 .env 유무에 결과가 좌우되지 않도록 공개 테스트 키를 주입해 만든다.
+     */
+    private function inicisAdapter(): InicisAdapter
+    {
+        $config                   = new PG();
+        $config->inicisMerchantId = 'INIpayTest';
+        $config->inicisSignKey    = 'SU5JTElURV9UUklQTEVERVNfS0VZU1RS';
+        Factories::injectMock('config', 'PG', $config);
+
+        return new InicisAdapter();
+    }
+
+    /**
      * 쿠폰·포인트가 함께 적용된 주문 픽스처.
      *
      * @return array<string, mixed>
@@ -85,7 +99,7 @@ final class PgPayableAmountTest extends CIUnitTestCase
 
     public function testInicisPassesPayableAmount(): void
     {
-        $params = (new InicisAdapter())->buildPaymentParams($this->discountedOrder());
+        $params = $this->inicisAdapter()->buildPaymentParams($this->discountedOrder());
 
         $this->assertSame(self::PAYABLE_AMOUNT, $params['price']);
     }
@@ -93,7 +107,7 @@ final class PgPayableAmountTest extends CIUnitTestCase
     /** 이니시스 signature 는 결제창에 넘긴 price 그대로 해시해야 검증을 통과한다. */
     public function testInicisSignatureIsBuiltFromPayableAmount(): void
     {
-        $params = (new InicisAdapter())->buildPaymentParams($this->discountedOrder());
+        $params = $this->inicisAdapter()->buildPaymentParams($this->discountedOrder());
 
         $expected = hash('sha256', sprintf(
             'oid=%s&price=%s&timestamp=%s',
@@ -153,7 +167,7 @@ final class PgPayableAmountTest extends CIUnitTestCase
 
         $this->assertSame(self::TOTAL_AMOUNT, $this->tossAdapter()->buildPaymentParams($legacy)['amount']);
         $this->assertSame(self::TOTAL_AMOUNT, (new NicePayAdapter())->buildPaymentParams($legacy)['amount']);
-        $this->assertSame(self::TOTAL_AMOUNT, (new InicisAdapter())->buildPaymentParams($legacy)['price']);
+        $this->assertSame(self::TOTAL_AMOUNT, $this->inicisAdapter()->buildPaymentParams($legacy)['price']);
         $this->assertSame(self::TOTAL_AMOUNT, (new PaycoAdapter())->buildPaymentParams($legacy)['totalAmount']);
         $this->assertSame(self::TOTAL_AMOUNT, (new NaverPayAdapter())->buildPaymentParams($legacy)['totalPayAmount']);
     }

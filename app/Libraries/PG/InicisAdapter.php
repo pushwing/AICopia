@@ -29,6 +29,15 @@ class InicisAdapter implements PGInterface
      */
     public function buildPaymentParams(array $order): array
     {
+        $keyError = $this->validateKeys();
+        if ($keyError !== null) {
+            // 키가 비면 INIStdPay 호출 자체를 막아야 한다. 빈 mid 로 payMain/pay 를 태우면
+            // 이니시스가 결제창 대신 V022 안내 페이지를 오버레이 iframe 에 그리는데,
+            // 그 페이지는 부모를 closeUrl 로 보내지 않아 전체화면 오버레이가 남고
+            // 주문서가 클릭 불가 상태로 굳는다. 뷰(launchPG)가 이 error 를 보고 중단한다.
+            return ['pg' => 'inicis', 'error' => $keyError];
+        }
+
         $timestamp = time() * 1000;
         $oid       = $order['order_number'];
         $price     = $this->payableAmount($order);
@@ -125,6 +134,20 @@ class InicisAdapter implements PGInterface
     public function getProviderName(): string
     {
         return 'inicis';
+    }
+
+    /** 결제창을 열기 전에 반드시 있어야 하는 키를 검사한다. 문제없으면 null. */
+    private function validateKeys(): ?string
+    {
+        if ($this->merchantId === '') {
+            return '이니시스 상점 아이디가 설정되지 않았습니다. (.env 의 INICIS_MERCHANT_ID)';
+        }
+
+        if ($this->signKey === '') {
+            return '이니시스 사인키가 설정되지 않았습니다. (.env 의 INICIS_SIGN_KEY)';
+        }
+
+        return null;
     }
 
     /**
