@@ -196,9 +196,9 @@ class CartController extends BaseController
             $accepted[] = $resolved;
         }
 
-        $this->storeInCart($main['product_id'], $main['sku_id'], $main['qty'], null);
+        $this->storeInCart($main['product_id'], $main['sku_id'], $main['qty'], null, $main['stock']);
         foreach ($accepted as $item) {
-            $this->storeInCart($item['product_id'], $item['sku_id'], $item['qty'], $productId);
+            $this->storeInCart($item['product_id'], $item['sku_id'], $item['qty'], $productId, $item['stock']);
         }
 
         $userId = session()->get('user_id');
@@ -219,7 +219,7 @@ class CartController extends BaseController
      * add()가 필요로 하는 "왜 실패했는지"는 checkPurchasable()의 reason 을 그대로 버린다 —
      * addBundle() 쪽 스킵 사유는 사유 구분 없이 뭉뚱그린 문구를 쓰기 때문이다.
      *
-     * @return array{product_id: int, sku_id: int|null, qty: int}|null
+     * @return array{product_id: int, sku_id: int|null, qty: int, stock: int}|null
      */
     private function resolvePurchasable(int $productId, ?int $skuId, int $qty): ?array
     {
@@ -229,7 +229,12 @@ class CartController extends BaseController
             return null;
         }
 
-        return ['product_id' => $check['product_id'], 'sku_id' => $check['sku_id'], 'qty' => $check['qty']];
+        return [
+            'product_id' => $check['product_id'],
+            'sku_id'     => $check['sku_id'],
+            'qty'        => $check['qty'],
+            'stock'      => $check['stock'],
+        ];
     }
 
     /**
@@ -272,8 +277,16 @@ class CartController extends BaseController
         return ['ok' => true, 'reason' => null, 'product_id' => $productId, 'sku_id' => $skuId, 'qty' => min($qty, $stock), 'stock' => $stock];
     }
 
-    /** 회원이면 DB, 비회원이면 세션에 담는다 */
-    private function storeInCart(int $productId, ?int $skuId, int $qty, ?int $parentProductId): void
+    /**
+     * 회원이면 DB, 비회원이면 세션에 담는다.
+     *
+     * $stock 은 resolvePurchasable() 이 이미 조회해 클리핑에 사용한 값을 그대로 받는다 —
+     * 여기서 다시 쿼리하지 않는다. add()의 비회원 분기(min(기존 + qty, stock))와 동일하게,
+     * 이미 세션에 담겨 있던 수량까지 합산한 뒤 재고를 넘지 않도록 클리핑해야 한다.
+     * addBundle()이 한 요청 안에서 클리핑하는 qty 만으로는 이전 요청에서 세션에 이미
+     * 쌓여 있던 수량을 볼 수 없기 때문이다.
+     */
+    private function storeInCart(int $productId, ?int $skuId, int $qty, ?int $parentProductId, int $stock): void
     {
         $userId = session()->get('user_id');
 
@@ -287,7 +300,7 @@ class CartController extends BaseController
         $parents = session()->get('cart_addon_of') ?? [];
         $sessKey = CartModel::sessionKey($productId, $skuId);
 
-        $cart[$sessKey] = ($cart[$sessKey] ?? 0) + $qty;
+        $cart[$sessKey] = min(($cart[$sessKey] ?? 0) + $qty, $stock);
         if ($parentProductId !== null && ! isset($parents[$sessKey])) {
             $parents[$sessKey] = $parentProductId;
         }

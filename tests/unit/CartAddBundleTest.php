@@ -92,6 +92,25 @@ final class CartAddBundleTest extends CIUnitTestCase
         }
     }
 
+    /** @return array<string, mixed> */
+    private function callAdd(int $productId, int $qty): array
+    {
+        $post = ['product_id' => (string) $productId, 'qty' => (string) $qty];
+
+        $request = service('request');
+        $request->setGlobal('post', $post);
+        $request->setGlobal('request', $post);
+
+        $controller = new CartController();
+        $controller->initController(service('request'), service('response'), service('logger'));
+        $response = $controller->add();
+
+        $request->setGlobal('post', []);
+        $request->setGlobal('request', []);
+
+        return json_decode((string) $response->getBody(), true) ?? [];
+    }
+
     /**
      * @param  array<int, array<string, mixed>> $addons
      * @return array<string, mixed>
@@ -281,7 +300,13 @@ final class CartAddBundleTest extends CIUnitTestCase
     public function testSameProductAsMainAndAddonDoesNotExceedStock(): void
     {
         $userId = $this->insertUser();
-        $main   = $this->insertProduct('MAIN', 5);
+        // 재고를 본품 단독 요청 수량(5)보다는 크고, 본품+애드온 합산(10)보다는 작게 잡는다.
+        // isLinked(main, main)은 자기 자신을 가리키는 링크가 saveForProduct()에서 애초에
+        // 저장되지 않아 항상 false이므로, addBundle()의 "본품과 같은 항목은 병합한다" 특례가
+        // 없다면 애드온 쪽 요청(qty=5)은 통째로 스킵되고 본품 요청(qty=5)만 남는다.
+        // 특례가 살아있으면 두 요청이 합산(10)된 뒤 재고(8)까지 클리핑되어 8이 담긴다.
+        // 재고를 5로 두면 두 경로의 최종 qty가 우연히 5로 같아져 특례 유무를 구분하지 못한다.
+        $main = $this->insertProduct('MAIN', 8);
 
         session()->set(['user_id' => $userId, 'user_role' => 'member']);
 
@@ -294,7 +319,27 @@ final class CartAddBundleTest extends CIUnitTestCase
 
         $this->assertTrue($body['success'] ?? false, $body['message'] ?? '');
         $this->assertCount(1, $mainRows, '본품·애드온으로 중복 요청돼도 한 행이어야 한다');
-        $this->assertSame(5, (int) $mainRows[0]['qty'], '재고를 넘겨 담으면 안 된다');
+        $this->assertSame(8, (int) $mainRows[0]['qty'], '본품·애드온 수량이 합산된 뒤 재고까지만 담겨야 한다');
         $this->assertNull($mainRows[0]['parent_product_id'], '본품으로 담긴 만큼 부모가 없어야 한다');
+        $this->assertSame([], $body['skipped'] ?? null, '본품과 같은 항목은 병합될 뿐 스킵 사유가 남으면 안 된다');
+    }
+
+    public function testGuestAddThenAddBundleDoesNotExceedStock(): void
+    {
+        $main = $this->insertProduct('MAIN', 5);
+
+        // 비회원: /cart/add 로 재고만큼(5개) 먼저 담는다 — 이 시점에 세션 장바구니에 5개가 쌓인다.
+        $this->callAdd($main, 5);
+
+        // 같은 상품을 애드온 없이 /cart/add-bundle 로 5개 더 요청한다.
+        // resolvePurchasable() 은 이번 요청의 qty=5 만 보고 재고 5 이내라 통과시키지만,
+        // storeInCart() 는 세션에 이미 쌓인 5개까지 더해서 재고를 넘지 않도록 클리핑해야 한다.
+        $body = $this->callAddBundle($main, 5, []);
+
+        $sessionCart = session()->get('cart') ?? [];
+        $key         = \App\Models\CartModel::sessionKey($main, null);
+
+        $this->assertTrue($body['success'] ?? false, $body['message'] ?? '');
+        $this->assertSame(5, $sessionCart[$key] ?? null, '세션 장바구니 수량이 재고를 넘으면 안 된다');
     }
 }
