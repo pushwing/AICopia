@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
+use App\Libraries\PaymentReceipt;
 use App\Models\CartModel;
 use App\Models\OrderModel;
 use App\Models\PointLogModel;
@@ -108,7 +109,10 @@ class MyPageController extends BaseController
         $eCode               = $order['exchange_reason_code'] ?? null;
         $exchangeReasonPayer = $eCode ? ($exchangeReasonCodes[$eCode]['payer'] ?? null) : null;
 
-        return $this->render('shop/orders/detail', ['order' => $order, 'returnReasonCodes' => $returnReasonCodes, 'returnReasonPayer' => $returnReasonPayer, 'exchangeReasonCodes' => $exchangeReasonCodes, 'exchangeReasonPayer' => $exchangeReasonPayer]);
+        // PG 원응답에서 카드 영수증 정보(카드사·카드번호·할부·승인번호)를 정규화해 넘긴다.
+        $receipt = PaymentReceipt::fromPayment($order['payment'] ?? null);
+
+        return $this->render('shop/orders/detail', ['order' => $order, 'receipt' => $receipt, 'returnReasonCodes' => $returnReasonCodes, 'returnReasonPayer' => $returnReasonPayer, 'exchangeReasonCodes' => $exchangeReasonCodes, 'exchangeReasonPayer' => $exchangeReasonPayer]);
     }
 
     /** POST /mypage/orders/confirm-delivery — 배송 완료 확인 */

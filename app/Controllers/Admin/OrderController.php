@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Libraries\PaymentReceipt;
 use App\Libraries\PG\PGFactory;
 use App\Libraries\PgCancellationService;
 use App\Models\OrderMemoModel;
@@ -259,8 +260,12 @@ class OrderController extends BaseController
         // 취소된 주문에 PG 청구가 살아 있으면 환불이 남아 있다는 뜻이다.
         $refundPending = $this->orderModel->findRefundPendingPayment($id) !== null;
 
+        // PG 원응답에서 카드 영수증 정보(카드사·카드번호·할부·승인번호)를 정규화해 넘긴다.
+        $receipt = PaymentReceipt::fromPayment($order['payment'] ?? null);
+
         return $this->render('admin/orders/detail', [
             'order'               => $order,
+            'receipt'             => $receipt,
             'refundPending'       => $refundPending,
             'statusLabels'        => self::STATUS_LABELS,
             'nextStatus'          => self::NEXT_STATUS,
