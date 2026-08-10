@@ -1,0 +1,161 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit;
+
+use App\Controllers\Front\OrderController;
+use CodeIgniter\Test\CIUnitTestCase;
+use CodeIgniter\Test\DatabaseTestTrait;
+
+/**
+ * 주문서(checkout) 화면 — 애드온이 본품 바로 아래 들여쓰기 + '추가구성' 배지로 묶여 보이는지 검증한다.
+ *
+ * 장바구니(shop/cart.php)·주문상세(shop/orders/detail.php)에 이미 적용된
+ * AddonGrouping::order() + 'ps-4 border-start border-3' + 배지 규칙을 주문서에도
+ * 그대로 적용했는지 확인한다(이슈 #160). OrderController::index() 를 실제로 호출해
+ * 렌더된 HTML을 그대로 검증한다(로직 재구현 없음).
+ */
+final class CheckoutAddonGroupingViewTest extends CIUnitTestCase
+{
+    use DatabaseTestTrait;
+
+    protected $DBGroup = 'tests';
+    protected $migrate = false;
+    protected $refresh = false;
+
+    private string $prefix;
+
+    /** @var array<string, array<int, int>> */
+    private array $cleanup = ['cart_items' => [], 'products' => [], 'users' => []];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->prefix = 'CKAG' . substr(uniqid(), -6);
+        session()->destroy();
+    }
+
+    protected function tearDown(): void
+    {
+        $db = db_connect();
+        foreach (['cart_items', 'products', 'users'] as $table) {
+            if ($this->cleanup[$table] !== []) {
+                $db->table($table)->whereIn('id', $this->cleanup[$table])->delete();
+            }
+        }
+        $this->cleanup = ['cart_items' => [], 'products' => [], 'users' => []];
+        session()->destroy();
+        parent::tearDown();
+    }
+
+    // ── 헬퍼 ──────────────────────────────────────────────────────────────────
+
+    private function insertUser(): int
+    {
+        $db = db_connect();
+        $db->table('users')->insert([
+            'username'      => $this->prefix,
+            'email'         => $this->prefix . '@example.test',
+            'password'      => password_hash('pw', PASSWORD_DEFAULT),
+            'nickname'      => $this->prefix,
+            'role'          => 'member',
+            'grade'         => 'bronze',
+            'is_active'     => 1,
+            'point_balance' => 0,
+            'created_at'    => date('Y-m-d H:i:s'),
+            'updated_at'    => date('Y-m-d H:i:s'),
+        ]);
+        $id                       = (int) $db->insertID();
+        $this->cleanup['users'][] = $id;
+
+        return $id;
+    }
+
+    private function insertProduct(string $suffix): int
+    {
+        $db = db_connect();
+        $db->table('products')->insert([
+            'name'           => $this->prefix . $suffix,
+            'slug'           => strtolower($this->prefix . $suffix),
+            'price'          => 10000,
+            'cost_price'     => 0,
+            'stock'          => 10,
+            'status'         => 'on_sale',
+            'shipping_type'  => 'free',
+            'shipping_fee'   => 0,
+            'free_threshold' => 0,
+            'created_at'     => date('Y-m-d H:i:s'),
+            'updated_at'     => date('Y-m-d H:i:s'),
+        ]);
+        $id                          = (int) $db->insertID();
+        $this->cleanup['products'][] = $id;
+
+        return $id;
+    }
+
+    private function insertCartItem(int $userId, int $productId, ?int $parentProductId, int $qty): void
+    {
+        $db = db_connect();
+        $db->table('cart_items')->insert([
+            'user_id'           => $userId,
+            'product_id'        => $productId,
+            'sku_id'            => null,
+            'parent_product_id' => $parentProductId,
+            'qty'               => $qty,
+            'created_at'        => date('Y-m-d H:i:s'),
+        ]);
+        $this->cleanup['cart_items'][] = (int) $db->insertID();
+    }
+
+    private function renderCheckout(int $userId): string
+    {
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $controller = new OrderController();
+        $controller->initController(service('request'), service('response'), service('logger'));
+
+        $result = $controller->index();
+        $this->assertIsString($result, '구매 가능한 상품이 있으면 주문서 HTML을 돌려줘야 한다');
+
+        return $result;
+    }
+
+    // ── 테스트 ────────────────────────────────────────────────────────────────
+
+    public function testAddonRendersIndentedAndBadgedAfterMainProduct(): void
+    {
+        $userId = $this->insertUser();
+        $main   = $this->insertProduct('MAIN');
+        $addon  = $this->insertProduct('ADDON');
+
+        // 애드온을 먼저 담아 DB 정렬로는 애드온이 먼저 나오게 해도
+        // 화면에는 AddonGrouping::order() 가 본품을 먼저로 재배열해야 한다.
+        $this->insertCartItem($userId, $addon, $main, 2);
+        $this->insertCartItem($userId, $main, null, 1);
+
+        $html = $this->renderCheckout($userId);
+
+        $this->assertStringContainsString('추가구성', $html, '애드온 행에 배지가 표시돼야 한다');
+        $this->assertStringContainsString('ps-4 border-start border-3', $html, '애드온 행에 들여쓰기 클래스가 붙어야 한다');
+
+        $mainPos  = strpos($html, $this->prefix . 'MAIN');
+        $addonPos = strpos($html, $this->prefix . 'ADDON');
+        $this->assertNotFalse($mainPos, '본품명이 렌더돼야 한다');
+        $this->assertNotFalse($addonPos, '애드온명이 렌더돼야 한다');
+        $this->assertLessThan($addonPos, $mainPos, '본품이 애드온보다 먼저(위에) 렌더돼야 한다');
+    }
+
+    public function testPlainCheckoutHasNoAddonBadgeOrIndentClass(): void
+    {
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct('SOLO');
+        $this->insertCartItem($userId, $product, null, 1);
+
+        $html = $this->renderCheckout($userId);
+
+        $this->assertStringContainsString($this->prefix . 'SOLO', $html);
+        $this->assertStringNotContainsString('추가구성', $html, '애드온이 없으면 배지가 없어야 한다');
+        $this->assertStringNotContainsString('ps-4 border-start border-3', $html, '애드온이 없으면 들여쓰기 클래스가 없어야 한다');
+    }
+}
