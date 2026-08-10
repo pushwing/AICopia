@@ -370,6 +370,27 @@ final class OrderFlowTest extends CIUnitTestCase
         $this->assertSame($before, $after);
     }
 
+    /** P-09: 장바구니의 parent_product_id 가 주문 항목에 그대로 승계된다 */
+    public function testCreatePending_addonParentProductIdInherited(): void
+    {
+        $mainProduct  = $this->insertProduct(['price' => 20000]);
+        $addonProduct = $this->insertProduct(['price' => 3000]);
+        $userId       = $this->insertUser();
+        $mainProductId = $mainProduct['id'];
+
+        $items = [
+            $this->makeCartItem($mainProduct),
+            $this->makeCartItem($addonProduct) + ['parent_product_id' => $mainProductId],
+        ];
+
+        $orderId = $this->trackOrder($this->model->createPending($userId, $this->shippingData(), $items));
+        $this->trackOrderItems($orderId);
+
+        $orderItems = db_connect()->table('order_items')->where('order_id', $orderId)->orderBy('id', 'ASC')->get()->getResultArray();
+        $this->assertNull($orderItems[0]['parent_product_id'], '본품 자체는 parent_product_id가 없어야 한다');
+        $this->assertSame($mainProductId, (int) $orderItems[1]['parent_product_id'], '주문 항목에 부모가 승계돼야 한다');
+    }
+
     // ── G: confirmPaid ────────────────────────────────────────────────────────
 
     /** G-01: payments.amount = payable_amount */

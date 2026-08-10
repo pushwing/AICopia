@@ -15,7 +15,7 @@ class CartModel extends Model
     protected $table         = 'cart_items';
     protected $primaryKey    = 'id';
     protected $useTimestamps = false;
-    protected $allowedFields = ['user_id', 'product_id', 'sku_id', 'qty', 'created_at'];
+    protected $allowedFields = ['user_id', 'product_id', 'sku_id', 'parent_product_id', 'qty', 'created_at'];
 
     /**
      * 사용자의 장바구니 목록 (상품 정보 + SKU + 대표 이미지 JOIN)
@@ -36,7 +36,7 @@ class CartModel extends Model
         }
 
         $rows = $builder
-            ->select('cart_items.id, cart_items.product_id, cart_items.sku_id, cart_items.qty,
+            ->select('cart_items.id, cart_items.product_id, cart_items.sku_id, cart_items.parent_product_id, cart_items.qty,
                  products.name, products.slug, products.price, products.discount_price,
                  products.stock, products.status,
                  products.shipping_type, products.shipping_fee, products.free_threshold,
@@ -97,16 +97,20 @@ class CartModel extends Model
     }
 
     /**
-     * 담기 — 이미 있으면 qty 합산, 없으면 신규 삽입 (원자적 처리)
-     * sku_id가 NULL이면 옵션 없는 상품 (UNIQUE KEY는 NULL을 별개 행으로 취급 → COALESCE 처리)
+     * 장바구니에 담기. 같은 상품·같은 SKU 는 수량을 합산한다.
+     *
+     * $parentProductId 는 어느 본품에 딸려 담겼는지를 나타내는 표시·포장용 값이다.
+     * 이미 행이 있으면 먼저 정해진 분류를 유지한다(COALESCE).
      */
-    public function upsert(int $userId, int $productId, int $qty, ?int $skuId = null): void
+    public function upsert(int $userId, int $productId, int $qty, ?int $skuId = null, ?int $parentProductId = null): void
     {
         $this->db->query(
-            'INSERT INTO cart_items (user_id, product_id, sku_id, qty, created_at)
-             VALUES (?, ?, ?, ?, NOW())
-             ON DUPLICATE KEY UPDATE qty = qty + VALUES(qty)',
-            [$userId, $productId, $skuId, $qty]
+            'INSERT INTO cart_items (user_id, product_id, sku_id, parent_product_id, qty, created_at)
+             VALUES (?, ?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+                qty = qty + VALUES(qty),
+                parent_product_id = COALESCE(parent_product_id, VALUES(parent_product_id))',
+            [$userId, $productId, $skuId, $parentProductId, $qty]
         );
     }
 
@@ -195,6 +199,8 @@ class CartModel extends Model
             $dbQtyMap[$k] = (int) $row['qty'];
         }
 
+        $parentMap = session()->get('cart_addon_of') ?? [];
+
         foreach ($sessionCart as $key => $sessionQty) {
             [$productId, $skuId] = static::parseSessionKey((string) $key);
             $stock      = (int) ($stockMap[$key] ?? 0);
@@ -208,7 +214,7 @@ class CartModel extends Model
                 continue;
             }
 
-            $this->upsert($userId, $productId, $addQty, $skuId ?: null);
+            $this->upsert($userId, $productId, $addQty, $skuId ?: null, isset($parentMap[$key]) ? (int) $parentMap[$key] : null);
         }
     }
 
@@ -259,6 +265,7 @@ class CartModel extends Model
 
         $this->mergeSession($userId, $sessionCart, $stockMap);
         session()->remove('cart');
+        session()->remove('cart_addon_of');
     }
 
     /**

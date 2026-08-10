@@ -12,6 +12,7 @@ use App\Libraries\MediaUploader;
 use App\Libraries\NaverShoppingProvider;
 use App\Models\CategoryModel;
 use App\Models\MediaModel;
+use App\Models\ProductAddonModel;
 use App\Models\ProductImageModel;
 use App\Models\ProductModel;
 use App\Models\ProductSkuModel;
@@ -247,6 +248,7 @@ class ProductController extends BaseController
             'shippings'      => ProductModel::SHIPPING_TYPES,
             'suppliers'      => Database::connect()->table('suppliers')->orderBy('name')->get()->getResultArray(),
             'optionsAndSkus' => ['options' => [], 'skus' => []],
+            'addonProducts'  => [],
         ]);
     }
 
@@ -262,6 +264,7 @@ class ProductController extends BaseController
         $this->handleCategories($id);
         $this->handleImages($id);
         $this->handleOptions($id);
+        $this->handleAddons($id);
 
         return redirect()->to('/admin/products')->with('success', '상품이 등록되었습니다.');
     }
@@ -282,6 +285,7 @@ class ProductController extends BaseController
             'shippings'      => ProductModel::SHIPPING_TYPES,
             'suppliers'      => Database::connect()->table('suppliers')->orderBy('name')->get()->getResultArray(),
             'optionsAndSkus' => $this->skuModel->getOptionsAndSkus($id),
+            'addonProducts'  => $this->addonProductsFor($id),
         ]);
     }
 
@@ -302,6 +306,7 @@ class ProductController extends BaseController
         $this->handleCategories($id);
         $this->handleImages($id);
         $this->handleOptions($id);
+        $this->handleAddons($id);
 
         if ($wasOutOfStock) {
             $updated = $this->productModel->find($id);
@@ -1021,6 +1026,100 @@ class ProductController extends BaseController
         }
 
         $this->skuModel->saveOptionsAndSkus($productId, $data);
+    }
+
+    /** 상품 폼의 addons_json 을 추가구성상품 연결로 저장한다 */
+    private function handleAddons(int $productId): void
+    {
+        $json    = $this->request->getPost('addons_json');
+        $decoded = is_string($json) ? json_decode($json, true) : null;
+
+        // 변조된 요청은 [[1,2],3] 처럼 배열 안에 배열이 섞여 올 수 있다.
+        // 스칼라가 아닌 항목을 그대로 넘기면 ProductAddonModel::saveForProduct() 의
+        // array_map(intval(...), ...) 에서 TypeError 가 나 500 으로 이어지므로
+        // 이 경계에서 스칼라만 통과시킨다.
+        $ids = is_array($decoded)
+            ? array_values(array_map(
+                intval(...),
+                array_filter($decoded, static fn (mixed $v): bool => is_scalar($v)),
+            ))
+            : [];
+
+        new ProductAddonModel()->saveForProduct($productId, $ids);
+    }
+
+    /**
+     * 추가구성상품 후보/표시 목록이 공통으로 쓰는 조회 빌더.
+     * addonSearch()·addonProductsFor() 양쪽에서 이어서 조건을 붙여 사용한다.
+     */
+    private function addonProductBuilder(): \CodeIgniter\Database\BaseBuilder
+    {
+        return $this->productModel->db->table('products p')
+            ->select('p.id, p.name, p.price, m.file_path AS thumbnail')
+            ->join('product_images pi', 'pi.product_id = p.id AND pi.is_primary = 1', 'left')
+            ->join('media m', 'm.id = pi.media_id', 'left');
+    }
+
+    /** GET /admin/products/addon-search — 추가구성상품 후보 검색 (Ajax) */
+    public function addonSearch(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        $keyword = trim((string) ($this->request->getGet('q') ?? ''));
+        $exclude = (int) ($this->request->getGet('exclude') ?? 0);
+
+        if ($keyword === '') {
+            return $this->response->setJSON(['items' => []]);
+        }
+
+        $builder = $this->addonProductBuilder()
+            ->like('p.name', $keyword)
+            ->where('p.status', 'on_sale')
+            ->where('p.deleted_at IS NULL', null, false)
+            // 옵션(SKU)이 있는 상품을 애드온으로 연결하면 옵션 재고가 차감되지 않아
+            // 재고 무결성이 깨진다(SKU 재고 무결성 방지). 옵션 지원은 후속 작업이므로
+            // 그때까지 검색 후보 단계에서부터 애초에 연결할 수 없게 막는다.
+            ->whereNotIn('p.id', static function (\CodeIgniter\Database\BaseBuilder $builder) {
+                return $builder->select('product_id')->from('product_skus');
+            });
+
+        if ($exclude > 0) {
+            $builder->where('p.id !=', $exclude);
+        }
+
+        $items = $builder->orderBy('p.name', 'ASC')->limit(20)->get()->getResultArray();
+
+        return $this->response->setJSON(['items' => $items]);
+    }
+
+    /**
+     * 폼에 다시 그릴 애드온 목록(순서 유지)
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function addonProductsFor(int $productId): array
+    {
+        $ids = new ProductAddonModel()->getAddonProductIds($productId);
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = $this->addonProductBuilder()
+            ->whereIn('p.id', $ids)
+            ->get()->getResultArray();
+
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(int) $row['id']] = $row;
+        }
+
+        // 연결 순서대로 되돌린다 — whereIn 결과 순서는 보장되지 않는다.
+        $ordered = [];
+        foreach ($ids as $id) {
+            if (isset($byId[$id])) {
+                $ordered[] = $byId[$id];
+            }
+        }
+
+        return $ordered;
     }
 
     private function handleImages(int $productId): void

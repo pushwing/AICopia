@@ -149,6 +149,7 @@ $routes->group('admin', ['filter' => 'auth:admin'], function ($routes) {
     $routes->post('products/generate-description', 'Admin\ProductController::generateDescription');
     $routes->post('products/extract-from-image', 'Admin\ProductController::extractFromImage');
     $routes->get('products/naver-search', 'Admin\ProductController::naverSearch');
+    $routes->get('products/addon-search', 'Admin\ProductController::addonSearch');
     $routes->post('products/import-image', 'Admin\ProductController::importImage');
     $routes->get('products/categories', 'Admin\ProductController::categories');
     $routes->post('products/categories', 'Admin\ProductController::categoryStore');
@@ -280,6 +281,7 @@ $routes->post('shop/(:segment)/restock-alert', 'Front\ShopController::restockAle
 // ─── 장바구니 ──────────────────────────────────────────────────────────────────
 // add: 비로그인도 허용 (세션 저장), 나머지: 로그인 필요
 $routes->post('cart/add', 'Front\CartController::add');
+$routes->post('cart/add-bundle', 'Front\CartController::addBundle');
 $routes->group('cart', ['filter' => 'auth:member'], function ($routes) {
     $routes->get('', 'Front\CartController::index');
     $routes->post('checkout', 'Front\CartController::checkout');

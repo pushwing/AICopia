@@ -4,7 +4,7 @@
 
 <?php
 $payment  = $order['payment'] ?? null;
-$items    = $order['items']   ?? [];
+$items    = \App\Libraries\AddonGrouping::order($order['items'] ?? []);
 
 $statusBadge = [
     'pending'           => ['secondary', '결제 대기'],
@@ -82,7 +82,10 @@ $showReceipt = $receipt !== null && $receipt->paidAt !== null;
         </div>
         <div class="card-body p-0">
             <?php foreach ($items as $item): ?>
-            <div class="d-flex align-items-center gap-3 p-3 border-bottom">
+            <div class="d-flex align-items-center gap-3 p-3 border-bottom <?= ! empty($item['is_addon']) ? 'ps-4 border-start border-3' : '' ?>">
+                <?php if (! empty($item['is_addon'])): ?>
+                <span class="badge bg-secondary align-self-start">추가구성</span>
+                <?php endif; ?>
                 <a href="/shop/<?= esc($item['product_slug'] ?? $item['product_id']) ?>" class="flex-shrink-0">
                     <?php if (! empty($item['thumbnail'])): ?>
                     <img src="/<?= esc($item['thumbnail']) ?>" alt="<?= esc($item['product_name']) ?>"
