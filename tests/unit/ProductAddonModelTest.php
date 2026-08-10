@@ -180,4 +180,37 @@ final class ProductAddonModelTest extends CIUnitTestCase
         $this->assertTrue($model->isLinked($main, $a));
         $this->assertFalse($model->isLinked($main, $other), '연결되지 않은 상품은 애드온이 아니다');
     }
+
+    public function testIsLinkedRejectsSkuBearingProductEvenWithCraftedRow(): void
+    {
+        $main   = $this->insertProduct('MAIN');
+        $hasSku = $this->insertProduct('HASSKU');
+
+        $db = db_connect();
+        // 정상 흐름(saveForProduct)이 아니라 크래프트된/오래된 행을 직접 삽입해,
+        // product_addons에 잘못된 연결이 남아 있어도 isLinked() 자체가 최종 방어선으로
+        // 동작하는지 검증한다.
+        $db->table('product_addons')->insert([
+            'product_id'       => $main,
+            'addon_product_id' => $hasSku,
+            'sort_order'       => 0,
+            'created_at'       => date('Y-m-d H:i:s'),
+        ]);
+        $this->cleanup['product_addons'][] = (int) $db->insertID();
+
+        $db->table('product_skus')->insert([
+            'product_id' => $hasSku,
+            'price_diff' => 0,
+            'stock'      => 5,
+            'sku_code'   => null,
+        ]);
+        $this->cleanup['product_skus'][] = (int) $db->insertID();
+
+        $model = new ProductAddonModel();
+
+        $this->assertFalse(
+            $model->isLinked($main, $hasSku),
+            'SKU(옵션)가 있는 상품은 product_addons에 크래프트된 행이 있어도 연결로 인정되면 안 된다',
+        );
+    }
 }
