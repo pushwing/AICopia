@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Controllers\Front\SocialAuthController;
+use App\Libraries\OAuth\KakaoProvider;
 use App\Libraries\OAuth\NaverProvider;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -16,6 +17,10 @@ use ReflectionMethod;
  * 네이버 프로필 API 는 동의 항목에 따라 mobile / gender / birthday / birthyear 를
  * 함께 내려주지만, 기존 구현은 이 값을 프로필 배열에 담지도(NaverProvider),
  * DB 에 쓰지도(SocialAuthController) 않아 전부 버려지고 있었다.
+ *
+ * 카카오도 kakao_account 로 같은 항목을 내려주며 표기 형식만 다르다
+ * (전화번호 '+82 10-…', 성별 'male'/'female', 생일 'MMDD'). 저장 로직은
+ * 제공자와 무관하므로 제공자별 매핑이 같은 모양으로 맞춰졌는지 검증한다.
  */
 final class SocialProfileFieldsTest extends CIUnitTestCase
 {
@@ -75,6 +80,52 @@ final class SocialProfileFieldsTest extends CIUnitTestCase
             'gender'        => 'M',
             'birthday'      => '10-01',
             'birthyear'     => '1990',
+        ];
+    }
+
+    /**
+     * get() 을 스텁으로 대체한 KakaoProvider 로 프로필을 매핑한다.
+     *
+     * @param  array<string, mixed>     $account 카카오 API 의 kakao_account 객체
+     * @return array<string, mixed>|null
+     */
+    private function kakaoProfile(array $account, string $id = 'kid-1'): ?array
+    {
+        $provider = new class () extends KakaoProvider {
+            /** @var array<string, mixed> */
+            public array $stub = [];
+
+            protected function get(string $url, array $headers = []): array
+            {
+                return $this->stub;
+            }
+        };
+
+        $provider->stub = ['id' => $id, 'kakao_account' => $account];
+
+        return $provider->getProfile('dummy-token');
+    }
+
+    /** @return array<string, mixed> 카카오가 모든 항목을 내려준 기본 kakao_account */
+    private function fullKakaoAccount(): array
+    {
+        return [
+            'profile' => [
+                'nickname'          => '카카오사용자',
+                'profile_image_url' => 'https://example.test/kakao.png',
+            ],
+            'email'             => 'spf-k-' . substr(uniqid(), -8) . '@example.test',
+            'is_email_verified' => true,
+            'is_email_valid'    => true,
+            'has_phone_number'  => true,
+            'phone_number'      => '+82 10-1234-5678',
+            'has_gender'        => true,
+            'gender'            => 'male',
+            'has_birthday'      => true,
+            'birthday'          => '1001',
+            'birthday_type'     => 'SOLAR',
+            'has_birthyear'     => true,
+            'birthyear'         => '1990',
         ];
     }
 
@@ -158,12 +209,104 @@ final class SocialProfileFieldsTest extends CIUnitTestCase
         $this->assertNull($profile['birthday']);
     }
 
+    // ── KakaoProvider 매핑 ───────────────────────────────────────────────────
+
+    public function testKakaoProfileMapsPhoneGenderAndBirthday(): void
+    {
+        $profile = $this->kakaoProfile($this->fullKakaoAccount());
+
+        $this->assertIsArray($profile);
+        $this->assertSame('010-1234-5678', $profile['phone'], '국가번호 표기를 국내 표기로 맞춰야 한다');
+        $this->assertSame('M', $profile['gender']);
+        $this->assertSame('1990-10-01', $profile['birthday'], 'birthyear + birthday(MMDD) 를 DATE 로 합쳐야 한다');
+    }
+
+    public function testKakaoFemaleMapsToF(): void
+    {
+        $account           = $this->fullKakaoAccount();
+        $account['gender'] = 'female';
+
+        $this->assertSame('F', $this->kakaoProfile($account)['gender']);
+    }
+
+    public function testKakaoUnexpectedGenderBecomesNull(): void
+    {
+        // users.gender 는 ENUM('M','F') 이므로 male/female 외 값은 미입력으로 둔다
+        $account           = $this->fullKakaoAccount();
+        $account['gender'] = 'unknown';
+
+        $this->assertNull($this->kakaoProfile($account)['gender']);
+    }
+
+    public function testKakaoBirthdayIsNullWithoutBirthyear(): void
+    {
+        // 출생연도 미동의 시 MMDD 만 온다 — DATE 컬럼에 넣을 수 없다
+        $account = $this->fullKakaoAccount();
+        unset($account['birthyear']);
+
+        $this->assertNull($this->kakaoProfile($account)['birthday']);
+    }
+
+    public function testKakaoInvalidBirthdayIsNull(): void
+    {
+        $account             = $this->fullKakaoAccount();
+        $account['birthday'] = '0230';
+
+        $this->assertNull($this->kakaoProfile($account)['birthday'], '존재하지 않는 날짜는 버려야 한다');
+    }
+
+    public function testKakaoOverseasPhoneIsKeptAsIs(): void
+    {
+        // +82 가 아닌 번호는 국내 표기 규칙을 적용할 수 없어 받은 그대로 둔다
+        $account                 = $this->fullKakaoAccount();
+        $account['phone_number'] = '+1 415-555-0100';
+
+        $this->assertSame('+1 415-555-0100', $this->kakaoProfile($account)['phone']);
+    }
+
+    public function testKakaoTooLongPhoneIsDropped(): void
+    {
+        // users.phone 은 VARCHAR(20) — 잘라서 잘못된 번호를 남기느니 버린다
+        $account                 = $this->fullKakaoAccount();
+        $account['phone_number'] = '+123 4567-8901-2345-6789';
+
+        $this->assertNull($this->kakaoProfile($account)['phone']);
+    }
+
+    public function testKakaoMissingOptionalFieldsAreNull(): void
+    {
+        // 동의 항목을 하나도 켜지 않은 앱 — 기존 동작이 깨지면 안 된다
+        $profile = $this->kakaoProfile([
+            'profile' => ['nickname' => '최소카카오'],
+        ]);
+
+        $this->assertIsArray($profile);
+        $this->assertSame('최소카카오', $profile['nickname']);
+        $this->assertNull($profile['phone']);
+        $this->assertNull($profile['gender']);
+        $this->assertNull($profile['birthday']);
+    }
+
     // ── DB 저장 ──────────────────────────────────────────────────────────────
 
     public function testNewSocialUserPersistsProfileFields(): void
     {
         $profile = $this->naverProfile($this->fullNaverResponse());
         $user    = $this->findOrCreate($profile);
+
+        $this->assertIsArray($user, '신규 소셜 가입이 실패했다');
+
+        $row = db_connect()->table('users')->where('id', $user['id'])->get()->getRowArray();
+        $this->assertSame('010-1234-5678', $row['phone']);
+        $this->assertSame('M', $row['gender']);
+        $this->assertSame('1990-10-01', $row['birthday']);
+    }
+
+    public function testNewKakaoSocialUserPersistsProfileFields(): void
+    {
+        // 저장 로직은 제공자와 무관하다 — 카카오 매핑도 그대로 DB 까지 도달해야 한다
+        $profile = $this->kakaoProfile($this->fullKakaoAccount(), 'kid' . substr(uniqid(), -8));
+        $user    = $this->findOrCreate($profile, 'kakao');
 
         $this->assertIsArray($user, '신규 소셜 가입이 실패했다');
 
