@@ -452,45 +452,6 @@ final class AdminProductAddonSaveTest extends CIUnitTestCase
         }
     }
 
-    public function testAddonsJsonIsStoredAsLinks(): void
-    {
-        $main = $this->insertProduct('MAIN');
-        $a    = $this->insertProduct('A');
-        $b    = $this->insertProduct('B');
-
-        $model = new ProductAddonModel();
-        $model->saveForProduct($main, json_decode(json_encode([$a, $b]) ?: '[]', true) ?? []);
-        $this->trackAddonRows($main);
-
-        $this->assertSame([$a, $b], $model->getAddonProductIds($main));
-    }
-
-    public function testEmptyAddonsJsonClearsLinks(): void
-    {
-        $main = $this->insertProduct('MAIN');
-        $a    = $this->insertProduct('A');
-
-        $model = new ProductAddonModel();
-        $model->saveForProduct($main, [$a]);
-        $this->trackAddonRows($main);
-
-        $model->saveForProduct($main, []);
-
-        $this->assertSame([], $model->getAddonProductIds($main), '빈 목록을 보내면 연결이 전부 지워져야 한다');
-    }
-}
-```
-
-- [ ] **Step 2: 테스트를 돌려 실패 확인**
-
-Run: `vendor/bin/phpunit tests/unit/AdminProductAddonSaveTest.php`
-Expected: PASS 하면 안 된다 — Task 1 의 모델이 이미 있으므로 이 테스트는 통과한다. **이 태스크의 RED 는 아래 Step 3 의 컨트롤러 테스트다.** Step 1 의 두 테스트는 모델 계약을 고정하는 회귀 테스트로 남긴다.
-
-- [ ] **Step 3: 검색 엔드포인트의 실패하는 테스트 추가**
-
-`tests/unit/AdminProductAddonSaveTest.php` 에 아래 테스트를 추가한다:
-
-```php
     public function testAddonSearchExcludesSelfAndReturnsOnSaleOnly(): void
     {
         $main = $this->insertProduct('MAIN');
@@ -510,14 +471,36 @@ Expected: PASS 하면 안 된다 — Task 1 의 모델이 이미 있으므로 �
         $this->assertContains($hit, $ids, '검색어에 맞는 상품이 나와야 한다');
         $this->assertNotContains($main, $ids, '자기 자신은 후보에서 빠져야 한다');
     }
+
+    public function testHiddenProductIsNotOfferedAsAddon(): void
+    {
+        $this->insertProduct('MAIN');
+        $hidden = $this->insertProduct('HIDDEN');
+        db_connect()->table('products')->where('id', $hidden)->update(['status' => 'hidden']);
+
+        $controller = new \App\Controllers\Admin\ProductController();
+        $controller->initController(service('request'), service('response'), service('logger'));
+
+        $_GET['q'] = $this->prefix;
+        $response  = $controller->addonSearch();
+        unset($_GET['q']);
+
+        $body = json_decode((string) $response->getBody(), true);
+        $ids  = array_map(static fn (array $r): int => (int) $r['id'], $body['items'] ?? []);
+
+        $this->assertNotContains($hidden, $ids, '판매중이 아닌 상품은 후보에서 빠져야 한다');
+    }
+}
 ```
 
-- [ ] **Step 4: 테스트를 돌려 실패 확인**
+이 파일은 **컨트롤러를 실제로 호출하는 테스트만** 둔다. `ProductAddonModel` 의 저장 규칙(전량 교체·자기 자신 제외·순서)은 Task 1 의 `ProductAddonModelTest` 가 이미 덮으므로 여기서 반복하지 않는다.
 
-Run: `vendor/bin/phpunit tests/unit/AdminProductAddonSaveTest.php --filter testAddonSearchExcludesSelfAndReturnsOnSaleOnly`
+- [ ] **Step 2: 테스트를 돌려 실패 확인**
+
+Run: `vendor/bin/phpunit tests/unit/AdminProductAddonSaveTest.php`
 Expected: FAIL — `Error: Call to undefined method App\Controllers\Admin\ProductController::addonSearch()`
 
-- [ ] **Step 5: 컨트롤러에 검색·저장 로직 추가**
+- [ ] **Step 3: 컨트롤러에 검색·저장 로직 추가**
 
 `app/Controllers/Admin/ProductController.php` 상단 `use` 에 추가:
 
@@ -618,7 +601,7 @@ use App\Models\ProductAddonModel;
     }
 ```
 
-- [ ] **Step 6: 라우트 추가**
+- [ ] **Step 4: 라우트 추가**
 
 `app/Config/Routes.php` 의 `products/naver-search` 줄 아래에 추가:
 
@@ -626,12 +609,12 @@ use App\Models\ProductAddonModel;
     $routes->get('products/addon-search', 'Admin\ProductController::addonSearch');
 ```
 
-- [ ] **Step 7: 테스트 통과 확인**
+- [ ] **Step 5: 테스트 통과 확인**
 
 Run: `vendor/bin/phpunit tests/unit/AdminProductAddonSaveTest.php`
 Expected: `OK (3 tests, ...)`
 
-- [ ] **Step 8: 상품 폼에 카드 추가**
+- [ ] **Step 6: 상품 폼에 카드 추가**
 
 `app/Views/admin/products/form.php` 의 옵션 카드(`id="optionCard"`) 를 닫는 `</div>` 바로 뒤에 추가:
 
@@ -721,12 +704,12 @@ renderAddons();
 </script>
 ```
 
-- [ ] **Step 9: 화면 확인**
+- [ ] **Step 7: 화면 확인**
 
 Run: `php spark serve --port 8303` 후 브라우저에서 `/admin/products/<기존상품id>/edit` 열기
 Expected: "추가구성상품" 카드가 옵션 카드 아래에 보이고, 상품명 검색 → 추가 → 순서변경 → 삭제가 동작하며, 저장 후 다시 열었을 때 목록이 유지된다.
 
-- [ ] **Step 10: 전체 게이트 통과 후 커밋**
+- [ ] **Step 8: 전체 게이트 통과 후 커밋**
 
 Run: `composer check`
 Expected: 세 단계 모두 통과
@@ -1745,7 +1728,7 @@ git commit -m "✨ feat: 주문에 추가구성상품 묶음 승계·표시 (#14
 
 **Interfaces:**
 - Consumes: `order_items.parent_product_id` (Task 5), `AddonGrouping::order()`
-- Produces: 엑셀 `상품명` 칸 문자열 — 본품은 `{상품명} x{수량}`, 애드온은 `+ {상품명} x{수량}` 으로 본품 바로 뒤
+- Produces: `AddonGrouping::labels(array $items): array<int, string>` — 본품은 `{상품명} x{수량}`, 애드온은 `+ {상품명} x{수량}` 으로 본품 바로 뒤. 컨트롤러와 테스트가 **같은 함수**를 쓴다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -1763,26 +1746,10 @@ use CodeIgniter\Test\CIUnitTestCase;
 
 /**
  * 엑셀 '상품명' 칸에 묶음이 드러나는지 — 포장 담당자가 같은 박스를 알아볼 수 있어야 한다.
+ * 컨트롤러가 쓰는 것과 같은 AddonGrouping::labels() 를 직접 검증한다.
  */
 final class OrderExcelAddonTest extends CIUnitTestCase
 {
-    /**
-     * 컨트롤러의 문자열 조립과 같은 규칙.
-     *
-     * @param array<int, array<string, mixed>> $rows
-     * @return array<int, string>
-     */
-    private function labels(array $rows): array
-    {
-        $labels = [];
-        foreach (AddonGrouping::order($rows) as $row) {
-            $prefix   = ! empty($row['is_addon']) ? '+ ' : '';
-            $labels[] = $prefix . $row['product_name'] . ' x' . $row['qty'];
-        }
-
-        return $labels;
-    }
-
     public function testAddonFollowsParentWithPlusPrefix(): void
     {
         $rows = [
@@ -1793,7 +1760,7 @@ final class OrderExcelAddonTest extends CIUnitTestCase
 
         $this->assertSame(
             ['Patient Plate x1', '+ Gender x2', '다른상품 x1'],
-            $this->labels($rows),
+            AddonGrouping::labels($rows),
         );
     }
 
@@ -1804,7 +1771,7 @@ final class OrderExcelAddonTest extends CIUnitTestCase
             ['id' => 2, 'product_id' => 20, 'parent_product_id' => null, 'product_name' => '상품B', 'qty' => 1],
         ];
 
-        $this->assertSame(['상품A x2', '상품B x1'], $this->labels($rows), '애드온이 없으면 기존 형식 그대로여야 한다');
+        $this->assertSame(['상품A x2', '상품B x1'], AddonGrouping::labels($rows), '애드온이 없으면 기존 형식 그대로여야 한다');
     }
 }
 ```
@@ -1812,9 +1779,37 @@ final class OrderExcelAddonTest extends CIUnitTestCase
 - [ ] **Step 2: 테스트를 돌려 실패 확인**
 
 Run: `vendor/bin/phpunit tests/unit/OrderExcelAddonTest.php`
-Expected: PASS 한다면 `AddonGrouping` 이 이미 있기 때문이다. 이 테스트는 **엑셀 규칙을 고정하는 계약 테스트**로 두고, 아래 Step 3 에서 컨트롤러가 같은 규칙을 쓰도록 바꾼다.
+Expected: FAIL — `Error: Call to undefined method App\Libraries\AddonGrouping::labels()`
 
-- [ ] **Step 3: 엑셀 조립부 수정**
+- [ ] **Step 3: `AddonGrouping::labels()` 구현**
+
+`app/Libraries/AddonGrouping.php` 의 `order()` 아래에 추가:
+
+```php
+    /**
+     * 엑셀 '상품명' 칸에 쓸 라벨 목록. 애드온은 본품 바로 뒤에 '+' 를 달고 붙는다.
+     *
+     * @param  array<int, array<string, mixed>> $items
+     * @return array<int, string>
+     */
+    public static function labels(array $items): array
+    {
+        $labels = [];
+        foreach (self::order($items) as $item) {
+            $prefix   = ($item['is_addon'] ?? false) === true ? '+ ' : '';
+            $labels[] = $prefix . (string) $item['product_name'] . ' x' . (string) $item['qty'];
+        }
+
+        return $labels;
+    }
+```
+
+- [ ] **Step 4: 테스트 통과 확인**
+
+Run: `vendor/bin/phpunit tests/unit/OrderExcelAddonTest.php`
+Expected: `OK (2 tests, ...)`
+
+- [ ] **Step 5: 엑셀 조립부를 `labels()` 로 교체**
 
 `app/Controllers/Admin/OrderController.php` 의 엑셀 내보내기에서 `nameMap` 을 만드는 블록을 다음으로 바꾼다:
 
@@ -1825,30 +1820,27 @@ Expected: PASS 한다면 `AddonGrouping` 이 이미 있기 때문이다. 이 테
                 ->orderBy('order_id', 'ASC')->orderBy('id', 'ASC')
                 ->get()->getResultArray();
 
-            // 주문별로 모아 본품 → 애드온 순으로 정렬한 뒤 라벨을 만든다.
+            // 주문별로 모아 본품 → 애드온 순으로 라벨을 만든다.
             $byOrder = [];
             foreach ($rows as $row) {
                 $byOrder[(int) $row['order_id']][] = $row;
             }
             foreach ($byOrder as $orderId => $orderRows) {
-                foreach (\App\Libraries\AddonGrouping::order($orderRows) as $row) {
-                    $prefix              = ! empty($row['is_addon']) ? '+ ' : '';
-                    $nameMap[$orderId][] = $prefix . $row['product_name'] . ' x' . $row['qty'];
-                }
+                $nameMap[$orderId] = \App\Libraries\AddonGrouping::labels($orderRows);
             }
 ```
 
-- [ ] **Step 4: 기존 엑셀 테스트가 깨지지 않는지 확인**
+- [ ] **Step 6: 기존 엑셀 테스트가 깨지지 않는지 확인**
 
 Run: `vendor/bin/phpunit tests/unit/OrderExcelExportTest.php tests/unit/OrderExcelAddonTest.php`
 Expected: 둘 다 `OK` — 애드온이 없는 주문의 라벨 형식(`상품A x2`)이 그대로여야 한다.
 
-- [ ] **Step 5: 전체 게이트 통과 후 커밋**
+- [ ] **Step 7: 전체 게이트 통과 후 커밋**
 
 Run: `composer check`
 
 ```bash
-git add app/Controllers/Admin/OrderController.php tests/unit/OrderExcelAddonTest.php
+git add app/Libraries/AddonGrouping.php app/Controllers/Admin/OrderController.php tests/unit/OrderExcelAddonTest.php
 git commit -m "✨ feat: 주문 엑셀 상품명에 추가구성상품 묶음 표시 (#147)"
 ```
 
