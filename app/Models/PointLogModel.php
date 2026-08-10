@@ -38,10 +38,15 @@ class PointLogModel extends Model
     /** @return array{items: array<int, array<string, mixed>>, total: int, totalPages: int, currentPage: int, perPage: int} */
     public function getByUser(int $userId, int $page = 1, int $perPage = 20): array
     {
-        $builder = $this->db->table('point_logs')->where('user_id', $userId);
+        $total = $this->db->table('point_logs')->where('user_id', $userId)->countAllResults();
 
-        $total = (clone $builder)->countAllResults();
-        $items = $builder->orderBy('id', 'DESC')
+        // 주문에서 비롯된 로그(사용·적립 등)는 주문 상세로 이어줄 수 있게 주문번호를 함께 가져온다.
+        // 주문이 지워졌으면 order_number 는 null 로 남는다.
+        $items = $this->db->table('point_logs pl')
+            ->select('pl.id, pl.user_id, pl.type, pl.amount, pl.order_id, pl.note, pl.created_at, o.order_number')
+            ->join('orders o', 'o.id = pl.order_id', 'left')
+            ->where('pl.user_id', $userId)
+            ->orderBy('pl.id', 'DESC')
             ->limit($perPage, ($page - 1) * $perPage)
             ->get()->getResultArray();
 

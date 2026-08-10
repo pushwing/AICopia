@@ -48,7 +48,17 @@
                             <?= ($log['amount'] > 0 ? '+' : '') . number_format($log['amount']) ?>P
                         </td>
                         <td class="small text-muted">
-                            <?= $log['note'] ? esc($log['note']) : ($log['order_id'] ? '주문 #' . (int)$log['order_id'] : '—') ?>
+                            <?php $orderNumber = $log['order_number'] ?? null; ?>
+                            <?php if ($log['note']): ?>
+                            <?= esc($log['note']) ?>
+                            <?php elseif ($orderNumber === null): ?>
+                            —
+                            <?php endif; ?>
+                            <?php if ($orderNumber !== null): ?>
+                            <a href="/mypage/orders/<?= esc(rawurlencode($orderNumber), 'attr') ?>" class="d-inline-block text-decoration-none">
+                                <i class="bi bi-receipt me-1"></i><?= esc($orderNumber) ?>
+                            </a>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
