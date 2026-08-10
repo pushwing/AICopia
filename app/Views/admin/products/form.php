@@ -232,6 +232,22 @@
                 </div>
             </div>
 
+            <div class="card mb-3" id="addonCard">
+                <div class="card-header fw-semibold bg-white">
+                    추가구성상품
+                    <span class="text-muted small fw-normal ms-2">상품 상세에서 함께 구매하도록 제안할 상품</span>
+                </div>
+                <div class="card-body">
+                    <input type="hidden" name="addons_json" id="addonsJson">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="addonSearchInput" placeholder="상품명으로 검색">
+                        <button class="btn btn-outline-secondary" type="button" onclick="searchAddons()">검색</button>
+                    </div>
+                    <div id="addonSearchResult" class="list-group mb-3 d-none"></div>
+                    <div id="addonList"></div>
+                </div>
+            </div>
+
             <div class="d-flex gap-2 flex-wrap">
                 <button type="submit" class="btn btn-primary"><?= $product ? '저장' : '등록' ?></button>
                 <a href="/admin/products" class="btn btn-outline-secondary">취소</a>
@@ -1055,5 +1071,68 @@ document.getElementById('btnVisionExtract').addEventListener('click', async func
         this.innerHTML = original;
     }
 });
+</script>
+<script>
+let addonItems = <?= json_encode($addonProducts ?? [], JSON_UNESCAPED_UNICODE) ?>;
+const addonProductId = <?= (int) ($product['id'] ?? 0) ?>;
+
+function renderAddons() {
+    const el = document.getElementById('addonList');
+    if (addonItems.length === 0) {
+        el.innerHTML = '<div class="text-muted small">연결된 추가구성상품이 없습니다.</div>';
+    } else {
+        el.innerHTML = addonItems.map(function (item, i) {
+            const thumb = item.thumbnail
+                ? '<img src="/' + item.thumbnail + '" class="rounded me-2" style="width:36px;height:36px;object-fit:cover">'
+                : '';
+            return '<div class="d-flex align-items-center border rounded p-2 mb-2">'
+                + thumb
+                + '<div class="flex-grow-1 small">' + item.name
+                + '<span class="text-muted ms-2">' + Number(item.price).toLocaleString() + '원</span></div>'
+                + '<button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="moveAddon(' + i + ',-1)">↑</button>'
+                + '<button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="moveAddon(' + i + ',1)">↓</button>'
+                + '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeAddon(' + i + ')">삭제</button>'
+                + '</div>';
+        }).join('');
+    }
+    document.getElementById('addonsJson').value = JSON.stringify(addonItems.map(function (i) { return i.id; }));
+}
+
+function searchAddons() {
+    const q = document.getElementById('addonSearchInput').value.trim();
+    if (!q) { return; }
+    fetch('/admin/products/addon-search?q=' + encodeURIComponent(q) + '&exclude=' + addonProductId)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            const box = document.getElementById('addonSearchResult');
+            box.classList.remove('d-none');
+            const chosen = addonItems.map(function (i) { return Number(i.id); });
+            const rows = (data.items || []).filter(function (i) { return chosen.indexOf(Number(i.id)) === -1; });
+            box.innerHTML = rows.length === 0
+                ? '<div class="list-group-item text-muted small">결과가 없습니다.</div>'
+                : rows.map(function (i) {
+                    return '<button type="button" class="list-group-item list-group-item-action small"'
+                        + ' onclick=\'addAddon(' + JSON.stringify(i) + ')\'>' + i.name + '</button>';
+                }).join('');
+        });
+}
+
+function addAddon(item) {
+    addonItems.push(item);
+    document.getElementById('addonSearchResult').classList.add('d-none');
+    document.getElementById('addonSearchInput').value = '';
+    renderAddons();
+}
+
+function removeAddon(i) { addonItems.splice(i, 1); renderAddons(); }
+
+function moveAddon(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= addonItems.length) { return; }
+    const tmp = addonItems[i]; addonItems[i] = addonItems[j]; addonItems[j] = tmp;
+    renderAddons();
+}
+
+renderAddons();
 </script>
 <?= $this->endSection() ?>
