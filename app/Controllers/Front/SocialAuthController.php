@@ -13,6 +13,12 @@ use App\Models\UserModel;
 
 class SocialAuthController extends BaseController
 {
+    /** 앱 키(client_id·client_secret)가 비어 있는 제공자를 눌렀을 때 */
+    private const string ERROR_NOT_CONFIGURED = '해당 소셜 로그인은 아직 사용할 수 없습니다. 관리자에게 문의해주세요.';
+
+    /** 관리자가 비활성화한 제공자를 눌렀을 때 */
+    private const string ERROR_DISABLED = '현재 사용할 수 없는 로그인 방식입니다.';
+
     private readonly UserModel $userModel;
 
     public function __construct()
@@ -30,15 +36,40 @@ class SocialAuthController extends BaseController
             return redirect()->to('/auth/login')->with('error', '지원하지 않는 로그인 방식입니다.');
         }
 
+        // 관리자가 꺼둔 제공자 — 로그인 화면에서 버튼만 감추면 URL 직접 접근은 그대로 뚫린다
+        if (! $this->isProviderEnabled($provider)) {
+            return redirect()->to('/auth/login')->with('error', self::ERROR_DISABLED);
+        }
+
+        $oauth = OAuthFactory::make($provider);
+
+        // 앱 키가 비어 있으면 사이트를 벗어나기 전에 막는다. 그대로 보내면 제공자가
+        // 자기 오류 페이지(네이버: `client_id is missing`)로 되돌려 원인을 알 수 없다.
+        if (! $oauth->isConfigured()) {
+            log_message(
+                'error',
+                "[OAuth] {$provider} 앱 키가 설정되지 않았습니다. .env 의 oauth.{$provider}.client_id / client_secret 을 확인하세요.",
+            );
+
+            return redirect()->to('/auth/login')->with('error', self::ERROR_NOT_CONFIGURED);
+        }
+
         // CSRF 대용 state 값 생성
         $state = bin2hex(random_bytes(16));
         session()->set('oauth_state', $state);
         session()->set('oauth_provider', $provider);
 
-        $oauth   = OAuthFactory::make($provider);
-        $authUrl = $oauth->getAuthUrl($state);
+        return redirect()->to($oauth->getAuthUrl($state));
+    }
 
-        return redirect()->to($authUrl);
+    /**
+     * 관리자 설정(/admin/settings/oauth)에서 해당 제공자가 켜져 있는지 — 기본값은 활성
+     */
+    private function isProviderEnabled(string $provider): bool
+    {
+        $settings = $this->viewData['settings'] ?? [];
+
+        return ($settings["oauth_enabled_{$provider}"] ?? '1') === '1';
     }
 
     /**

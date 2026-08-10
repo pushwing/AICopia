@@ -13,6 +13,11 @@ abstract class AbstractOAuthProvider
     /** @var array<string, mixed> */
     protected array $config;
 
+    /**
+     * 토큰 교환에 client_secret 이 필요한지 — 카카오처럼 선택인 제공자는 false 로 덮는다
+     */
+    protected bool $requiresSecret = true;
+
     public function __construct(protected string $providerName)
     {
         $cfg = config(\Config\OAuth::class)->{$this->providerName};
@@ -23,6 +28,20 @@ abstract class AbstractOAuthProvider
         $cfg['redirect_uri']  = base_url("auth/social/{$this->providerName}/callback");
 
         $this->config = $cfg;
+    }
+
+    /**
+     * 앱 키가 채워져 있는지 — 비어 있으면 인가 요청 자체를 보내면 안 된다.
+     * 빈 client_id 로 보내면 제공자가 자기 오류 페이지로 되돌려버려
+     * (네이버: `client_id is missing`) 사용자는 원인을 알 수 없다.
+     */
+    public function isConfigured(): bool
+    {
+        if (trim((string) $this->config['client_id']) === '') {
+            return false;
+        }
+
+        return ! $this->requiresSecret || trim((string) $this->config['client_secret']) !== '';
     }
 
     /**

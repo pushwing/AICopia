@@ -11,6 +11,9 @@ namespace App\Libraries\OAuth;
  */
 class KakaoProvider extends AbstractOAuthProvider
 {
+    /** 카카오 Client Secret 은 앱 보안 설정에서 선택 사항이다 */
+    protected bool $requiresSecret = false;
+
     public function __construct()
     {
         parent::__construct('kakao');
