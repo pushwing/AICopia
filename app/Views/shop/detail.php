@@ -162,9 +162,14 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                         <?php if ($addon['file_path']): ?>
                         <img src="<?= esc(base_url($addon['file_path'])) ?>" class="rounded me-3" style="width:56px;height:56px;object-fit:cover" alt="">
                         <?php endif; ?>
+                        <?php
+                        // discount_price는 0원일 수 있으므로 `?:` 대신 null 여부로만 대체 판단한다
+                        // (위 메인 상품 $hasDiscount 처리와 동일한 규칙).
+                        $addonPrice = $addon['discount_price'] !== null ? $addon['discount_price'] : $addon['price'];
+                        ?>
                         <div class="flex-grow-1">
                             <div class="small fw-semibold"><?= esc($addon['name']) ?></div>
-                            <div class="small text-danger"><?= number_format((int) ($addon['discount_price'] ?: $addon['price'])) ?>원</div>
+                            <div class="small text-danger"><?= number_format((int) $addonPrice) ?>원</div>
                         </div>
                         <button type="button" class="btn btn-sm btn-outline-primary" data-addon-select="<?= (int) $i ?>">
                             선택
@@ -586,10 +591,13 @@ let currentSkuId = null;
 // 채워질 수 있음) — 신뢰할 수 없는 문자열이므로 HTML 삽입 전 반드시 이스케이프한다.
 // JSON_HEX_* 플래그로 </script> 같은 값이 스크립트 블록을 탈출하지 못하게 막는다.
 const addonsData = <?= json_encode(array_values(array_map(static function (array $a): array {
+    // discount_price는 0원일 수 있으므로 `?:` 대신 null 여부로만 대체 판단한다.
+    $price = $a['discount_price'] !== null ? $a['discount_price'] : $a['price'];
+
     return [
         'id'    => (int) $a['id'],
         'name'  => (string) $a['name'],
-        'price' => (int) ($a['discount_price'] ?: $a['price']),
+        'price' => (int) $price,
     ];
 }, $addons)), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
