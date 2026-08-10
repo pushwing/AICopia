@@ -90,35 +90,22 @@ class CartController extends BaseController
         $qty       = max(1, (int) $this->request->getPost('qty'));
         $skuId     = $this->request->getPost('sku_id') ? (int) $this->request->getPost('sku_id') : null;
 
-        // 상품 유효성 확인
-        $row = $this->productModel->db
-            ->table('products')
-            ->select('id, stock, status, deleted_at')
-            ->where('id', $productId)
-            ->where('status', 'on_sale')
-            ->where('deleted_at IS NULL', null, false)
-            ->get()->getRowArray();
+        $check = $this->checkPurchasable($productId, $skuId, $qty);
 
-        if (! $row) {
-            return $this->response->setJSON(['success' => false, 'message' => '구매할 수 없는 상품입니다.']);
+        if (! $check['ok']) {
+            // addBundle()과 조회 로직은 공유하되, /cart/add 고유의 사유별 문구는 그대로 유지한다.
+            $message = match ($check['reason']) {
+                'not_found'      => '구매할 수 없는 상품입니다.',
+                'invalid_option' => '존재하지 않는 옵션입니다.',
+                'out_of_stock'   => '재고가 없습니다.',
+                default          => '구매할 수 없는 상품입니다.',
+            };
+
+            return $this->response->setJSON(['success' => false, 'message' => $message]);
         }
 
-        // SKU 재고 / 상품 재고 분기
-        if ($skuId !== null) {
-            $sku = $this->skuModel->findForProduct($skuId, $productId);
-            if (! $sku) {
-                return $this->response->setJSON(['success' => false, 'message' => '존재하지 않는 옵션입니다.']);
-            }
-            $stock = (int) $sku['stock'];
-        } else {
-            $stock = (int) $row['stock'];
-        }
-
-        if ($stock < 1) {
-            return $this->response->setJSON(['success' => false, 'message' => '재고가 없습니다.']);
-        }
-
-        $qty    = min($qty, $stock);
+        $qty    = $check['qty'];
+        $stock  = $check['stock'];
         $userId = session()->get('user_id');
 
         if ($userId) {
@@ -153,7 +140,39 @@ class CartController extends BaseController
         $addons    = $this->request->getPost('addons');
         $addons    = is_array($addons) ? $addons : [];
 
-        $main = $this->resolvePurchasable($productId, $skuId, $qty);
+        $mainKey = CartModel::sessionKey($productId, $skuId);
+
+        // (product_id, sku_id) 기준으로 애드온 요청을 먼저 합산한다. 같은 애드온이 여러
+        // 항목으로 쪼개져 들어와도 재고는 합산 수량 기준으로 딱 한 번만 클리핑해야
+        // resolvePurchasable() 을 반복 호출하며 같은 재고를 중복으로 승인하는 걸 막는다.
+        //
+        // 본품과 동일한 (product_id, sku_id) 로 들어온 애드온 항목은 별도 상품이 아니라
+        // "본품을 더 담아달라"는 요청으로 취급해 본품 수량에 합산한다 — 애드온 목록으로
+        // 분류됐다는 이유만으로 본품과 같은 재고 풀을 한 번 더 클리핑해서 실제 재고보다
+        // 많이 담기는 것을 막기 위함이다. 이 경우 addon-link 검증은 의미가 없으므로
+        // (사용자가 이미 본품으로 직접 구매 요청한 상품) 건너뛴다.
+        /** @var array<string, array{product_id: int, sku_id: int|null, qty: int}> $addonRequests */
+        $addonRequests = [];
+        $mainExtraQty  = 0;
+
+        foreach ($addons as $addon) {
+            $addonId  = (int) ($addon['product_id'] ?? 0);
+            $addonSku = isset($addon['sku_id']) && $addon['sku_id'] ? (int) $addon['sku_id'] : null;
+            $addonQty = max(1, (int) ($addon['qty'] ?? 1));
+            $key      = CartModel::sessionKey($addonId, $addonSku);
+
+            if ($key === $mainKey) {
+                $mainExtraQty += $addonQty;
+                continue;
+            }
+
+            if (! isset($addonRequests[$key])) {
+                $addonRequests[$key] = ['product_id' => $addonId, 'sku_id' => $addonSku, 'qty' => 0];
+            }
+            $addonRequests[$key]['qty'] += $addonQty;
+        }
+
+        $main = $this->resolvePurchasable($productId, $skuId, $qty + $mainExtraQty);
         if ($main === null) {
             return $this->response->setJSON(['success' => false, 'message' => '구매할 수 없는 상품입니다.', 'csrf_hash' => csrf_hash()]);
         }
@@ -162,17 +181,13 @@ class CartController extends BaseController
         $accepted   = [];
         $skipped    = [];
 
-        foreach ($addons as $addon) {
-            $addonId  = (int) ($addon['product_id'] ?? 0);
-            $addonSku = isset($addon['sku_id']) && $addon['sku_id'] ? (int) $addon['sku_id'] : null;
-            $addonQty = max(1, (int) ($addon['qty'] ?? 1));
-
-            if (! $addonModel->isLinked($productId, $addonId)) {
+        foreach ($addonRequests as $req) {
+            if (! $addonModel->isLinked($productId, $req['product_id'])) {
                 $skipped[] = '추가구성상품이 아닌 항목은 담지 않았습니다.';
                 continue;
             }
 
-            $resolved = $this->resolvePurchasable($addonId, $addonSku, $addonQty);
+            $resolved = $this->resolvePurchasable($req['product_id'], $req['sku_id'], $req['qty']);
             if ($resolved === null) {
                 $skipped[] = '품절이거나 판매하지 않는 추가구성상품은 담지 않았습니다.';
                 continue;
@@ -201,9 +216,32 @@ class CartController extends BaseController
     /**
      * 살 수 있는 상품인지 확인하고 재고까지 클리핑한 수량을 돌려준다.
      *
+     * add()가 필요로 하는 "왜 실패했는지"는 checkPurchasable()의 reason 을 그대로 버린다 —
+     * addBundle() 쪽 스킵 사유는 사유 구분 없이 뭉뚱그린 문구를 쓰기 때문이다.
+     *
      * @return array{product_id: int, sku_id: int|null, qty: int}|null
      */
     private function resolvePurchasable(int $productId, ?int $skuId, int $qty): ?array
+    {
+        $check = $this->checkPurchasable($productId, $skuId, $qty);
+
+        if (! $check['ok']) {
+            return null;
+        }
+
+        return ['product_id' => $check['product_id'], 'sku_id' => $check['sku_id'], 'qty' => $check['qty']];
+    }
+
+    /**
+     * 상품 구매 가능 여부를 확인하고 재고까지 클리핑한 수량을 돌려준다.
+     *
+     * add()와 addBundle() 양쪽이 공유하는 조회 로직. 실패 사유(reason)를 구분해서
+     * 돌려주므로 호출부가 각자 원하는 문구로 매핑한다 — add()는 사유별로 다른
+     * 메시지를, addBundle()은 뭉뚱그린 스킵 사유 메시지를 쓴다.
+     *
+     * @return array{ok: bool, reason: ('not_found'|'invalid_option'|'out_of_stock')|null, product_id: int, sku_id: int|null, qty: int, stock: int}
+     */
+    private function checkPurchasable(int $productId, ?int $skuId, int $qty): array
     {
         $row = $this->productModel->db
             ->table('products')
@@ -214,13 +252,13 @@ class CartController extends BaseController
             ->get()->getRowArray();
 
         if (! $row) {
-            return null;
+            return ['ok' => false, 'reason' => 'not_found', 'product_id' => $productId, 'sku_id' => $skuId, 'qty' => 0, 'stock' => 0];
         }
 
         if ($skuId !== null) {
             $sku = $this->skuModel->findForProduct($skuId, $productId);
             if (! $sku) {
-                return null;
+                return ['ok' => false, 'reason' => 'invalid_option', 'product_id' => $productId, 'sku_id' => $skuId, 'qty' => 0, 'stock' => 0];
             }
             $stock = (int) $sku['stock'];
         } else {
@@ -228,10 +266,10 @@ class CartController extends BaseController
         }
 
         if ($stock < 1) {
-            return null;
+            return ['ok' => false, 'reason' => 'out_of_stock', 'product_id' => $productId, 'sku_id' => $skuId, 'qty' => 0, 'stock' => 0];
         }
 
-        return ['product_id' => $productId, 'sku_id' => $skuId, 'qty' => min($qty, $stock)];
+        return ['ok' => true, 'reason' => null, 'product_id' => $productId, 'sku_id' => $skuId, 'qty' => min($qty, $stock), 'stock' => $stock];
     }
 
     /** 회원이면 DB, 비회원이면 세션에 담는다 */

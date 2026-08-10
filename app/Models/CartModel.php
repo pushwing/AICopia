@@ -199,6 +199,8 @@ class CartModel extends Model
             $dbQtyMap[$k] = (int) $row['qty'];
         }
 
+        $parentMap = session()->get('cart_addon_of') ?? [];
+
         foreach ($sessionCart as $key => $sessionQty) {
             [$productId, $skuId] = static::parseSessionKey((string) $key);
             $stock      = (int) ($stockMap[$key] ?? 0);
@@ -212,7 +214,6 @@ class CartModel extends Model
                 continue;
             }
 
-            $parentMap = session()->get('cart_addon_of') ?? [];
             $this->upsert($userId, $productId, $addQty, $skuId ?: null, isset($parentMap[$key]) ? (int) $parentMap[$key] : null);
         }
     }

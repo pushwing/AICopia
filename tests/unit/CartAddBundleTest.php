@@ -255,4 +255,46 @@ final class CartAddBundleTest extends CIUnitTestCase
         $this->assertCount(1, $addonRow);
         $this->assertSame($main, (int) $addonRow[0]['parent_product_id'], '병합 후에도 부모가 유지돼야 한다');
     }
+
+    public function testDuplicateAddonEntriesClipToTotalStockNotPerEntry(): void
+    {
+        $userId = $this->insertUser();
+        $main   = $this->insertProduct('MAIN');
+        $addon  = $this->insertProduct('ADDON', 5);
+        $this->link($main, $addon);
+
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        // 같은 애드온을 한 요청에 두 번(5+5) 담아도 실제 재고 5개까지만 담겨야 한다.
+        $body = $this->callAddBundle($main, 1, [
+            ['product_id' => $addon, 'qty' => 5],
+            ['product_id' => $addon, 'qty' => 5],
+        ]);
+        $rows     = $this->cartRows($userId);
+        $addonRow = array_values(array_filter($rows, static fn (array $r): bool => (int) $r['product_id'] === $addon));
+
+        $this->assertTrue($body['success'] ?? false, $body['message'] ?? '');
+        $this->assertCount(1, $addonRow, '같은 애드온은 한 행으로 합쳐져야 한다');
+        $this->assertSame(5, (int) $addonRow[0]['qty'], '항목별이 아니라 합산 수량 기준으로 재고까지만 담아야 한다');
+    }
+
+    public function testSameProductAsMainAndAddonDoesNotExceedStock(): void
+    {
+        $userId = $this->insertUser();
+        $main   = $this->insertProduct('MAIN', 5);
+
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        // 같은 상품이 본품(qty=5)이면서 동시에 애드온 목록에도(qty=5) 들어온 경우.
+        $body = $this->callAddBundle($main, 5, [
+            ['product_id' => $main, 'qty' => 5],
+        ]);
+        $rows     = $this->cartRows($userId);
+        $mainRows = array_values(array_filter($rows, static fn (array $r): bool => (int) $r['product_id'] === $main));
+
+        $this->assertTrue($body['success'] ?? false, $body['message'] ?? '');
+        $this->assertCount(1, $mainRows, '본품·애드온으로 중복 요청돼도 한 행이어야 한다');
+        $this->assertSame(5, (int) $mainRows[0]['qty'], '재고를 넘겨 담으면 안 된다');
+        $this->assertNull($mainRows[0]['parent_product_id'], '본품으로 담긴 만큼 부모가 없어야 한다');
+    }
 }
