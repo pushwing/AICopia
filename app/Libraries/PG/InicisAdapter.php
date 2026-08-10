@@ -12,15 +12,37 @@ class InicisAdapter implements PGInterface
 {
     use ResolvesPayableAmount;
 
+    /** 이니시스가 공개한 웹표준 테스트 MID. 이 MID 는 stg 도메인에서만 동작한다. */
+    private const PUBLIC_TEST_MID = 'INIpayTest';
+
     private readonly string $merchantId;
     private readonly string $signKey;
-    private string $apiBase = 'https://iniapi.inicis.com/api/v1';
+
+    /** 테스트 환경이면 결제창·API 모두 stg 도메인을 봐야 한다 — 섞으면 결제창이 열리지 않는다. */
+    private readonly bool $testMode;
+    private readonly string $apiBase;
 
     public function __construct()
     {
         $cfg              = config('PG');
         $this->merchantId = $cfg->inicisMerchantId;
         $this->signKey    = $cfg->inicisSignKey;
+
+        // INICIS_TEST_MODE 를 지정하지 않았으면 공개 테스트 MID 여부로 판별한다.
+        // (상점별 테스트 MID 는 이름만으로 구분할 수 없어 명시 지정이 필요하다.)
+        $this->testMode = $cfg->inicisTestMode ?? ($this->merchantId === self::PUBLIC_TEST_MID);
+
+        $this->apiBase = $this->testMode
+            ? 'https://stginiapi.inicis.com/api/v1'
+            : 'https://iniapi.inicis.com/api/v1';
+    }
+
+    /** 주문서가 로드할 INIStdPay SDK 주소. 결제창 도메인과 반드시 짝이 맞아야 한다. */
+    public function sdkUrl(): string
+    {
+        return $this->testMode
+            ? 'https://stgstdpay.inicis.com/stdjs/INIStdPay.js'
+            : 'https://stdpay.inicis.com/stdjs/INIStdPay.js';
     }
 
     /**
@@ -44,6 +66,8 @@ class InicisAdapter implements PGInterface
 
         return [
             'pg'        => 'inicis',
+            // 뷰가 로드할 SDK 주소. 테스트 MID 에 운영 SDK 를 물리면 결제창이 열리지 않는다.
+            'sdkUrl'    => $this->sdkUrl(),
             // INIStdPay 표준 규격 — version·currency·gopaymethod·acceptmethod 가
             // 빠지면 INIStdPay.pay() 가 결제창을 띄우지 않는다.
             'version'   => '1.0',

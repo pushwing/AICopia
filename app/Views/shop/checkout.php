@@ -674,6 +674,13 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         }
     });
 
+    // CSP 로 스크립트·iframe·form 전송이 막히면 결제창은 아무 말 없이 빈 화면이 되고,
+    // 오버레이만 남아 "그냥 먹통"으로 보인다. 어느 지시문이 어떤 호스트를 막았는지
+    // 콘솔에 남겨 두면 결제 장애를 추측이 아니라 증거로 좁힐 수 있다.
+    document.addEventListener('securitypolicyviolation', function (e) {
+        console.error('[CSP 차단] ' + e.effectiveDirective + ' ← ' + (e.blockedURI || '(inline)'));
+    });
+
     // 외부 결제 SDK 를 필요한 시점에만 1회 로드한다.
     // (모든 PG SDK 를 주문서에서 미리 받아두면 쓰지도 않을 스크립트를 매번 내려받게 된다.)
     const loadedScripts = {};
@@ -694,13 +701,16 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         return loadedScripts[src];
     }
 
+    // 프론트에서만 쓰는 키 — PG 로 넘기면 안 되므로 폼에서 제외한다.
+    const FRONT_ONLY_PARAMS = ['pg', 'sdkUrl'];
+
     // PG 파라미터를 hidden input 으로 펼친 form 을 만든다(전송은 SDK 가 담당).
     function buildParamForm(p, formId) {
         const frm = document.createElement('form');
         frm.id = formId;
 
         Object.entries(p).forEach(function ([k, v]) {
-            if (k === 'pg') return;          // 프론트 분기용 키라 PG 로 넘기지 않는다
+            if (FRONT_ONLY_PARAMS.includes(k)) return;
             const input = document.createElement('input');
             input.type  = 'hidden';
             input.name  = k;
@@ -862,7 +872,9 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
 
             // INIStdPay 는 폼을 직접 전송하는 방식이 아니다.
             // SDK 를 로드한 뒤 파라미터를 담은 form 의 id 를 넘겨 호출해야 결제창이 열린다.
-            await loadScript('https://stdpay.inicis.com/stdjs/INIStdPay.js');
+            // SDK 주소는 어댑터가 내려준다 — 테스트 MID 는 stgstdpay, 운영은 stdpay 라
+            // 여기서 하드코딩하면 테스트 환경에서 결제창이 열리지 않는다.
+            await loadScript(p.sdkUrl);
 
             const frm = buildParamForm(p, 'SendPayForm_id');
             frm.method = 'post';

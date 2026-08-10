@@ -30,11 +30,13 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
      */
     private function inicis(
         string $merchantId = 'INIpayTest',
-        string $signKey = 'SU5JTElURV9UUklQTEVERVNfS0VZU1RS'
+        string $signKey = 'SU5JTElURV9UUklQTEVERVNfS0VZU1RS',
+        ?bool $testMode = null
     ): InicisAdapter {
         $config                    = new PG();
         $config->inicisMerchantId  = $merchantId;
         $config->inicisSignKey     = $signKey;
+        $config->inicisTestMode    = $testMode;
         Factories::injectMock('config', 'PG', $config);
 
         return new InicisAdapter();
@@ -159,6 +161,52 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
 
         $this->assertArrayNotHasKey('error', $params);
         $this->assertSame('INIpayTest', $params['mid']);
+    }
+
+    // ─── 테스트/운영 도메인 분기 ──────────────────────────────────────────────
+
+    /**
+     * 테스트 MID 는 운영 결제창(stdpay)이 받아주지 않는다 — 이니시스는 테스트용
+     * 결제창·API 를 stg 도메인으로 따로 운영한다. 어댑터가 SDK URL 을 함께
+     * 내려주고, 뷰는 하드코딩 대신 그 값을 쓴다.
+     */
+    public function testInicisUsesStagingEndpointsForPublicTestMid(): void
+    {
+        $adapter = $this->inicis(merchantId: 'INIpayTest');
+        $params  = $adapter->buildPaymentParams($this->order());
+
+        $this->assertSame('https://stgstdpay.inicis.com/stdjs/INIStdPay.js', $params['sdkUrl']);
+        $this->assertSame(
+            'https://stginiapi.inicis.com/api/v1',
+            $this->getPrivateProperty($adapter, 'apiBase'),
+            '승인·취소 API 도 같은 환경을 봐야 한다.'
+        );
+    }
+
+    /** 상점 MID(테스트 MID 가 아님)면 운영 도메인을 쓴다. */
+    public function testInicisUsesLiveEndpointsForMerchantMid(): void
+    {
+        $adapter = $this->inicis(merchantId: 'aicopia01');
+        $params  = $adapter->buildPaymentParams($this->order());
+
+        $this->assertSame('https://stdpay.inicis.com/stdjs/INIStdPay.js', $params['sdkUrl']);
+        $this->assertSame('https://iniapi.inicis.com/api/v1', $this->getPrivateProperty($adapter, 'apiBase'));
+    }
+
+    /** 상점별 테스트 MID 도 있으므로 INICIS_TEST_MODE 로 명시 지정할 수 있어야 한다. */
+    public function testInicisTestModeCanBeForcedForMerchantMid(): void
+    {
+        $params = $this->inicis(merchantId: 'aicopia01', testMode: true)->buildPaymentParams($this->order());
+
+        $this->assertSame('https://stgstdpay.inicis.com/stdjs/INIStdPay.js', $params['sdkUrl']);
+    }
+
+    /** 반대 방향 — 테스트 MID 라도 운영으로 강제 지정하면 운영 도메인을 쓴다. */
+    public function testInicisLiveModeCanBeForcedForTestMid(): void
+    {
+        $params = $this->inicis(merchantId: 'INIpayTest', testMode: false)->buildPaymentParams($this->order());
+
+        $this->assertSame('https://stdpay.inicis.com/stdjs/INIStdPay.js', $params['sdkUrl']);
     }
 
     // ─── 나이스페이 ───────────────────────────────────────────────────────────
