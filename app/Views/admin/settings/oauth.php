@@ -37,13 +37,24 @@
                 'google' => ['label' => '구글 로그인',    'icon' => 'bi-google text-danger',          'badge' => 'bg-danger'],
             ];
             foreach ($providers as $key => $p):
-                $enabled = ($settings["oauth_enabled_{$key}"] ?? '1') === '1';
+                $enabled    = ($settings["oauth_enabled_{$key}"] ?? '1') === '1';
+                $configured = ($oauthConfigured[$key] ?? false) === true;
             ?>
             <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
                 <div class="d-flex align-items-center gap-3">
                     <i class="bi <?= $p['icon'] ?> fs-5"></i>
                     <span class="fw-semibold small"><?= esc($p['label']) ?></span>
                     <span class="badge <?= $p['badge'] ?> small"><?= strtoupper($key) ?></span>
+                    <?php if ($configured): ?>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle small fw-normal">
+                        <i class="bi bi-key-fill me-1"></i>키 설정됨
+                    </span>
+                    <?php else: ?>
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle small fw-normal"
+                          title=".env 의 oauth.<?= esc($key) ?>.client_id 가 비어 있습니다">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>키 미설정
+                    </span>
+                    <?php endif; ?>
                 </div>
                 <div class="form-check form-switch mb-0">
                     <input class="form-check-input" type="checkbox" role="switch"
@@ -67,6 +78,7 @@
 <div class="alert alert-info small">
     <i class="bi bi-shield-lock me-2"></i>
     소셜 로그인 API 키는 보안상 <strong>서버의 <code>.env</code> 파일</strong>에 직접 입력해야 합니다.
+    <strong>키 미설정</strong> 상태의 제공자는 활성화돼 있어도 로그인 버튼을 누르면 안내 메시지와 함께 로그인 화면으로 되돌아옵니다.
 </div>
 
 <!-- 콜백 URL 안내 -->
