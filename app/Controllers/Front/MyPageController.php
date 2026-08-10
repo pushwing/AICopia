@@ -202,7 +202,7 @@ class MyPageController extends BaseController
         if ($deleted && $address['is_default']) {
             $next = $this->addressModel->where('user_id', $userId)->orderBy('id', 'DESC')->first();
             if ($next) {
-                $this->addressModel->setDefault($next['id'], $userId);
+                $this->addressModel->setDefault((int) $next['id'], $userId);
             }
         }
 
