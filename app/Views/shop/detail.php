@@ -148,6 +148,34 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
             <div class="text-muted small mb-4">재고 <strong class="text-dark"><?= number_format($product['stock']) ?></strong>개</div>
             <?php endif; ?>
 
+            <?php $addons = $addons ?? []; ?>
+            <?php if ($addons !== []): ?>
+            <!-- 추가구성상품 -->
+            <div class="card mb-3" id="addonSection">
+                <div class="card-header bg-light d-flex align-items-center">
+                    <span class="fw-semibold">추가구성상품</span>
+                    <span class="text-muted small ms-2">추가로 구매를 원하시면 선택하세요.</span>
+                </div>
+                <div class="card-body" id="addonListArea">
+                    <?php foreach ($addons as $i => $addon): ?>
+                    <div class="d-flex align-items-center border rounded p-2 mb-2">
+                        <?php if ($addon['file_path']): ?>
+                        <img src="<?= esc(base_url($addon['file_path'])) ?>" class="rounded me-3" style="width:56px;height:56px;object-fit:cover" alt="">
+                        <?php endif; ?>
+                        <div class="flex-grow-1">
+                            <div class="small fw-semibold"><?= esc($addon['name']) ?></div>
+                            <div class="small text-danger"><?= number_format((int) ($addon['discount_price'] ?: $addon['price'])) ?>원</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-addon-select="<?= (int) $i ?>">
+                            선택
+                        </button>
+                    </div>
+                    <?php endforeach; ?>
+                    <div id="selectedAddons" class="mt-3"></div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- 수량 선택 -->
             <div class="d-flex align-items-center gap-3 mb-4">
                 <span class="text-muted small" style="width:70px">수량</span>
@@ -553,6 +581,74 @@ const skuData = <?= json_encode(array_map(function ($s) {
 let basePrice   = <?= (int) $displayPrice ?>;
 let currentSkuId = null;
 
+// ─── 부속 애드온 선택 ───────────────────────────────────────────────────────────
+// 상품명은 관리자가 직접 입력하지 않을 수도 있다(NaverShoppingProvider 로 외부 API에서
+// 채워질 수 있음) — 신뢰할 수 없는 문자열이므로 HTML 삽입 전 반드시 이스케이프한다.
+// JSON_HEX_* 플래그로 </script> 같은 값이 스크립트 블록을 탈출하지 못하게 막는다.
+const addonsData = <?= json_encode(array_values(array_map(static function (array $a): array {
+    return [
+        'id'    => (int) $a['id'],
+        'name'  => (string) $a['name'],
+        'price' => (int) ($a['discount_price'] ?: $a['price']),
+    ];
+}, $addons)), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+let selectedAddons = [];
+
+function escHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderSelectedAddons() {
+    const el = document.getElementById('selectedAddons');
+    if (! el) return;
+    el.innerHTML = selectedAddons.map(function (a) {
+        return '<div class="d-flex align-items-center border-top pt-2 mt-2 small">'
+            + '<div class="flex-grow-1">' + escHtml(a.name) + '</div>'
+            + '<button type="button" class="btn btn-sm btn-outline-secondary" data-addon-action="dec" data-addon-id="' + a.id + '">-</button>'
+            + '<span class="mx-2">' + a.qty + '</span>'
+            + '<button type="button" class="btn btn-sm btn-outline-secondary" data-addon-action="inc" data-addon-id="' + a.id + '">+</button>'
+            + '<span class="ms-3 fw-semibold">' + (a.price * a.qty).toLocaleString('ko-KR') + '원</span>'
+            + '<button type="button" class="btn btn-sm btn-link text-danger" data-addon-action="remove" data-addon-id="' + a.id + '">삭제</button>'
+            + '</div>';
+    }).join('');
+}
+
+// 목록의 "선택" 버튼: 이벤트 위임 + data-* 속성만 사용(속성 문자열에 데이터를
+// 직접 이어붙이지 않는다 — JSON.stringify 는 작은따옴표를 이스케이프하지 않으므로
+// onclick 속성 조합 방식은 상품명에 따옴표가 섞이면 속성 탈출로 이어질 수 있다).
+document.getElementById('addonListArea')?.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-addon-select]');
+    if (! btn) return;
+    const idx   = parseInt(btn.dataset.addonSelect, 10);
+    const addon = addonsData[idx];
+    if (! addon) return;
+    if (selectedAddons.some(function (a) { return a.id === addon.id; })) return;
+    selectedAddons.push({ id: addon.id, name: addon.name, price: addon.price, qty: 1 });
+    renderSelectedAddons();
+});
+
+document.getElementById('selectedAddons')?.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-addon-action]');
+    if (! btn) return;
+    const id   = parseInt(btn.dataset.addonId, 10);
+    const item = selectedAddons.find(function (a) { return a.id === id; });
+    if (! item) return;
+
+    switch (btn.dataset.addonAction) {
+        case 'inc':
+            item.qty += 1;
+            break;
+        case 'dec':
+            item.qty = Math.max(1, item.qty - 1);
+            break;
+        case 'remove':
+            selectedAddons = selectedAddons.filter(function (a) { return a.id !== id; });
+            break;
+    }
+    renderSelectedAddons();
+});
+
 function onOptionChange() {
     const selects = document.querySelectorAll('.option-select');
     const selected = Array.from(selects).map(function (s) { return parseInt(s.value) || 0; });
@@ -685,11 +781,18 @@ function addToCart(btn, onSuccess) {
     body.append('product_id', btn.dataset.productId);
     body.append('qty', qty);
     if (currentSkuId) body.append('sku_id', currentSkuId);
+    selectedAddons.forEach(function (a, i) {
+        body.append('addons[' + i + '][product_id]', a.id);
+        body.append('addons[' + i + '][qty]', a.qty);
+    });
 
     btn.disabled = true;
-    fetch('/cart/add', { method: 'POST', body })
+    fetch('/cart/add-bundle', { method: 'POST', body })
         .then(function (r) { return r.json(); })
         .then(function (data) {
+            if (data.skipped && data.skipped.length > 0) {
+                alert(data.skipped.join('\n'));
+            }
             if (data.success) {
                 // 네비바 장바구니 뱃지 업데이트
                 const badge = document.getElementById('cartBadge');
@@ -697,6 +800,8 @@ function addToCart(btn, onSuccess) {
                     badge.textContent  = data.cartCount;
                     badge.style.display = data.cartCount > 0 ? '' : 'none';
                 }
+                selectedAddons = [];
+                renderSelectedAddons();
                 onSuccess(data);
             } else {
                 alert(data.message);
