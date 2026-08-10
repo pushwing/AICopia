@@ -46,6 +46,24 @@ $canApproveExchange     = $currentStatus === 'exchange_requested';
 $canCompleteExchange    = $currentStatus === 'exchange_approved';
 $isBankTransfer     = ($payment['pg_provider'] ?? '') === 'bank_transfer';
 $canConfirmBank     = $isBankTransfer && $currentStatus === 'awaiting_payment';
+
+$methodLabels = [
+    'free'            => '쿠폰·포인트 전액 사용',
+    'card'            => '신용/체크카드',
+    'virtual_account' => '가상계좌',
+    'transfer'        => '계좌이체',
+    'phone'           => '휴대폰',
+    'kakaopay'        => '카카오페이',
+    'naverpay'        => '네이버페이',
+    'payco'           => 'PAYCO',
+    '무통장입금'      => '무통장입금',
+];
+
+/** @var \App\Libraries\PaymentReceipt|null $receipt */
+$receipt     = $receipt ?? null;
+$cardSummary = $receipt?->cardSummary();
+// 영수증 팝업은 실제로 승인된 결제(승인 일시가 있는 건)에만 띄운다.
+$showReceipt = $receipt !== null && $receipt->paidAt !== null;
 ?>
 
 <!-- 헤더 -->
@@ -223,6 +241,11 @@ $canConfirmBank     = $isBankTransfer && $currentStatus === 'awaiting_payment';
                     <dt class="col-4 fw-normal text-muted">PG TID</dt>
                     <dd class="col-8 font-monospace small text-muted"><?= esc($payment['pg_tid'] ?: '-') ?></dd>
                     <?php endif; ?>
+                    <?php if ($cardSummary !== null): ?>
+                    <dt class="col-4 fw-normal text-muted">카드 정보</dt>
+                    <dd class="col-8"><?= esc($cardSummary) ?></dd>
+                    <?php endif; ?>
+
                     <dt class="col-4 fw-normal text-muted">결제 일시</dt>
                     <dd class="col-8">
                         <?= $payment['paid_at'] ? date('Y년 n월 j일 G시 i분', strtotime($payment['paid_at'])) : '<span class="text-warning">미확인</span>' ?>
@@ -232,8 +255,110 @@ $canConfirmBank     = $isBankTransfer && $currentStatus === 'awaiting_payment';
                     <dt class="col-4 fw-normal text-muted">주문 일시</dt>
                     <dd class="col-8"><?= date('Y년 n월 j일 G시 i분', strtotime($order['created_at'])) ?></dd>
                 </dl>
+
+                <?php if ($showReceipt): ?>
+                <div class="text-end mt-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#receiptModal">
+                        <i class="bi bi-receipt me-1"></i>영수증 보기
+                    </button>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
+
+        <!-- 영수증 팝업 -->
+        <?php if ($showReceipt): ?>
+        <div class="modal fade" id="receiptModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="modal-title fw-bold"><i class="bi bi-receipt me-2"></i>결제 영수증</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="text-center border-bottom pb-3 mb-3">
+                            <div class="fw-bold"><?= esc($settings['site_name'] ?? '') ?></div>
+                            <div class="small text-muted mt-1">주문번호 <?= esc($order['order_number']) ?></div>
+                        </div>
+
+                        <dl class="row mb-0 small">
+                            <dt class="col-5 fw-normal text-muted">결제 수단</dt>
+                            <dd class="col-7">
+                                <?= esc($pgLabels[$receipt->pgProvider] ?? $receipt->pgProvider) ?>
+                                <?php if ($receipt->method !== null): ?>
+                                · <?= esc($methodLabels[$receipt->method] ?? $receipt->method) ?>
+                                <?php endif; ?>
+                            </dd>
+
+                            <?php if ($receipt->cardIssuer !== null): ?>
+                            <dt class="col-5 fw-normal text-muted">카드사</dt>
+                            <dd class="col-7"><?= esc($receipt->cardIssuer) ?></dd>
+                            <?php endif; ?>
+
+                            <?php if ($receipt->cardNumber !== null): ?>
+                            <dt class="col-5 fw-normal text-muted">카드번호</dt>
+                            <dd class="col-7 font-monospace"><?= esc($receipt->cardNumber) ?></dd>
+                            <?php endif; ?>
+
+                            <?php if ($receipt->installmentLabel() !== null): ?>
+                            <dt class="col-5 fw-normal text-muted">할부</dt>
+                            <dd class="col-7"><?= esc($receipt->installmentLabel()) ?></dd>
+                            <?php endif; ?>
+
+                            <?php if ($receipt->approvalNumber !== null): ?>
+                            <dt class="col-5 fw-normal text-muted">승인번호</dt>
+                            <dd class="col-7 font-monospace"><?= esc($receipt->approvalNumber) ?></dd>
+                            <?php endif; ?>
+
+                            <?php if ($receipt->tid !== null): ?>
+                            <dt class="col-5 fw-normal text-muted">PG TID</dt>
+                            <dd class="col-7 font-monospace text-break small"><?= esc($receipt->tid) ?></dd>
+                            <?php endif; ?>
+
+                            <dt class="col-5 fw-normal text-muted">승인 일시</dt>
+                            <dd class="col-7">
+                                <?= $receipt->paidAt !== null ? date('Y년 n월 j일 G시 i분', strtotime($receipt->paidAt)) : '-' ?>
+                            </dd>
+                        </dl>
+
+                        <hr>
+
+                        <dl class="row mb-0 small">
+                            <dt class="col-5 fw-normal text-muted">상품 합계</dt>
+                            <dd class="col-7 text-end"><?= number_format($order['total_product_price']) ?>원</dd>
+
+                            <dt class="col-5 fw-normal text-muted">배송비</dt>
+                            <dd class="col-7 text-end"><?= (int) $order['shipping_fee'] > 0 ? number_format($order['shipping_fee']) . '원' : '무료' ?></dd>
+
+                            <?php if ((int) ($order['coupon_discount_amount'] ?? 0) > 0): ?>
+                            <dt class="col-5 fw-normal text-muted">쿠폰 할인</dt>
+                            <dd class="col-7 text-end text-danger">- <?= number_format($order['coupon_discount_amount']) ?>원</dd>
+                            <?php endif; ?>
+
+                            <?php if ((int) ($order['point_used_amount'] ?? 0) > 0): ?>
+                            <dt class="col-5 fw-normal text-muted">포인트 사용</dt>
+                            <dd class="col-7 text-end text-danger">- <?= number_format($order['point_used_amount']) ?>원</dd>
+                            <?php endif; ?>
+
+                            <dt class="col-5 fw-bold text-dark border-top pt-2 mt-1">결제 금액</dt>
+                            <dd class="col-7 text-end fw-bold text-primary border-top pt-2 mt-1"><?= number_format($receipt->amount) ?>원</dd>
+                        </dl>
+                    </div>
+                    <div class="modal-footer">
+                        <?php if ($receipt->receiptUrl !== null): ?>
+                        <a href="<?= esc($receipt->receiptUrl) ?>" class="btn btn-outline-primary" target="_blank" rel="noopener noreferrer">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>카드사 매출전표
+                        </a>
+                        <?php endif; ?>
+                        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                            <i class="bi bi-printer me-1"></i>인쇄
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
 
     </div>
 

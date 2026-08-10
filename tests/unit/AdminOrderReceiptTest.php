@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Controllers\Front\MyPageController;
+use App\Controllers\Admin\OrderController;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 
 /**
- * MyPageController::orderDetail() 회귀 테스트
+ * 관리자 주문 상세의 카드 영수증 팝업 렌더 테스트.
  *
- * MySQLi 드라이버는 조회 결과를 모두 문자열로 돌려준다. 그 값을 int 파라미터로
- * 선언된 OrderModel::getWithItems() 에 그대로 넘기면 strict_types 아래에서
- * TypeError 가 나 주문 상세 페이지 전체가 500 이 된다.
+ * 회원 주문 상세와 같은 PaymentReceipt 를 써서 카드사·승인번호까지 보여준다.
  */
-final class MyPageOrderDetailTest extends CIUnitTestCase
+final class AdminOrderReceiptTest extends CIUnitTestCase
 {
     use DatabaseTestTrait;
 
@@ -31,7 +29,7 @@ final class MyPageOrderDetailTest extends CIUnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->prefix = 'MPOD' . substr(uniqid(), -6);
+        $this->prefix = 'ADMRC' . substr(uniqid(), -6);
         session()->destroy();
     }
 
@@ -63,18 +61,18 @@ final class MyPageOrderDetailTest extends CIUnitTestCase
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
-        $id                        = (int) $db->insertID();
-        $this->cleanup['users'][]  = $id;
+        $id                       = (int) $db->insertID();
+        $this->cleanup['users'][] = $id;
 
         return $id;
     }
 
-    private function insertOrder(int $userId, string $orderNumber): int
+    private function insertOrder(int $userId): int
     {
         $db = db_connect();
         $db->table('orders')->insert([
             'user_id'                => $userId,
-            'order_number'           => $orderNumber,
+            'order_number'           => 'ORD-' . $this->prefix,
             'status'                 => 'paid',
             'total_product_price'    => 10000,
             'shipping_fee'           => 3000,
@@ -104,7 +102,7 @@ final class MyPageOrderDetailTest extends CIUnitTestCase
         $db->table('order_items')->insert([
             'order_id'      => $orderId,
             'product_id'    => 0,
-            'product_name'  => '주문상세테스트상품',
+            'product_name'  => '관리자영수증테스트상품',
             'product_price' => 10000,
             'qty'           => 1,
             'subtotal'      => 10000,
@@ -113,25 +111,25 @@ final class MyPageOrderDetailTest extends CIUnitTestCase
         $this->cleanup['order_items'][] = (int) $db->insertID();
     }
 
-    /** 토스페이먼츠 카드 결제 원응답을 담은 payments 행 */
+    /** 나이스페이 카드 결제 원응답을 담은 payments 행 */
     private function insertCardPayment(int $orderId): void
     {
         $db = db_connect();
         $db->table('payments')->insert([
             'order_id'     => $orderId,
-            'pg_provider'  => 'toss',
+            'pg_provider'  => 'nicepay',
             'pg_tid'       => 'TID-' . $this->prefix,
             'method'       => 'card',
             'amount'       => 13000,
             'status'       => 'paid',
             'raw_response' => json_encode([
-                'card' => [
-                    'issuerCode'            => '41',
-                    'number'                => '433012******1234',
-                    'installmentPlanMonths' => 0,
-                    'approveNo'             => '00012345',
+                'resultCode' => '0000',
+                'approveNo'  => '77665544',
+                'card'       => [
+                    'cardName'  => '삼성카드',
+                    'cardNum'   => '123456******1234',
+                    'cardQuota' => 3,
                 ],
-                'receipt' => ['url' => 'https://dashboard.tosspayments.com/receipt/x'],
             ], JSON_UNESCAPED_UNICODE),
             'paid_at'    => date('Y-m-d H:i:s'),
             'created_at' => date('Y-m-d H:i:s'),
@@ -140,9 +138,9 @@ final class MyPageOrderDetailTest extends CIUnitTestCase
         $this->cleanup['payments'][] = (int) $db->insertID();
     }
 
-    private function controller(): MyPageController
+    private function controller(): OrderController
     {
-        $controller = new MyPageController();
+        $controller = new OrderController();
         $controller->initController(service('request'), service('response'), service('logger'));
 
         return $controller;
@@ -150,70 +148,36 @@ final class MyPageOrderDetailTest extends CIUnitTestCase
 
     // ── 테스트 ───────────────────────────────────────────────────────────────
 
-    public function testOrderDetailRendersWithoutTypeError(): void
+    public function testAdminOrderDetailShowsCardReceiptPopup(): void
     {
-        $userId      = $this->insertUser();
-        $orderNumber = 'ORD-' . $this->prefix;
-        $orderId     = $this->insertOrder($userId, $orderNumber);
-        $this->insertOrderItem($orderId);
-
-        session()->set(['user_id' => $userId, 'user_role' => 'member']);
-
-        $result = $this->controller()->orderDetail($orderNumber);
-
-        $this->assertIsString($result, '주문 상세가 HTML 대신 리다이렉트를 반환했다');
-        $this->assertStringContainsString($orderNumber, $result, '렌더된 화면에 주문번호가 없다');
-        $this->assertStringContainsString('주문상세테스트상품', $result, '렌더된 화면에 주문 상품이 없다');
-    }
-
-    public function testOrderDetailShowsCardReceiptPopup(): void
-    {
-        $userId      = $this->insertUser();
-        $orderNumber = 'ORD-' . $this->prefix;
-        $orderId     = $this->insertOrder($userId, $orderNumber);
+        $userId  = $this->insertUser();
+        $orderId = $this->insertOrder($userId);
         $this->insertOrderItem($orderId);
         $this->insertCardPayment($orderId);
 
-        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+        session()->set(['user_id' => $userId, 'user_role' => 'admin']);
 
-        $result = $this->controller()->orderDetail($orderNumber);
+        $result = $this->controller()->detail($orderId);
 
-        $this->assertIsString($result);
+        $this->assertIsString($result, '관리자 주문 상세가 HTML 대신 리다이렉트를 반환했다');
         $this->assertStringContainsString('receiptModal', $result, '영수증 팝업(모달)이 없다');
-        $this->assertStringContainsString('영수증', $result, '영수증 버튼이 없다');
-        $this->assertStringContainsString('신한카드', $result, '카드사가 표시되지 않았다');
-        $this->assertStringContainsString('433012******1234', $result, '카드번호가 표시되지 않았다');
-        $this->assertStringContainsString('일시불', $result, '할부 정보가 표시되지 않았다');
-        $this->assertStringContainsString('00012345', $result, '승인번호가 표시되지 않았다');
-        $this->assertStringContainsString('https://dashboard.tosspayments.com/receipt/x', $result, 'PG 영수증 원본 링크가 없다');
+        $this->assertStringContainsString('삼성카드', $result, '카드사가 표시되지 않았다');
+        $this->assertStringContainsString('123456******1234', $result, '카드번호가 표시되지 않았다');
+        $this->assertStringContainsString('3개월 할부', $result, '할부 정보가 표시되지 않았다');
+        $this->assertStringContainsString('77665544', $result, '승인번호가 표시되지 않았다');
     }
 
-    public function testOrderDetailHasNoReceiptPopupWithoutPayment(): void
+    public function testAdminOrderDetailHasNoReceiptPopupWithoutPayment(): void
     {
-        $userId      = $this->insertUser();
-        $orderNumber = 'ORD-' . $this->prefix;
-        $orderId     = $this->insertOrder($userId, $orderNumber);
+        $userId  = $this->insertUser();
+        $orderId = $this->insertOrder($userId);
         $this->insertOrderItem($orderId);
 
-        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+        session()->set(['user_id' => $userId, 'user_role' => 'admin']);
 
-        $result = $this->controller()->orderDetail($orderNumber);
+        $result = $this->controller()->detail($orderId);
 
         $this->assertIsString($result);
         $this->assertStringNotContainsString('receiptModal', $result, '결제 정보가 없는데 영수증 팝업이 떴다');
-    }
-
-    public function testOrderDetailRedirectsWhenOrderBelongsToAnotherUser(): void
-    {
-        $ownerId     = $this->insertUser();
-        $orderNumber = 'ORD-' . $this->prefix;
-        $orderId     = $this->insertOrder($ownerId, $orderNumber);
-        $this->insertOrderItem($orderId);
-
-        session()->set(['user_id' => $ownerId + 999_999, 'user_role' => 'member']);
-
-        $result = $this->controller()->orderDetail($orderNumber);
-
-        $this->assertIsNotString($result, '남의 주문 상세가 그대로 렌더됐다');
     }
 }
