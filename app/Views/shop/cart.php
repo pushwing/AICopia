@@ -2,6 +2,12 @@
 
 <?= $this->section('content') ?>
 
+<?php
+// 본품 → 그 본품의 추가구성상품 순서로 묶는다. 주문 상세와 동일한 규칙(AddonGrouping)을 써서
+// 화면마다 그룹핑 결과가 어긋나지 않게 한다.
+$items = \App\Libraries\AddonGrouping::order($items ?? []);
+?>
+
 <div class="container py-4">
 
     <h4 class="fw-bold mb-4">장바구니</h4>
@@ -46,8 +52,9 @@
 
             <?php foreach ($items as $item):
                 $isSoldOut = ! $item['is_available'];
+                $isAddon   = ! empty($item['is_addon']);
             ?>
-            <div class="card mb-2 cart-item <?= $isSoldOut ? 'opacity-75' : '' ?>"
+            <div class="card mb-2 cart-item <?= $isSoldOut ? 'opacity-75' : '' ?> <?= $isAddon ? 'ps-4 border-start border-3' : '' ?>"
                  data-cart-id="<?= (int) $item['id'] ?>"
                  data-product-id="<?= (int) $item['product_id'] ?>"
                  data-sku-id="<?= (int) ($item['sku_id'] ?? 0) ?>"
@@ -60,6 +67,10 @@
                             <input type="checkbox" class="form-check-input item-check"
                                    <?= $isSoldOut ? 'disabled' : '' ?>>
                         </div>
+
+                        <?php if ($isAddon): ?>
+                        <span class="badge bg-secondary align-self-start">추가구성</span>
+                        <?php endif; ?>
 
                         <!-- 이미지 -->
                         <a href="/shop/<?= esc($item['slug']) ?>" class="flex-shrink-0">

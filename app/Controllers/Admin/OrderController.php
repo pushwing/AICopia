@@ -141,12 +141,18 @@ class OrderController extends BaseController
         $nameMap  = [];
         if ($orderIds !== []) {
             $rows = \Config\Database::connect()->table('order_items')
-                ->select('order_id, product_name, qty')
+                ->select('order_id, product_id, parent_product_id, product_name, qty, id')
                 ->whereIn('order_id', $orderIds)
-                ->orderBy('order_id')->orderBy('id')
+                ->orderBy('order_id', 'ASC')->orderBy('id', 'ASC')
                 ->get()->getResultArray();
+
+            // 주문별로 모아 본품 → 애드온 순으로 라벨을 만든다.
+            $byOrder = [];
             foreach ($rows as $row) {
-                $nameMap[(int) $row['order_id']][] = $row['product_name'] . ' x' . $row['qty'];
+                $byOrder[(int) $row['order_id']][] = $row;
+            }
+            foreach ($byOrder as $orderId => $orderRows) {
+                $nameMap[$orderId] = \App\Libraries\AddonGrouping::labels($orderRows);
             }
         }
 
@@ -171,9 +177,11 @@ class OrderController extends BaseController
         $sheet->getStyle('A1:J1')->applyFromArray($headerStyle);
 
         foreach ($orders as $i => $order) {
+            // 애드온 라벨('+ ' 접두어)까지 전부 드러나야 포장 담당자가 묶음을 알아볼 수 있다.
+            // 첫 라벨만 쓰던 이전 방식은 order()가 본품을 항상 맨 앞에 두는 탓에
+            // 애드온 라벨이 셀에 절대 도달하지 못하는 사실상 no-op이었다.
             $names          = $nameMap[$order['id']] ?? [];
-            $extra          = count($names) - 1;
-            $productSummary = ($names[0] ?? '') . ($extra > 0 ? ' 외 ' . $extra . '건' : '');
+            $productSummary = implode(', ', $names);
             $rowNum         = $i + 2;
 
             $sheet->setCellValue($col(1, $rowNum), $order['order_number']);

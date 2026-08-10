@@ -232,6 +232,22 @@
                 </div>
             </div>
 
+            <div class="card mb-3" id="addonCard">
+                <div class="card-header fw-semibold bg-white">
+                    추가구성상품
+                    <span class="text-muted small fw-normal ms-2">상품 상세에서 함께 구매하도록 제안할 상품</span>
+                </div>
+                <div class="card-body">
+                    <input type="hidden" name="addons_json" id="addonsJson">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="addonSearchInput" placeholder="상품명으로 검색">
+                        <button class="btn btn-outline-secondary" type="button" onclick="searchAddons()">검색</button>
+                    </div>
+                    <div id="addonSearchResult" class="list-group mb-3 d-none"></div>
+                    <div id="addonList"></div>
+                </div>
+            </div>
+
             <div class="d-flex gap-2 flex-wrap">
                 <button type="submit" class="btn btn-primary"><?= $product ? '저장' : '등록' ?></button>
                 <a href="/admin/products" class="btn btn-outline-secondary">취소</a>
@@ -483,8 +499,8 @@ toggleShippingFields();
 
 // ── 옵션 / SKU 관리 ──────────────────────────────────────────────────────────
 // 기존 데이터 (수정 시 서버에서 전달)
-let optionGroups = <?= json_encode($optionsAndSkus['options'] ?? [], JSON_UNESCAPED_UNICODE) ?>;
-let skuList      = <?= json_encode($optionsAndSkus['skus']    ?? [], JSON_UNESCAPED_UNICODE) ?>;
+let optionGroups = <?= json_encode($optionsAndSkus['options'] ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+let skuList      = <?= json_encode($optionsAndSkus['skus']    ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
 // 임시 ID 카운터 (클라이언트 전용)
 let tmpIdCounter = 1000;
@@ -1055,5 +1071,98 @@ document.getElementById('btnVisionExtract').addEventListener('click', async func
         this.innerHTML = original;
     }
 });
+</script>
+<script>
+let addonItems = <?= json_encode($addonProducts ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+const addonProductId = <?= (int) ($product['id'] ?? 0) ?>;
+
+function renderAddons() {
+    const el = document.getElementById('addonList');
+    if (addonItems.length === 0) {
+        el.innerHTML = '<div class="text-muted small">연결된 추가구성상품이 없습니다.</div>';
+    } else {
+        el.innerHTML = addonItems.map(function (item, i) {
+            const thumb = item.thumbnail
+                ? '<img src="/' + esc(item.thumbnail) + '" class="rounded me-2" style="width:36px;height:36px;object-fit:cover">'
+                : '';
+            return '<div class="d-flex align-items-center border rounded p-2 mb-2">'
+                + thumb
+                + '<div class="flex-grow-1 small">' + esc(item.name)
+                + '<span class="text-muted ms-2">' + Number(item.price).toLocaleString() + '원</span></div>'
+                + '<button type="button" class="btn btn-sm btn-outline-secondary me-1" data-addon-action="up" data-addon-index="' + i + '">↑</button>'
+                + '<button type="button" class="btn btn-sm btn-outline-secondary me-1" data-addon-action="down" data-addon-index="' + i + '">↓</button>'
+                + '<button type="button" class="btn btn-sm btn-outline-danger" data-addon-action="remove" data-addon-index="' + i + '">삭제</button>'
+                + '</div>';
+        }).join('');
+    }
+    document.getElementById('addonsJson').value = JSON.stringify(addonItems.map(function (i) { return i.id; }));
+}
+
+// 이벤트 위임: innerHTML 을 매번 새로 그려도 버튼 클릭이 계속 동작하도록 addonList 에 한 번만 등록
+document.getElementById('addonList').addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-addon-action]');
+    if (!btn) { return; }
+    const i = Number(btn.dataset.addonIndex);
+    switch (btn.dataset.addonAction) {
+        case 'up':     moveAddon(i, -1); break;
+        case 'down':   moveAddon(i, 1);  break;
+        case 'remove': removeAddon(i);   break;
+    }
+});
+
+function searchAddons() {
+    const q = document.getElementById('addonSearchInput').value.trim();
+    if (!q) { return; }
+    fetch('/admin/products/addon-search?q=' + encodeURIComponent(q) + '&exclude=' + addonProductId)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            const box = document.getElementById('addonSearchResult');
+            box.classList.remove('d-none');
+            const chosen = addonItems.map(function (i) { return Number(i.id); });
+            const rows = (data.items || []).filter(function (i) { return chosen.indexOf(Number(i.id)) === -1; });
+            // 상품명에 작은따옴표가 있으면 onclick='...'+JSON.stringify(i)+'...' 형태는
+            // 속성값을 깨고 나가는 인젝션이 가능하므로, 데이터는 data-* 속성으로만 넘기고
+            // 동작은 이벤트 위임으로 붙인다.
+            box.innerHTML = rows.length === 0
+                ? '<div class="list-group-item text-muted small">결과가 없습니다.</div>'
+                : rows.map(function (i) {
+                    return '<button type="button" class="list-group-item list-group-item-action small"'
+                        + ' data-addon-id="' + esc(String(i.id)) + '"'
+                        + ' data-addon-name="' + esc(i.name) + '"'
+                        + ' data-addon-price="' + esc(String(i.price)) + '"'
+                        + ' data-addon-thumbnail="' + esc(i.thumbnail || '') + '">' + esc(i.name) + '</button>';
+                }).join('');
+        });
+}
+
+// 이벤트 위임: 검색 결과 버튼 클릭 시 dataset 값으로 추가구성상품을 등록
+document.getElementById('addonSearchResult').addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-addon-id]');
+    if (!btn) { return; }
+    addAddon({
+        id: btn.dataset.addonId,
+        name: btn.dataset.addonName,
+        price: btn.dataset.addonPrice,
+        thumbnail: btn.dataset.addonThumbnail,
+    });
+});
+
+function addAddon(item) {
+    addonItems.push(item);
+    document.getElementById('addonSearchResult').classList.add('d-none');
+    document.getElementById('addonSearchInput').value = '';
+    renderAddons();
+}
+
+function removeAddon(i) { addonItems.splice(i, 1); renderAddons(); }
+
+function moveAddon(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= addonItems.length) { return; }
+    const tmp = addonItems[i]; addonItems[i] = addonItems[j]; addonItems[j] = tmp;
+    renderAddons();
+}
+
+renderAddons();
 </script>
 <?= $this->endSection() ?>

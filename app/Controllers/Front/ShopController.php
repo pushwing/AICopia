@@ -7,6 +7,7 @@ namespace App\Controllers\Front;
 use App\Controllers\BaseController;
 use App\Models\BannerModel;
 use App\Models\CategoryModel;
+use App\Models\ProductAddonModel;
 use App\Models\ProductImageModel;
 use App\Models\ProductModel;
 use App\Models\ProductQnaModel;
@@ -212,6 +213,8 @@ class ShopController extends BaseController
             'product'         => $product,
             'images'          => $images,
             'shipping_policy' => $this->viewData['settings']['shipping_policy'] ?? '',
+            // 추가구성상품 (판매중·재고 있음만 노출)
+            'addons'          => new ProductAddonModel()->getForDisplay($productId),
             // 옵션 / SKU
             'options'         => $optionsAndSkus['options'],
             'skus'            => $optionsAndSkus['skus'],
