@@ -121,6 +121,24 @@ final class ProductAddonModelTest extends CIUnitTestCase
         $this->assertSame([$onSale], array_map(intval(...), $shown), '판매중·재고 있는 애드온만 노출돼야 한다');
     }
 
+    public function testGetForDisplayHidesSoftDeletedAddon(): void
+    {
+        $main    = $this->insertProduct('MAIN');
+        $onSale  = $this->insertProduct('OK');
+        $deleted = $this->insertProduct('DELETED');
+
+        $db = db_connect();
+        $db->table('products')->where('id', $deleted)->update(['deleted_at' => date('Y-m-d H:i:s')]);
+
+        $model = new ProductAddonModel();
+        $model->saveForProduct($main, [$onSale, $deleted]);
+        $this->trackAddonRows($main);
+
+        $shown = array_column($model->getForDisplay($main), 'id');
+
+        $this->assertSame([$onSale], array_map(intval(...), $shown), '소프트 삭제된 상품은 애드온 목록에서 제외돼야 한다');
+    }
+
     public function testIsLinked(): void
     {
         $main  = $this->insertProduct('MAIN');

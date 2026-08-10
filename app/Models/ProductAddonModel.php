@@ -26,28 +26,31 @@ class ProductAddonModel extends Model
      */
     public function saveForProduct(int $productId, array $addonProductIds): void
     {
-        $this->db->table('product_addons')->where('product_id', $productId)->delete();
-
-        $ids  = array_values(array_unique(array_filter(
+        $ids = array_values(array_unique(array_filter(
             array_map(intval(...), $addonProductIds),
             static fn (int $id): bool => $id > 0 && $id !== $productId,
         )));
-        if ($ids === []) {
-            return;
+
+        $this->db->transStart();
+
+        $this->db->table('product_addons')->where('product_id', $productId)->delete();
+
+        if ($ids !== []) {
+            $now  = date('Y-m-d H:i:s');
+            $rows = [];
+            foreach ($ids as $index => $addonId) {
+                $rows[] = [
+                    'product_id'       => $productId,
+                    'addon_product_id' => $addonId,
+                    'sort_order'       => $index,
+                    'created_at'       => $now,
+                ];
+            }
+
+            $this->db->table('product_addons')->insertBatch($rows);
         }
 
-        $now  = date('Y-m-d H:i:s');
-        $rows = [];
-        foreach ($ids as $index => $addonId) {
-            $rows[] = [
-                'product_id'       => $productId,
-                'addon_product_id' => $addonId,
-                'sort_order'       => $index,
-                'created_at'       => $now,
-            ];
-        }
-
-        $this->db->table('product_addons')->insertBatch($rows);
+        $this->db->transComplete();
     }
 
     /** @return array<int, int> 노출 순서대로의 애드온 상품 id */
