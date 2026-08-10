@@ -139,7 +139,7 @@ final class ProductAddonModelTest extends CIUnitTestCase
         $this->assertSame([$onSale], array_map(intval(...), $shown), '소프트 삭제된 상품은 애드온 목록에서 제외돼야 한다');
     }
 
-    public function testGetForDisplayExcludesSkuBearingProductEvenWhenLinked(): void
+    public function testGetForDisplayIncludesSkuBearingProductWhenLinked(): void
     {
         $main    = $this->insertProduct('MAIN');
         $onSale  = $this->insertProduct('OK');
@@ -161,9 +161,9 @@ final class ProductAddonModelTest extends CIUnitTestCase
         $shown = array_column($model->getForDisplay($main), 'id');
 
         $this->assertSame(
-            [$onSale],
+            [$onSale, $hasSku],
             array_map(intval(...), $shown),
-            'SKU(옵션)가 있는 상품은 product_addons 에 연결돼 있어도 노출에서 제외돼야 한다',
+            'SKU(옵션)가 있는 상품도 애드온으로 연결돼 있으면 노출돼야 한다',
         );
     }
 
@@ -181,23 +181,12 @@ final class ProductAddonModelTest extends CIUnitTestCase
         $this->assertFalse($model->isLinked($main, $other), '연결되지 않은 상품은 애드온이 아니다');
     }
 
-    public function testIsLinkedRejectsSkuBearingProductEvenWithCraftedRow(): void
+    public function testIsLinkedAcceptsSkuBearingProduct(): void
     {
         $main   = $this->insertProduct('MAIN');
         $hasSku = $this->insertProduct('HASSKU');
 
         $db = db_connect();
-        // 정상 흐름(saveForProduct)이 아니라 크래프트된/오래된 행을 직접 삽입해,
-        // product_addons에 잘못된 연결이 남아 있어도 isLinked() 자체가 최종 방어선으로
-        // 동작하는지 검증한다.
-        $db->table('product_addons')->insert([
-            'product_id'       => $main,
-            'addon_product_id' => $hasSku,
-            'sort_order'       => 0,
-            'created_at'       => date('Y-m-d H:i:s'),
-        ]);
-        $this->cleanup['product_addons'][] = (int) $db->insertID();
-
         $db->table('product_skus')->insert([
             'product_id' => $hasSku,
             'price_diff' => 0,
@@ -207,10 +196,12 @@ final class ProductAddonModelTest extends CIUnitTestCase
         $this->cleanup['product_skus'][] = (int) $db->insertID();
 
         $model = new ProductAddonModel();
+        $model->saveForProduct($main, [$hasSku]);
+        $this->trackAddonRows($main);
 
-        $this->assertFalse(
+        $this->assertTrue(
             $model->isLinked($main, $hasSku),
-            'SKU(옵션)가 있는 상품은 product_addons에 크래프트된 행이 있어도 연결로 인정되면 안 된다',
+            'SKU(옵션)가 있는 상품도 정상적으로 연결된 애드온으로 인정돼야 한다',
         );
     }
 }

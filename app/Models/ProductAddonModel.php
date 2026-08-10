@@ -81,13 +81,6 @@ class ProductAddonModel extends Model
             ->where('p.status', 'on_sale')
             ->where('p.stock >', 0)
             ->where('p.deleted_at IS NULL', null, false)
-            // 애드온 흐름은 product_id/qty만 넘기고 sku_id를 넘기지 않아, 옵션(SKU)이 있는
-            // 상품을 애드온으로 노출하면 옵션 재고가 차감되지 않아 재고 무결성이 깨진다.
-            // 옵션 지원은 후속 작업 — 그때까지 product_addons에 잘못 연결돼 남아 있더라도
-            // SKU 보유 상품은 노출 단계에서 항상 걸러낸다.
-            ->whereNotIn('p.id', static function (\CodeIgniter\Database\BaseBuilder $builder) {
-                return $builder->select('product_id')->from('product_skus');
-            })
             ->orderBy('pa.sort_order', 'ASC')->orderBy('pa.id', 'ASC')
             ->get()->getResultArray();
     }
@@ -98,14 +91,6 @@ class ProductAddonModel extends Model
         return $this->db->table('product_addons')
             ->where('product_id', $productId)
             ->where('addon_product_id', $addonProductId)
-            // 애드온 흐름은 product_id/qty만 넘기고 sku_id를 넘기지 않아, 옵션(SKU)이 있는
-            // 상품을 애드온으로 승인하면 옵션 재고가 차감되지 않아 SKU 재고 무결성이 깨진다.
-            // isLinked()는 장바구니 담기(CartController::addBundle())가 실제로 참조하는
-            // 검증 지점이므로, product_addons에 크래프트되었거나 오래 남아 있는 행이 있더라도
-            // SKU 보유 상품은 여기서 최종적으로 거부한다.
-            ->whereNotIn('addon_product_id', static function (\CodeIgniter\Database\BaseBuilder $builder) {
-                return $builder->select('product_id')->from('product_skus');
-            })
             ->countAllResults() > 0;
     }
 }

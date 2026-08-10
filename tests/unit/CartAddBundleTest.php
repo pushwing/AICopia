@@ -20,7 +20,7 @@ final class CartAddBundleTest extends CIUnitTestCase
     private string $prefix;
 
     /** @var array<string, array<int, int>> */
-    private array $cleanup = ['cart_items' => [], 'product_addons' => [], 'products' => [], 'users' => []];
+    private array $cleanup = ['cart_items' => [], 'product_addons' => [], 'products' => [], 'users' => [], 'product_skus' => []];
 
     protected function setUp(): void
     {
@@ -32,12 +32,12 @@ final class CartAddBundleTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         $db = db_connect();
-        foreach (['cart_items', 'product_addons', 'products', 'users'] as $table) {
+        foreach (['cart_items', 'product_addons', 'product_skus', 'products', 'users'] as $table) {
             if ($this->cleanup[$table] !== []) {
                 $db->table($table)->whereIn('id', $this->cleanup[$table])->delete();
             }
         }
-        $this->cleanup = ['cart_items' => [], 'product_addons' => [], 'products' => [], 'users' => []];
+        $this->cleanup = ['cart_items' => [], 'product_addons' => [], 'products' => [], 'users' => [], 'product_skus' => []];
         session()->destroy();
 
         service('request')->setGlobal('post', []);
@@ -161,6 +161,34 @@ final class CartAddBundleTest extends CIUnitTestCase
         $this->assertNull($rows[0]['parent_product_id'], '본품에는 부모가 없다');
         $this->assertSame($main, (int) $rows[1]['parent_product_id'], '애드온은 본품을 가리켜야 한다');
         $this->assertSame(2, (int) $rows[1]['qty']);
+    }
+
+    public function testAddsAddonWithSkuOption(): void
+    {
+        $userId = $this->insertUser();
+        $main   = $this->insertProduct('MAIN');
+        $addon  = $this->insertProduct('ADDON');
+        $this->link($main, $addon);
+
+        $db = db_connect();
+        $db->table('product_skus')->insert([
+            'product_id' => $addon,
+            'price_diff' => 1000,
+            'stock'      => 3,
+            'sku_code'   => null,
+        ]);
+        $skuId = (int) $db->insertID();
+        $this->cleanup['product_skus'][] = $skuId;
+
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $body = $this->callAddBundle($main, 1, [['product_id' => $addon, 'sku_id' => $skuId, 'qty' => 1]]);
+        $rows = $this->cartRows($userId);
+
+        $this->assertTrue($body['success'] ?? false, $body['message'] ?? '');
+        $this->assertCount(2, $rows, '본품과 옵션이 있는 애드온이 각각 담겨야 한다');
+        $this->assertSame($skuId, (int) $rows[1]['sku_id'], '애드온의 sku_id가 저장돼야 한다');
+        $this->assertSame($main, (int) $rows[1]['parent_product_id']);
     }
 
     public function testRejectsAddonThatIsNotLinked(): void
