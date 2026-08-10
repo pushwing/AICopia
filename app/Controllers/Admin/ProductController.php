@@ -1031,10 +1031,33 @@ class ProductController extends BaseController
     /** 상품 폼의 addons_json 을 추가구성상품 연결로 저장한다 */
     private function handleAddons(int $productId): void
     {
-        $json = $this->request->getPost('addons_json');
-        $ids  = is_string($json) ? json_decode($json, true) : null;
+        $json    = $this->request->getPost('addons_json');
+        $decoded = is_string($json) ? json_decode($json, true) : null;
 
-        new ProductAddonModel()->saveForProduct($productId, is_array($ids) ? $ids : []);
+        // 변조된 요청은 [[1,2],3] 처럼 배열 안에 배열이 섞여 올 수 있다.
+        // 스칼라가 아닌 항목을 그대로 넘기면 ProductAddonModel::saveForProduct() 의
+        // array_map(intval(...), ...) 에서 TypeError 가 나 500 으로 이어지므로
+        // 이 경계에서 스칼라만 통과시킨다.
+        $ids = is_array($decoded)
+            ? array_values(array_map(
+                intval(...),
+                array_filter($decoded, static fn (mixed $v): bool => is_scalar($v)),
+            ))
+            : [];
+
+        new ProductAddonModel()->saveForProduct($productId, $ids);
+    }
+
+    /**
+     * 추가구성상품 후보/표시 목록이 공통으로 쓰는 조회 빌더.
+     * addonSearch()·addonProductsFor() 양쪽에서 이어서 조건을 붙여 사용한다.
+     */
+    private function addonProductBuilder(): \CodeIgniter\Database\BaseBuilder
+    {
+        return $this->productModel->db->table('products p')
+            ->select('p.id, p.name, p.price, m.file_path AS thumbnail')
+            ->join('product_images pi', 'pi.product_id = p.id AND pi.is_primary = 1', 'left')
+            ->join('media m', 'm.id = pi.media_id', 'left');
     }
 
     /** GET /admin/products/addon-search — 추가구성상품 후보 검색 (Ajax) */
@@ -1047,10 +1070,7 @@ class ProductController extends BaseController
             return $this->response->setJSON(['items' => []]);
         }
 
-        $builder = $this->productModel->db->table('products p')
-            ->select('p.id, p.name, p.price, m.file_path AS thumbnail')
-            ->join('product_images pi', 'pi.product_id = p.id AND pi.is_primary = 1', 'left')
-            ->join('media m', 'm.id = pi.media_id', 'left')
+        $builder = $this->addonProductBuilder()
             ->like('p.name', $keyword)
             ->where('p.status', 'on_sale')
             ->where('p.deleted_at IS NULL', null, false);
@@ -1076,10 +1096,7 @@ class ProductController extends BaseController
             return [];
         }
 
-        $rows = $this->productModel->db->table('products p')
-            ->select('p.id, p.name, p.price, m.file_path AS thumbnail')
-            ->join('product_images pi', 'pi.product_id = p.id AND pi.is_primary = 1', 'left')
-            ->join('media m', 'm.id = pi.media_id', 'left')
+        $rows = $this->addonProductBuilder()
             ->whereIn('p.id', $ids)
             ->get()->getResultArray();
 
