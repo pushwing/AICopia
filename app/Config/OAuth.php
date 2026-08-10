@@ -16,6 +16,8 @@ use CodeIgniter\Config\BaseConfig;
  *   oauth.kakao.client_secret = YOUR_KAKAO_CLIENT_SECRET   (선택)
  *   oauth.google.client_id    = YOUR_GOOGLE_CLIENT_ID
  *   oauth.google.client_secret = YOUR_GOOGLE_CLIENT_SECRET
+ *
+ * scope 도 .env 로 덮어쓸 수 있다 (예: oauth.kakao.scope = ...).
  */
 class OAuth extends BaseConfig
 {
@@ -36,7 +38,14 @@ class OAuth extends BaseConfig
         'auth_url'      => 'https://kauth.kakao.com/oauth/authorize',
         'token_url'     => 'https://kauth.kakao.com/oauth/token',
         'profile_url'   => 'https://kapi.kakao.com/v2/user/me',
-        'scope'         => 'profile_nickname,profile_image,account_email',
+        // 휴대폰번호·성별·생년월일(users.phone/gender/birthday)을 함께 받으려면
+        // 카카오 콘솔 > 카카오 로그인 > 동의 항목에서 아래를 켠다.
+        //   phone_number(비즈니스 앱 전환 필요) · gender · birthday · birthyear
+        // 콘솔에서 켠 항목은 scope 를 넘기지 않아도 동의 화면에 나오므로 기본값은
+        // 그대로 둔다 — 켜지 않은 항목을 scope 에 넣으면 인가 요청 자체가 거부된다.
+        // 항목을 "이용 중 동의"로 운영해 명시적으로 요청해야 한다면 .env 에서
+        // oauth.kakao.scope 로 덮어쓴다.
+        'scope' => 'profile_nickname,profile_image,account_email',
     ];
 
     public array $google = [
