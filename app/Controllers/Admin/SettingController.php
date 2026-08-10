@@ -6,6 +6,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Libraries\Mailer;
+use App\Libraries\OAuth\OAuthFactory;
 use App\Models\SettingModel;
 
 class SettingController extends BaseController
@@ -20,9 +21,16 @@ class SettingController extends BaseController
     public function index(string $group = 'general'): string
     {
         if ($group === 'oauth') {
+            // 키는 .env 에만 있으므로 값 대신 "설정 여부"만 뷰로 넘긴다
+            $oauthConfigured = [];
+            foreach (OAuthFactory::supported() as $provider) {
+                $oauthConfigured[$provider] = OAuthFactory::make($provider)->isConfigured();
+            }
+
             return $this->render('admin/settings/oauth', [
-                'group'    => 'oauth',
-                'settings' => $this->settingModel->getAllAsMap(),
+                'group'           => 'oauth',
+                'settings'        => $this->settingModel->getAllAsMap(),
+                'oauthConfigured' => $oauthConfigured,
             ]);
         }
 
