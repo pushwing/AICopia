@@ -200,7 +200,7 @@ class AuthController extends BaseController
                 ->with('error', '인증 링크가 유효하지 않거나 만료되었습니다. 다시 요청해주세요.');
         }
 
-        $this->userModel->clearVerifyToken($user['id']);
+        $this->userModel->clearVerifyToken((int) $user['id']);
 
         // 가입 보너스 포인트 지급
         $settings = $this->viewData['settings'] ?? [];
@@ -235,7 +235,7 @@ class AuthController extends BaseController
                 ->with('error', '1분 후 다시 시도해주세요.');
         }
 
-        $token = $this->userModel->generateVerifyToken($user['id']);
+        $token = $this->userModel->generateVerifyToken((int) $user['id']);
         new Mailer($this->viewData['settings'] ?? [])->sendVerify($user, $token);
 
         return redirect()->to('/auth/verify-pending')
