@@ -97,7 +97,8 @@ class MyPageController extends BaseController
             return redirect()->to('/mypage/orders')->with('error', '주문을 찾을 수 없습니다.');
         }
 
-        $order = $this->orderModel->getWithItems($row['id'], $userId);
+        // MySQLi 는 조회 결과를 문자열로 돌려주므로 int 파라미터에 넘기기 전에 형변환한다.
+        $order = $this->orderModel->getWithItems((int) $row['id'], $userId);
 
         $returnReasonCodes = \App\Models\OrderModel::RETURN_REASON_CODES;
         $rCode             = $order['return_reason_code'] ?? null;
@@ -202,7 +203,7 @@ class MyPageController extends BaseController
         if ($deleted && $address['is_default']) {
             $next = $this->addressModel->where('user_id', $userId)->orderBy('id', 'DESC')->first();
             if ($next) {
-                $this->addressModel->setDefault($next['id'], $userId);
+                $this->addressModel->setDefault((int) $next['id'], $userId);
             }
         }
 
