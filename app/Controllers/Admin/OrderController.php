@@ -141,12 +141,18 @@ class OrderController extends BaseController
         $nameMap  = [];
         if ($orderIds !== []) {
             $rows = \Config\Database::connect()->table('order_items')
-                ->select('order_id, product_name, qty')
+                ->select('order_id, product_id, parent_product_id, product_name, qty, id')
                 ->whereIn('order_id', $orderIds)
-                ->orderBy('order_id')->orderBy('id')
+                ->orderBy('order_id', 'ASC')->orderBy('id', 'ASC')
                 ->get()->getResultArray();
+
+            // 주문별로 모아 본품 → 애드온 순으로 라벨을 만든다.
+            $byOrder = [];
             foreach ($rows as $row) {
-                $nameMap[(int) $row['order_id']][] = $row['product_name'] . ' x' . $row['qty'];
+                $byOrder[(int) $row['order_id']][] = $row;
+            }
+            foreach ($byOrder as $orderId => $orderRows) {
+                $nameMap[$orderId] = \App\Libraries\AddonGrouping::labels($orderRows);
             }
         }
 

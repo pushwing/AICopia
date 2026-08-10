@@ -57,4 +57,21 @@ final class AddonGrouping
 
         return $ordered;
     }
+
+    /**
+     * 엑셀 '상품명' 칸에 쓸 라벨 목록. 애드온은 본품 바로 뒤에 '+' 를 달고 붙는다.
+     *
+     * @param  array<int, array<string, mixed>> $items
+     * @return array<int, string>
+     */
+    public static function labels(array $items): array
+    {
+        $labels = [];
+        foreach (self::order($items) as $item) {
+            $prefix   = ($item['is_addon'] ?? false) === true ? '+ ' : '';
+            $labels[] = $prefix . (string) $item['product_name'] . ' x' . (string) $item['qty'];
+        }
+
+        return $labels;
+    }
 }
