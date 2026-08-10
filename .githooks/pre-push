@@ -75,6 +75,12 @@ case "$target_branch" in
     ;;
 esac
 
+# composer 는 자식 프로세스를 기본 300초에서 끊는다. 테스트가 900건을 넘기면서
+# 정상 실행인데도 이 상한에 걸려 push 가 막히는 일이 생겼다(테스트 실패가 아니라
+# 타임아웃이라 원인 파악도 어렵다). 넉넉히 늘리되, 진짜 멈춘 경우를 잡을 수 있게
+# 무제한(0)이 아닌 유한값을 쓴다.
+export COMPOSER_PROCESS_TIMEOUT="${COMPOSER_PROCESS_TIMEOUT:-900}"
+
 echo -e "${YELLOW}▶ pre-push: 코드 스타일 검사(cs)...${NC}"
 composer cs >/tmp/prepush-cs.log 2>&1 || { cat /tmp/prepush-cs.log; fail "코드 스타일(composer cs). 'composer cs-fix'로 자동 수정 가능"; }
 
@@ -90,6 +96,12 @@ if echo "$changed" | grep -qE '^(app/|tests/|composer\.(json|lock)|phpunit\.xml|
       echo -e "${RED}✗ 테스트 DB에 연결하지 못했습니다.${NC}"
       echo -e "  로컬 테스트 DB(tests 그룹)를 먼저 설정하세요 → ${YELLOW}.claude/rules/testing.md${NC}"
       fail "테스트 DB 미설정"
+    fi
+    # 타임아웃으로 끊긴 경우도 구분해 안내 (테스트 실패와 원인이 다르다)
+    if grep -qiE 'exceeded the timeout of' /tmp/prepush-test.log; then
+      echo -e "${RED}✗ 테스트가 끝나기 전에 composer 프로세스 타임아웃(${COMPOSER_PROCESS_TIMEOUT}초)에 걸렸습니다.${NC}"
+      echo -e "  테스트 실패가 아닙니다. 더 늘리려면: ${YELLOW}COMPOSER_PROCESS_TIMEOUT=1800 git push ...${NC}"
+      fail "테스트 타임아웃"
     fi
     tail -30 /tmp/prepush-test.log
     fail "테스트(composer test)"

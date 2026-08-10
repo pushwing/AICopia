@@ -33,8 +33,12 @@ class KakaoProvider extends AbstractOAuthProvider
         return [
             'social_id' => (string) $data['id'],
             'email'     => $account['email'] ?? null,
-            'nickname'  => $profile['nickname'] ?? '카카오유저',
-            'avatar'    => $profile['profile_image_url'] ?? null,
+            // 카카오 계정 이메일은 사용자가 바꿀 수 있어, 검증·유효 두 플래그가 모두
+            // 참일 때만 소유가 증명된 것으로 본다 (이슈 #137)
+            'email_verified' => ($account['is_email_verified'] ?? false) === true
+                             && ($account['is_email_valid'] ?? false) === true,
+            'nickname' => $profile['nickname'] ?? '카카오유저',
+            'avatar'   => $profile['profile_image_url'] ?? null,
         ];
     }
 }
