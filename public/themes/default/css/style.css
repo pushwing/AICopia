@@ -12,6 +12,11 @@ body {
 /* ─── 네비게이션 ────────────────────────────────── */
 .navbar {
     border-bottom: 1px solid #f0f0f0;
+    /* 장바구니/결제 페이지의 .sticky-top(z-index:1020) 주문 요약 카드보다
+       내비게이션 드롭다운(z-index:1000)이 아래에 깔리는 문제 방지.
+       Bootstrap의 고정 내비 계층(z-index:1030)과 동일하게 맞춘다. */
+    position: relative;
+    z-index: 1030;
 }
 .navbar-brand {
     font-size: 1.3rem;
