@@ -437,6 +437,10 @@ class ProductController extends BaseController
             }
         }
 
+        // 애드온(추가구성상품) 연결 복사
+        $addonModel = new ProductAddonModel();
+        $addonModel->saveForProduct((int) $newId, $addonModel->getAddonProductIds($id));
+
         return redirect()->to("/admin/products/{$newId}/edit")->with('success', '상품이 복사되었습니다. 내용을 확인하고 저장해주세요.');
     }
 
