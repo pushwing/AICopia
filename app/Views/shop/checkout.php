@@ -13,6 +13,10 @@ $pointEarnRate = (float) ($settings['point_earn_rate_' . $_grade] ?? $settings['
 // 통과시킨 주문을 서버가 거부해 안내가 어긋난다.
 $minPayable   = (int) ($settings['min_payable_amount'] ?? 10000);
 $userCoupons  = $userCoupons ?? [];
+
+// 본품 → 그 본품의 추가구성상품 순서로 묶는다. 장바구니·주문상세와 동일한 규칙
+// (AddonGrouping)을 써서 화면마다 그룹핑 결과가 어긋나지 않게 한다.
+$available = \App\Libraries\AddonGrouping::order($available ?? []);
 ?>
 
 <div class="container py-4">
@@ -137,9 +141,13 @@ $userCoupons  = $userCoupons ?? [];
                     <div class="card-body p-0">
                         <?php foreach ($available as $item):
                             // CartModel 이 옵션 추가금까지 반영해 계산해 둔 값 (이슈 #124)
-                            $price = (int) $item['display_price'];
+                            $price   = (int) $item['display_price'];
+                            $isAddon = ! empty($item['is_addon']);
                         ?>
-                        <div class="d-flex align-items-center gap-3 p-3 border-bottom">
+                        <div class="d-flex align-items-center gap-3 p-3 border-bottom <?= $isAddon ? 'ps-4 border-start border-3' : '' ?>">
+                            <?php if ($isAddon): ?>
+                            <span class="badge bg-secondary align-self-start">추가구성</span>
+                            <?php endif; ?>
                             <?php if ($item['primary_image']): ?>
                             <img src="<?= esc($item['primary_image']) ?>" alt=""
                                  style="width:64px;height:64px;object-fit:cover;border-radius:6px;flex-shrink:0">
