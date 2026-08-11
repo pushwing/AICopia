@@ -84,4 +84,24 @@ final class KakaoPayErrorResponseTest extends CIUnitTestCase
 
         $this->assertNull($invoker());
     }
+
+    /**
+     * curl 자체가 실패하면(DNS·SSL·타임아웃 등) 카카오 응답 본문이 없어 msg 도 없다.
+     * 지금까지는 이 경우와 "카카오가 정상 응답했지만 msg 없이 실패"를 구분하지 못해
+     * 둘 다 똑같은 뭉뚱그린 문구로 보였다 — 존재하지 않는 호스트로 강제 실패시켜
+     * curl 에러가 msg 로 실려 오는지 확인한다(DNS 실패는 네트워크 없이도 즉시 실패한다).
+     */
+    public function testCurlFailureSurfacesAsMessageInsteadOfSilentlyEmpty(): void
+    {
+        $adapter = new KakaoPayAdapter();
+        $this->setPrivateProperty($adapter, 'apiBase', 'https://invalid.invalid.test.example./v1');
+
+        $invoker = $this->getPrivateMethodInvoker($adapter, 'request');
+
+        /** @var array<string, mixed> $result */
+        $result = $invoker('POST', '/ready', []);
+
+        $this->assertArrayHasKey('msg', $result);
+        $this->assertStringContainsString('카카오페이 서버 연결 실패', (string) $result['msg']);
+    }
 }
