@@ -17,7 +17,7 @@
 - 커밋 메시지 = 이모지 + Conventional Commits 접두어 + 한국어 설명.
 - 테스트는 `tests/unit/`에 `CIUnitTestCase` + `DatabaseTestTrait`, `protected $DBGroup = 'tests'; protected $migrate = false; protected $refresh = false;`. 트랜잭션 격리가 아니라 실제 커밋 + `tearDown()` 수동 정리 방식이다.
 - 테스트에서 `assertContains`/`assertNotContains`로 DB의 id를 비교할 때는 반드시 `array_map('intval', ...)`로 정수 변환한다. MySQL 드라이버가 문자열로 돌려주기 때문에 PHPUnit 12의 엄격 비교가 실패한다.
-- 검증 명령: `composer cs-fix` → `composer ci`(= CS Fixer + PHPStan + PHPUnit). `composer check`는 CS Fixer를 빠뜨리므로 쓰지 않는다.
+- 검증 명령: `composer cs-fix` → `composer check`(= `cs` dry-run + `analyse` + `test`). 이 저장소에는 `composer ci` 스크립트가 없다(실측 확인).
 - 단일 테스트 실행: `vendor/bin/phpunit --filter <테스트메서드명> tests/unit/<파일>.php`
 
 ## 참조 스펙
@@ -2627,7 +2627,7 @@ Expected: `NOT IN ('pending','expired', …)` 조건들이 그대로 남아 있�
 
 Run:
 ```bash
-composer cs-fix && composer ci
+composer cs-fix && composer check
 ```
 Expected: CS·PHPStan·PHPUnit 모두 통과.
 
@@ -2766,7 +2766,7 @@ Expected: 출력 없음.
 
 Run:
 ```bash
-composer cs-fix && composer ci
+composer cs-fix && composer check
 ```
 Expected: CS·PHPStan·PHPUnit 모두 통과.
 
@@ -2787,7 +2787,7 @@ git commit -m "♻️ refactor: createPending 제거 및 기존 테스트를 주
 
 Run:
 ```bash
-composer cs-fix && composer ci
+composer cs-fix && composer check
 ```
 Expected: CS·PHPStan·PHPUnit 모두 통과. **하나라도 실패하면 PR을 만들지 않는다.**
 
