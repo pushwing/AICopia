@@ -25,6 +25,7 @@ final class OrderAttemptModelTest extends CIUnitTestCase
     /** @var array<string, array<int, int>> */
     private array $cleanup = [
         'order_attempts' => [],
+        'orders'         => [],
         'user_coupons'   => [],
         'coupons'        => [],
         'products'       => [],
@@ -45,7 +46,7 @@ final class OrderAttemptModelTest extends CIUnitTestCase
             $db->table('point_logs')->whereIn('order_attempt_id', $this->cleanup['order_attempts'])->delete();
             $db->table('order_attempts')->whereIn('id', $this->cleanup['order_attempts'])->delete();
         }
-        foreach (['user_coupons', 'coupons', 'products', 'users'] as $table) {
+        foreach (['orders', 'user_coupons', 'coupons', 'products', 'users'] as $table) {
             if ($this->cleanup[$table] !== []) {
                 $db->table($table)->whereIn('id', $this->cleanup[$table])->delete();
             }
@@ -297,5 +298,58 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         $this->assertSame(0, $attemptId);
         $this->assertSame(0, $db->table('order_attempts')->where('user_id', $userId)->countAllResults());
         $this->assertSame(1000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance']);
+    }
+
+    /** A-06: 채번 시 orders 테이블도 함께 확인해 충돌을 피한다 (코드 리뷰 지적 #1) */
+    public function testCreateAttempt_avoidsOrderNumberCollisionWithOrdersTable(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+
+        // orders 쪽에 번호 하나를 선점해 둔다 — attempt 채번 로직이 order_attempts
+        // 뿐 아니라 orders 도 확인한다면 이 번호는 절대 재사용되면 안 된다.
+        $reservedOrderNumber = 'ORD-' . date('Ymd') . '-' . str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
+        $db->table('orders')->insert([
+            'user_id'        => $userId,
+            'order_number'   => $reservedOrderNumber,
+            'receiver_name'  => '테스트',
+            'receiver_phone' => '010-0000-0000',
+            'zipcode'        => '12345',
+            'address1'       => '서울시 테스트구',
+        ]);
+        $orderId = (int) $db->insertID();
+        $this->cleanup['orders'][] = $orderId;
+
+        $attemptId = $this->createAttempt($userId, $product);
+
+        $this->assertGreaterThan(0, $attemptId);
+
+        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertNotSame($reservedOrderNumber, $attempt['order_number']);
+
+        // 채번된 번호는 orders·order_attempts 양쪽 어디에도 중복되지 않아야 한다.
+        $this->assertSame(
+            0,
+            $db->table('orders')->where('order_number', $attempt['order_number'])->countAllResults()
+        );
+        $this->assertSame(
+            1,
+            $db->table('order_attempts')->where('order_number', $attempt['order_number'])->countAllResults()
+        );
+    }
+
+    /** A-07: items_snapshot 이 깨졌으면 withItems() 가 로깅 후 빈 배열을 반환한다 (코드 리뷰 지적 #2) */
+    public function testWithItems_invalidJson_returnsEmptyItemsArray(): void
+    {
+        // items_snapshot 컬럼은 MySQL JSON 타입이라 DB 에 깨진 JSON 문자열을
+        // 직접 저장할 수 없다(INSERT/UPDATE 단계에서 DB 가 이미 검증·거부한다).
+        // withItems() 는 배열을 그대로 받아 디코드만 하므로, DB 를 거치지 않고
+        // 깨진 스냅샷이 담긴 attempt 배열을 직접 구성해 호출한다.
+        $attempt = ['id' => 999999, 'items_snapshot' => '{invalid json'];
+
+        $result = $this->model->withItems($attempt);
+
+        $this->assertSame([], $result['items']);
     }
 }

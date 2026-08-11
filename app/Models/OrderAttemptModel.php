@@ -66,8 +66,18 @@ class OrderAttemptModel extends Model
         $shippingFee   = $orderModel->calculateShippingFee($cartItems, $totalProduct);
         $totalAmount   = $totalProduct + $shippingFee;
         $payableAmount = max(0, $totalAmount - $couponDiscountAmount - $pointUsed);
-        $orderNumber   = $this->generateOrderNumber();
         $now           = date('Y-m-d H:i:s');
+
+        // order_attempts.order_number 와 orders.order_number 는 서로 다른 UNIQUE
+        // 인덱스다. attempt 쪽만 비어 있는 번호를 확정하면, 결제가 끝난 뒤 전환
+        // 시점에 orders 쪽에서 UNIQUE 위반이 나 "결제는 됐는데 주문이 없는" 상태가
+        // 될 수 있다 — 두 테이블 모두에서 비어 있는 번호만 채번한다.
+        $orderNumber = $this->generateOrderNumber();
+        if ($orderNumber === null) {
+            log_message('critical', '[OrderAttempt] 주문번호 채번 실패 — 10회 연속 충돌');
+
+            return 0;
+        }
 
         $items = $this->buildItemsSnapshot($cartItems);
 
@@ -261,7 +271,17 @@ class OrderAttemptModel extends Model
      */
     public function withItems(array $attempt): array
     {
-        $attempt['items'] = json_decode((string) ($attempt['items_snapshot'] ?? '[]'), true) ?: [];
+        $decoded = json_decode((string) ($attempt['items_snapshot'] ?? '[]'), true);
+
+        // `?:` 는 디코드 실패(false)와 정상 빈 배열([])을 구분하지 못한다. 스냅샷이
+        // 깨진 채로 조용히 [] 가 되면, 전환 시점에 상품 라인이 0건인 주문이 결제
+        // 완료 상태로 만들어질 수 있다 — 실패는 반드시 로깅한다.
+        if (! is_array($decoded)) {
+            log_message('critical', "[OrderAttempt] items_snapshot 디코드 실패 — attempt_id={$attempt['id']}");
+            $decoded = [];
+        }
+
+        $attempt['items'] = $decoded;
 
         return $attempt;
     }
@@ -274,8 +294,30 @@ class OrderAttemptModel extends Model
         return $this->db->affectedRows() > 0;
     }
 
-    private function generateOrderNumber(): string
+    /**
+     * order_attempts 와 orders 양쪽에 없는 주문번호를 채번한다.
+     * 최대 10회 시도하며, 모두 충돌하면 null 을 반환한다.
+     *
+     * 동시 요청이 같은 후보를 고르는 경합은 order_attempts 의 UNIQUE 인덱스가
+     * 최종 방어선으로 잡는다(INSERT 실패 → 트랜잭션 롤백) — 결제 이전이라 허용된다.
+     */
+    private function generateOrderNumber(): ?string
     {
-        return 'ORD-' . date('Ymd') . '-' . str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
+        for ($i = 0; $i < 10; $i++) {
+            $candidate = 'ORD-' . date('Ymd') . '-' . str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
+
+            $existsInAttempts = $this->db->table('order_attempts')
+                ->where('order_number', $candidate)
+                ->countAllResults() > 0;
+            $existsInOrders = $this->db->table('orders')
+                ->where('order_number', $candidate)
+                ->countAllResults() > 0;
+
+            if (! $existsInAttempts && ! $existsInOrders) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 }
