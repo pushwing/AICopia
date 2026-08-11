@@ -6,6 +6,9 @@
 // 본품 → 그 본품의 추가구성상품 순서로 묶는다. 주문 상세와 동일한 규칙(AddonGrouping)을 써서
 // 화면마다 그룹핑 결과가 어긋나지 않게 한다.
 $items = \App\Libraries\AddonGrouping::order($items ?? []);
+
+// 장바구니 진입 시 구매 가능한(품절이 아닌) 상품은 기본으로 전체 선택된 상태로 시작한다.
+$hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool => $item['is_available']);
 ?>
 
 <div class="container py-4">
@@ -40,7 +43,8 @@ $items = \App\Libraries\AddonGrouping::order($items ?? []);
 
             <div class="d-flex align-items-center justify-content-between mb-2 px-1">
                 <div class="form-check mb-0">
-                    <input type="checkbox" id="selectAll" class="form-check-input">
+                    <input type="checkbox" id="selectAll" class="form-check-input"
+                           <?= $hasPurchasableItem ? 'checked' : '' ?>>
                     <label class="form-check-label fw-semibold" for="selectAll">전체 선택</label>
                 </div>
                 <form method="post" action="/cart/clear"
@@ -65,7 +69,7 @@ $items = \App\Libraries\AddonGrouping::order($items ?? []);
                         <!-- 체크박스 -->
                         <div class="pt-1 flex-shrink-0">
                             <input type="checkbox" class="form-check-input item-check"
-                                   <?= $isSoldOut ? 'disabled' : '' ?>>
+                                   <?= $isSoldOut ? 'disabled' : 'checked' ?>>
                         </div>
 
                         <?php if ($isAddon): ?>
@@ -208,6 +212,9 @@ $items = \App\Libraries\AddonGrouping::order($items ?? []);
 <script>
 (function () {
     function updateSummary() {
+        const countEl = document.getElementById('selectedCount');
+        if (! countEl) return; // 장바구니가 비어있으면 요약 영역 자체가 렌더링되지 않는다.
+
         let count = 0;
         let total = 0;
         document.querySelectorAll('.cart-item').forEach(function (card) {
@@ -218,7 +225,7 @@ $items = \App\Libraries\AddonGrouping::order($items ?? []);
             const qty   = parseInt(card.querySelector('.qty-input')?.value || 1);
             total += price * qty;
         });
-        document.getElementById('selectedCount').textContent = count + '개';
+        countEl.textContent = count + '개';
         document.getElementById('selectedTotal').textContent = total.toLocaleString('ko-KR') + '원';
 
         const btn = document.getElementById('btnCheckout');
@@ -318,6 +325,9 @@ $items = \App\Libraries\AddonGrouping::order($items ?? []);
                 });
         });
     });
+
+    // 로드 시점에 기본 선택된 상품 수/합계를 요약에 반영한다.
+    updateSummary();
 })();
 </script>
 <?= $this->endSection() ?>
