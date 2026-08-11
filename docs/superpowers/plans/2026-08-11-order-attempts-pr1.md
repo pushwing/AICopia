@@ -160,7 +160,12 @@ php spark migrate --all -n
 ```
 Expected: `Running all new migrations...` 다음에 `CreateOrderAttempts` 가 실행되고 `Migrations complete.` 로 끝난다.
 
-> 이 저장소는 `.env` 의 `database.default` 와 `database.tests` 가 같은 MySQL DB(`aicopia_test`)를 가리키도록 설정돼 있다. `default` 그룹에 마이그레이션하면 `tests` 그룹이 같은 스키마를 읽는다.
+> **`.env` 를 수정하지 말 것.** 이 워크트리의 `database.default` 는 개발 DB(`ci4-shop`), `database.tests` 는 테스트 DB(`aicopia_test`)로 **서로 다른 DB** 를 가리킨다. `php spark migrate` 는 `default` 그룹에만 적용되므로, 테스트 DB 에도 반영하려면 두 번 돌린다:
+>
+> ```bash
+> php spark migrate --all -n                    # ci4-shop (개발)
+> php spark migrate --all -n -g tests           # aicopia_test (테스트)
+> ```
 
 - [ ] **Step 3: 스키마 확인 테스트 작성**
 
