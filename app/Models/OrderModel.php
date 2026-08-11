@@ -1402,9 +1402,10 @@ class OrderModel extends Model
                 $builder->where('status', $status);
             }
         } else {
-            // "전체" 탭 기본 조회에서는 미결제 자동 만료 주문을 제외한다.
-            // 만료 주문은 "취소/환불" 탭(status=cancel)에서 계속 확인 가능하다.
-            $builder->where('status !=', 'expired');
+            // "전체" 탭 기본 조회에서는 결제가 확정되지 않은 주문을 제외한다.
+            // 신규 주문은 order_attempts 에 쌓이므로 여기 걸리는 건 레거시 행뿐이다.
+            // 만료 주문은 "취소/환불" 탭(status=cancel)에서 계속 확인 가능하다. (이슈 #214)
+            $builder->whereNotIn('status', ['pending', 'expired']);
         }
 
         $total  = (clone $builder)->countAllResults();
@@ -1449,6 +1450,10 @@ class OrderModel extends Model
 
         if ($status !== '') {
             $builder->where('o.status', $status);
+        } else {
+            // 결제 확정 전 주문은 관리자 주문 목록에도 노출하지 않는다.
+            // 레거시 행은 /admin/order-attempts 로그 페이지에서 조회한다. (이슈 #214)
+            $builder->whereNotIn('o.status', ['pending', 'expired']);
         }
 
         $total  = (clone $builder)->countAllResults(false);

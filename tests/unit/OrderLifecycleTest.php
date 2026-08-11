@@ -599,6 +599,32 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $this->assertContains($orderId, $ids);
     }
 
+    /** E-08: getByUser 기본 조회는 레거시 pending 주문도 제외한다 */
+    public function testGetByUser_defaultStatus_excludesLegacyPendingOrders(): void
+    {
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $orderId = $this->createPendingOrder($userId, $product);
+
+        $result = $this->model->getByUser($userId, ['status' => '']);
+
+        $ids = array_map('intval', array_column($result['items'], 'id'));
+        $this->assertNotContains($orderId, $ids);
+    }
+
+    /** E-09: adminGetAll 기본 조회도 pending·expired 를 제외한다 */
+    public function testAdminGetAll_excludesPendingAndExpired(): void
+    {
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $orderId = $this->createPendingOrder($userId, $product);
+
+        $result = $this->model->adminGetAll(['status' => '']);
+
+        $ids = array_map('intval', array_column($result['items'], 'id'));
+        $this->assertNotContains($orderId, $ids);
+    }
+
     // ── S: updateStatus ───────────────────────────────────────────────────────
 
     /** S-01: paid → preparing */

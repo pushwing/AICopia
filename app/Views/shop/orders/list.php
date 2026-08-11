@@ -94,7 +94,8 @@ $statusBadge = [
     <div class="d-flex flex-column gap-3">
         <?php foreach ($items as $order):
             [$badgeColor, $badgeLabel] = $statusBadge[$order['status']] ?? ['secondary', $order['status']];
-            $canCancel = in_array($order['status'], ['pending', 'awaiting_payment', 'paid'], true);
+            // 결제 확정 전 주문은 목록에 나타나지 않으므로 pending 은 취소 가능 상태에서 제외한다. (이슈 #214)
+            $canCancel = in_array($order['status'], ['awaiting_payment', 'paid'], true);
         ?>
         <div class="card">
             <div class="card-header bg-white d-flex align-items-center justify-content-between py-2">

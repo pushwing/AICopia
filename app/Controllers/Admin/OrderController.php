@@ -17,14 +17,12 @@ class OrderController extends BaseController
     private readonly OrderMemoModel $memoModel;
 
     private const array STATUS_LABELS = [
-        'pending'           => '결제 대기',
         'awaiting_payment'  => '입금 대기',
         'paid'              => '결제 완료',
         'preparing'         => '배송 준비',
         'shipped'           => '배송 중',
         'delivered'         => '배송 완료',
         'cancelled'         => '취소',
-        'expired'           => '만료',
         'refund_requested'  => '환불 요청',
         'refunded'          => '환불 완료',
         'return_requested'   => '반품 요청',
