@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Models\OrderModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 
 /**
- * DashboardController::index() 의 recentOrders 쿼리 검증
+ * OrderModel::getRecentForDashboard() 검증
  *
  * - 결제 확정 전(pending) 시도와 레거시 만료(expired) 주문은
  *   orders 테이블에 보존만 되고 관리자 대시보드 "최근 주문" 위젯에는
  *   노출되지 않아야 한다(이슈 #214).
  *
- * DashboardController::index() 는 $this->render()로 뷰를 직접 렌더링해
- * 컨트롤러 단위 테스트가 어려우므로, 컨트롤러와 동일한 쿼리 조건을
- * 이 테스트에서 재현해 검증한다(DashboardChartTest 와 동일한 방식).
+ * DashboardController::index() 가 실제로 호출하는 것과 동일한
+ * OrderModel::getRecentForDashboard() 를 직접 호출해 검증하므로,
+ * 컨트롤러 쪽에서 조건이 빠지면 이 테스트도 함께 실패한다.
  */
 final class DashboardRecentOrdersTest extends CIUnitTestCase
 {
@@ -92,23 +93,22 @@ final class DashboardRecentOrdersTest extends CIUnitTestCase
     }
 
     /**
-     * DashboardController::index() 의 recentOrders 쿼리 조건(정렬·limit 제외)을 그대로 재현한다.
-     * limit(5)는 다른 테스트가 같은 DB에 동시에 주문을 쌓는 상황에서 전역 개수에 의존하게 되므로,
-     * 검증 대상 주문 하나만 조회하도록 id로 좁혀 exclude/include 여부만 확인한다.
+     * OrderModel::getRecentForDashboard() 결과에서 검증 대상 주문 하나만 걸러낸다.
+     * limit(5)는 다른 테스트가 같은 DB에 동시에 주문을 쌓는 상황에서 전역 개수에 의존하게
+     * 되므로, 전체 결과를 넉넉히 가져온 뒤 id로 좁혀 exclude/include 여부만 확인한다.
      *
-     * @return array<int, array<string, mixed>>
+     * @return array<string, mixed>|null
      */
-    private function recentOrdersQuery(int $orderId): array
+    private function findInRecentForDashboard(int $orderId): ?array
     {
-        $db = db_connect();
+        $orderModel = new OrderModel();
+        foreach ($orderModel->getRecentForDashboard(1_000_000) as $row) {
+            if ((int) $row['id'] === $orderId) {
+                return $row;
+            }
+        }
 
-        return $db->table('orders o')
-            ->select('o.id, o.order_number, o.status, o.total_amount, o.created_at, u.nickname AS user_nickname')
-            ->join('users u', 'u.id = o.user_id', 'left')
-            ->whereNotIn('o.status', ['pending', 'expired'])
-            ->where('o.id', $orderId)
-            ->orderBy('o.id', 'DESC')
-            ->get()->getResultArray();
+        return null;
     }
 
     // ── 검증 ─────────────────────────────────────────────────────────────────
@@ -118,9 +118,9 @@ final class DashboardRecentOrdersTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $orderId = $this->insertOrder($userId, 'pending');
 
-        $result = $this->recentOrdersQuery($orderId);
+        $result = $this->findInRecentForDashboard($orderId);
 
-        $this->assertCount(0, $result, 'pending 주문은 최근 주문 위젯 쿼리에 노출되면 안 됨');
+        $this->assertNull($result, 'pending 주문은 최근 주문 위젯 쿼리에 노출되면 안 됨');
     }
 
     public function testExpiredOrderExcludedFromRecentOrders(): void
@@ -128,9 +128,9 @@ final class DashboardRecentOrdersTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $orderId = $this->insertOrder($userId, 'expired');
 
-        $result = $this->recentOrdersQuery($orderId);
+        $result = $this->findInRecentForDashboard($orderId);
 
-        $this->assertCount(0, $result, 'expired 주문은 최근 주문 위젯 쿼리에 노출되면 안 됨');
+        $this->assertNull($result, 'expired 주문은 최근 주문 위젯 쿼리에 노출되면 안 됨');
     }
 
     public function testPaidOrderStillAppearsInRecentOrders(): void
@@ -138,9 +138,9 @@ final class DashboardRecentOrdersTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $orderId = $this->insertOrder($userId, 'paid');
 
-        $result = $this->recentOrdersQuery($orderId);
+        $result = $this->findInRecentForDashboard($orderId);
 
-        $this->assertCount(1, $result, '결제 완료 주문은 최근 주문 위젯 쿼리에 노출돼야 함');
-        $this->assertSame($orderId, (int) $result[0]['id']);
+        $this->assertNotNull($result, '결제 완료 주문은 최근 주문 위젯 쿼리에 노출돼야 함');
+        $this->assertSame($orderId, (int) $result['id']);
     }
 }

@@ -1498,6 +1498,26 @@ class OrderModel extends Model
         return $order;
     }
 
+    /**
+     * 관리자 대시보드 "최근 주문" 위젯용 조회.
+     *
+     * 결제 확정 전(pending) 시도와 레거시 만료(expired) 주문은 orders 테이블에
+     * 보존만 되고 화면에는 노출하지 않는다(이슈 #214) — 행 자체를 삭제하지 않으므로
+     * 여기서 조회 시점에 걸러낸다.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getRecentForDashboard(int $limit = 5): array
+    {
+        return $this->db->table('orders o')
+            ->select('o.id, o.order_number, o.status, o.total_amount, o.created_at, u.nickname AS user_nickname')
+            ->join('users u', 'u.id = o.user_id', 'left')
+            ->whereNotIn('o.status', ['pending', 'expired'])
+            ->orderBy('o.id', 'DESC')
+            ->limit($limit)
+            ->get()->getResultArray();
+    }
+
     public function updateTracking(int $orderId, string $company, string $number): bool
     {
         $order = $this->find($orderId);
