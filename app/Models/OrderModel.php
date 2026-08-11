@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Libraries\GradeService;
-use App\Libraries\ItemPricing;
 use CodeIgniter\Model;
 
 class OrderModel extends Model
@@ -66,198 +65,6 @@ class OrderModel extends Model
         }
 
         return null;
-    }
-
-    /**
-     * 조건부 UPDATE 를 실행하고 실제로 반영됐는지 돌려준다.
-     *
-     * 검증과 소비 사이에 상태가 바뀌는 경쟁 상태를 막기 위한 "조건을 WHERE 에 걸고
-     * 반영 행 수를 확인한다" 패턴의 공통 구현이다. affectedRows() 를 이 한 곳에서만
-     * 읽어, 호출부마다 독립적인 판정을 얻는다.
-     *
-     * @param array<int, mixed> $bindings
-     */
-    private function runGuardedUpdate(string $sql, array $bindings): bool
-    {
-        $this->db->query($sql, $bindings);
-
-        return $this->db->affectedRows() > 0;
-    }
-
-    /**
-     * 결제 대기 주문 생성 — 쿠폰 확정 + 포인트 차감까지 트랜잭션 내 처리
-     */
-    /**
-     * @param array<string, mixed>          $shippingData
-     * @param array<int, array<string, mixed>> $cartItems
-     */
-    public function createPending(
-        int $userId,
-        array $shippingData,
-        array $cartItems,
-        ?int $couponId = null,
-        ?int $userCouponId = null,
-        int $couponDiscountAmount = 0,
-        int $pointUsed = 0,
-        int $pointEarned = 0
-    ): int {
-        // 옵션 추가금까지 포함한 실제 단가로 합산한다 — order_items 와 같은 계산이어야
-        // total_product_price 와 SUM(order_items.subtotal) 이 어긋나지 않는다. (이슈 #124)
-        $totalProduct = ItemPricing::totalProductPrice($cartItems);
-
-        $shippingFee   = $this->calculateShippingFee($cartItems, $totalProduct);
-        $totalAmount   = $totalProduct + $shippingFee;
-        $payableAmount = max(0, $totalAmount - $couponDiscountAmount - $pointUsed);
-        $orderNumber   = $this->generateOrderNumber();
-        $now           = date('Y-m-d H:i:s');
-
-        $this->db->transStart();
-
-        $orderId = (int) $this->insert([
-            'user_id'                => $userId,
-            'order_number'           => $orderNumber,
-            'status'                 => 'pending',
-            'total_product_price'    => $totalProduct,
-            'shipping_fee'           => $shippingFee,
-            'total_amount'           => $totalAmount,
-            'coupon_id'              => $couponId,
-            'coupon_discount_amount' => $couponDiscountAmount,
-            'point_used_amount'      => $pointUsed,
-            'point_earned_amount'    => $pointEarned,
-            'payable_amount'         => $payableAmount,
-            'receiver_name'          => $shippingData['receiver_name'],
-            'receiver_phone'         => $shippingData['receiver_phone'],
-            'zipcode'                => $shippingData['zipcode'],
-            'address1'               => $shippingData['address1'],
-            'address2'               => $shippingData['address2'] ?? null,
-            'delivery_memo'          => $shippingData['delivery_memo'] ?? null,
-        ], true);
-
-        $productIds = array_column($cartItems, 'product_id');
-        $costMap    = [];
-        if ($productIds !== []) {
-            $rows = $this->db->table('products')
-                ->select('id, cost_price')
-                ->whereIn('id', $productIds)
-                ->get()->getResultArray();
-            foreach ($rows as $row) {
-                $costMap[(int) $row['id']] = (float) $row['cost_price'];
-            }
-        }
-
-        $items = [];
-        foreach ($cartItems as $item) {
-            $price = ItemPricing::unitPrice($item);
-            $qty   = (int) $item['qty'];
-            $items[]   = [
-                'order_id'         => $orderId,
-                'product_id'       => (int) $item['product_id'],
-                'sku_id'           => isset($item['sku_id']) && $item['sku_id'] ? (int) $item['sku_id'] : null,
-                'parent_product_id' => isset($item['parent_product_id']) && $item['parent_product_id'] ? (int) $item['parent_product_id'] : null,
-                'sku_option_label' => ($item['sku_label'] ?? '') ?: null,
-                'product_name'     => $item['name'],
-                'product_price'    => $price,
-                'cost_price'       => $costMap[(int) $item['product_id']] ?? 0,
-                'qty'              => $qty,
-                'subtotal'         => $price * $qty,
-                'created_at'       => $now,
-            ];
-        }
-        $this->db->table('order_items')->insertBatch($items);
-
-        // 주문 총액과 라인 합계는 정의상 같아야 한다. 어긋나면 청구액과 기록이
-        // 따로 노는 상태이므로 주문을 만들지 않는다. (이슈 #124)
-        if (array_sum(array_column($items, 'subtotal')) !== $totalProduct) {
-            $this->db->transRollback();
-            log_message('critical', "[Order] 금액 정합성 불일치 — order_number={$orderNumber}");
-
-            return 0;
-        }
-
-        // 쿠폰 확정 (free_shipping은 couponDiscountAmount=배송비이므로 couponId 존재 여부로만 판단)
-        //
-        // 검증은 트랜잭션 밖에서 끝났으므로, 그 사이 쿠폰이 소진됐을 수 있다.
-        // 아래 포인트 차감과 동일하게 조건부 UPDATE + affectedRows 검사로 확정한다. (이슈 #123)
-        if ($couponId) {
-            // 이 UPDATE 가 coupons 행 잠금을 잡아 동일 쿠폰에 대한 동시 요청을 직렬화한다.
-            $couponClaimed = $this->runGuardedUpdate(
-                'UPDATE coupons SET used_count = used_count + 1
-                 WHERE id = ? AND (total_qty IS NULL OR used_count < total_qty)',
-                [$couponId]
-            );
-            if (! $couponClaimed) {
-                $this->db->transRollback();
-                return 0;
-            }
-
-            if ($userCouponId) {
-                $consumed = $this->runGuardedUpdate(
-                    'UPDATE user_coupons SET status = ?, order_id = ?, used_at = ?, updated_at = ?
-                     WHERE id = ? AND user_id = ? AND status = ?',
-                    ['used', $orderId, $now, $now, $userCouponId, $userId, 'issued']
-                );
-                if (! $consumed) {
-                    $this->db->transRollback();
-                    return 0;
-                }
-            } else {
-                // 코드 입력 — issued 상태 쿠폰이 있으면 사용 처리, 없으면 신규 INSERT
-                $existingUC = $this->db->table('user_coupons')
-                    ->where('user_id', $userId)
-                    ->where('coupon_id', $couponId)
-                    ->where('status', 'issued')
-                    ->get()->getRowArray();
-
-                if ($existingUC) {
-                    $consumed = $this->runGuardedUpdate(
-                        'UPDATE user_coupons SET status = ?, order_id = ?, used_at = ?, updated_at = ?
-                         WHERE id = ? AND status = ?',
-                        ['used', $orderId, $now, $now, $existingUC['id'], 'issued']
-                    );
-                    if (! $consumed) {
-                        $this->db->transRollback();
-                        return 0;
-                    }
-                } else {
-                    $this->db->table('user_coupons')->insert([
-                        'user_id'    => $userId,
-                        'coupon_id'  => $couponId,
-                        'order_id'   => $orderId,
-                        'source'     => 'code',
-                        'status'     => 'used',
-                        'issued_at'  => $now,
-                        'used_at'    => $now,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-                }
-            }
-        }
-
-        // 포인트 차감 (FOR UPDATE + 조건부 UPDATE)
-        if ($pointUsed > 0) {
-            $this->db->query('SELECT point_balance FROM users WHERE id = ? FOR UPDATE', [$userId]);
-            $affected = $this->db->query(
-                'UPDATE users SET point_balance = point_balance - ? WHERE id = ? AND point_balance >= ?',
-                [$pointUsed, $userId, $pointUsed]
-            );
-            if ($this->db->affectedRows() === 0) {
-                $this->db->transRollback();
-                return 0;
-            }
-            $this->db->table('point_logs')->insert([
-                'user_id'    => $userId,
-                'type'       => 'use',
-                'amount'     => -$pointUsed,
-                'order_id'   => $orderId,
-                'note'       => '주문 포인트 사용',
-                'created_at' => $now,
-            ]);
-        }
-
-        $this->db->transComplete();
-
-        return $this->db->transStatus() ? $orderId : 0;
     }
 
     /**
@@ -1567,7 +1374,7 @@ class OrderModel extends Model
     /**
      * 확정 실패 보상 — 소진한 쿠폰·포인트를 되돌리고 주문을 취소로 확정한다.
      *
-     * createPending() 은 주문 생성 시점에 쿠폰을 소진하고 포인트를 차감하는데,
+     * 레거시 pending 주문은 생성 시점에 쿠폰을 소진하고 포인트를 차감하는데,
      * 확정 트랜잭션이 롤백돼도 그건 되돌아가지 않는다. pending 주문은 30분 뒤
      * expirePending() 이 걷어가지만 awaiting_payment(무통장)는 그 대상이 아니라
      * 영구히 묶였다 — 그래서 실패한 자리에서 바로 되돌린다.
@@ -1687,13 +1494,6 @@ class OrderModel extends Model
             'note'       => $note,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
-    }
-
-    private function generateOrderNumber(): string
-    {
-        $prefix = 'ORD-' . date('Ymd') . '-';
-        $seq    = str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
-        return $prefix . $seq;
     }
 
     /** @param array<int, array<string, mixed>> $items */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Libraries\CouponService;
+use App\Models\OrderAttemptModel;
 use App\Models\OrderModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -25,11 +26,12 @@ final class OrderLifecycleTest extends CIUnitTestCase
     private CouponService $couponService;
 
     private array $cleanup = [
-        'orders'       => [],
-        'user_coupons' => [],
-        'coupons'      => [],
-        'products'     => [],
-        'users'        => [],
+        'order_attempts' => [],
+        'orders'         => [],
+        'user_coupons'   => [],
+        'coupons'        => [],
+        'products'       => [],
+        'users'          => [],
     ];
 
     protected function setUp(): void
@@ -48,6 +50,10 @@ final class OrderLifecycleTest extends CIUnitTestCase
                 $db->table($t)->whereIn('order_id', $this->cleanup['orders'])->delete();
             }
             $db->table('orders')->whereIn('id', $this->cleanup['orders'])->delete();
+        }
+
+        if ($this->cleanup['order_attempts'] !== []) {
+            $db->table('order_attempts')->whereIn('id', $this->cleanup['order_attempts'])->delete();
         }
 
         foreach (['user_coupons', 'coupons', 'products', 'users'] as $table) {
@@ -181,32 +187,21 @@ final class OrderLifecycleTest extends CIUnitTestCase
         return $orderId;
     }
 
-    /** createPending 래핑 헬퍼 */
-    private function createPendingOrder(
-        int $userId,
-        array $product,
-        int $qty = 1,
-        ?int $couponId = null,
-        ?int $userCouponId = null,
-        int $couponDiscount = 0,
-        int $pointUsed = 0,
-        int $pointEarned = 0
-    ): int {
-        return $this->trackOrder(
-            $this->model->createPending(
-                $userId,
-                $this->shippingData(),
-                [$this->makeCartItem($product, $qty)],
-                $couponId,
-                $userCouponId,
-                $couponDiscount,
-                $pointUsed,
-                $pointEarned
-            )
-        );
+    /** 생성된 attemptId를 cleanup에 등록 */
+    private function trackAttempt(int $attemptId): int
+    {
+        if ($attemptId > 0) {
+            $this->cleanup['order_attempts'][] = $attemptId;
+        }
+        return $attemptId;
     }
 
-    /** createPending + confirmPaid 래핑 헬퍼 */
+    /**
+     * 결제 확정된 주문을 만든다.
+     *
+     * 주문 생성은 order_attempts 를 거치도록 바뀌었다(이슈 #214). 시도를 만든 뒤
+     * 즉시 전환해 기존 테스트가 기대하는 주문 id 를 돌려준다.
+     */
     private function createPaidOrder(
         int $userId,
         array $product,
@@ -217,17 +212,108 @@ final class OrderLifecycleTest extends CIUnitTestCase
         int $couponDiscount = 0,
         int $pointUsed = 0
     ): int {
-        $orderId = $this->createPendingOrder(
+        $attemptId = $this->trackAttempt((new OrderAttemptModel())->createAttempt(
             $userId,
-            $product,
-            $qty,
+            $this->shippingData(),
+            [$this->makeCartItem($product, $qty)],
             $couponId,
             $userCouponId,
             $couponDiscount,
             $pointUsed,
-            $pointEarned
+            $pointEarned,
+            'toss'
+        ));
+
+        if ($attemptId === 0) {
+            return 0;
+        }
+
+        return $this->trackOrder(
+            $this->model->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', [])
         );
-        $this->model->confirmPaid($orderId, 'toss', 'tid_' . uniqid(), 'card', []);
+    }
+
+    /**
+     * 레거시 pending 주문을 orders 에 직접 만든다.
+     *
+     * expirePending()/cancelOrder() 의 pending 분기는 orders.status='pending' 인
+     * 레거시 주문에만 동작한다(이슈 #214 이후 신규 결제는 order_attempts 를 거쳐
+     * 바로 paid/awaiting_payment 로 전환되고 pending 을 거치지 않는다). 이 헬퍼는
+     * 구 버전 주문 생성 로직이 주문 생성 시점에 하던 쿠폰·포인트 선점을 orders 에
+     * 직접 재현해 그 레거시 경로에 대한 회귀 테스트를 계속 지탱한다.
+     */
+    private function insertLegacyPendingOrder(
+        int $userId,
+        array $product,
+        int $qty = 1,
+        ?int $couponId = null,
+        ?int $userCouponId = null,
+        int $couponDiscount = 0,
+        int $pointUsed = 0
+    ): int {
+        $db  = db_connect();
+        $now = date('Y-m-d H:i:s');
+
+        $totalProduct = (int) $product['price'] * $qty;
+        $payable      = max(0, $totalProduct - $couponDiscount - $pointUsed);
+
+        $db->table('orders')->insert([
+            'user_id'                => $userId,
+            'order_number'           => 'OL-LEG-' . uniqid(),
+            'status'                 => 'pending',
+            'total_product_price'    => $totalProduct,
+            'shipping_fee'           => 0,
+            'total_amount'           => $totalProduct,
+            'coupon_id'              => $couponId,
+            'coupon_discount_amount' => $couponDiscount,
+            'point_used_amount'      => $pointUsed,
+            'point_earned_amount'    => 0,
+            'payable_amount'         => $payable,
+            'receiver_name'          => '테스트',
+            'receiver_phone'         => '010-0000-0000',
+            'zipcode'                => '12345',
+            'address1'               => '서울시 테스트구',
+            'created_at'             => $now,
+            'updated_at'             => $now,
+        ]);
+        $orderId = $this->trackOrder((int) $db->insertID());
+
+        $db->table('order_items')->insert([
+            'order_id'      => $orderId,
+            'product_id'    => (int) $product['id'],
+            'product_name'  => $product['name'],
+            'product_price' => (int) $product['price'],
+            'cost_price'    => 0,
+            'qty'           => $qty,
+            'subtotal'      => $totalProduct,
+            'created_at'    => $now,
+        ]);
+
+        // 구 버전 주문 생성 로직이 주문 생성 시점에 하던 쿠폰·포인트 선점을 재현한다.
+        if ($couponId) {
+            $db->query('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?', [$couponId]);
+            if ($userCouponId) {
+                $db->table('user_coupons')->where('id', $userCouponId)->update([
+                    'status'     => 'used',
+                    'order_id'   => $orderId,
+                    'used_at'    => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
+        if ($pointUsed > 0) {
+            $db->query('UPDATE users SET point_balance = point_balance - ? WHERE id = ?', [$pointUsed, $userId]);
+            $db->table('point_logs')->insert([
+                'user_id'    => $userId,
+                'type'       => 'use',
+                'amount'     => -$pointUsed,
+                'order_id'   => $orderId,
+                'note'       => '주문 포인트 사용',
+                'created_at' => $now,
+            ]);
+        }
+
         return $orderId;
     }
 
@@ -370,7 +456,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $db      = db_connect();
         $userId  = $this->insertUser();
         $product = $this->insertProduct(['stock' => 10]);
-        $orderId = $this->createPendingOrder($userId, $product, 3);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product, 3);
 
         $result = $this->model->cancelOrder($orderId, $userId);
         $this->assertTrue($result);
@@ -406,8 +492,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $db      = db_connect();
         $userId  = $this->insertUser(3000);
         $product = $this->insertProduct();
-        $orderId = $this->createPendingOrder($userId, $product, 1, null, null, 0, 3000);
-        $this->model->confirmPaid($orderId, 'toss', 'tid_' . uniqid(), 'card', []);
+        $orderId = $this->createPaidOrder($userId, $product, 1, 0, null, null, 0, 3000);
 
         $this->model->cancelOrder($orderId, $userId);
 
@@ -487,7 +572,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $db      = db_connect();
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
-        $orderId = $this->createPendingOrder($userId, $product);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product);
         $this->ageOrder($orderId, 40);
 
         $count = $this->model->expirePending(30);
@@ -503,7 +588,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $db      = db_connect();
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
-        $orderId = $this->createPendingOrder($userId, $product);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product);
         $this->ageOrder($orderId, 29);
 
         $this->model->expirePending(30);
@@ -521,7 +606,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $coupon       = $this->insertCoupon();
         $userCouponId = $this->insertUserCoupon($userId, $coupon['id'], 'issued');
 
-        $orderId = $this->createPendingOrder($userId, $product, 1, $coupon['id'], $userCouponId, 3000);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product, 1, $coupon['id'], $userCouponId, 3000);
         $this->ageOrder($orderId, 40);
 
         $this->model->expirePending(30);
@@ -537,7 +622,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $db      = db_connect();
         $userId  = $this->insertUser(5000);
         $product = $this->insertProduct();
-        $orderId = $this->createPendingOrder($userId, $product, 1, null, null, 0, 5000);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product, 1, null, null, 0, 5000);
         $this->ageOrder($orderId, 40);
 
         $this->model->expirePending(30);
@@ -558,7 +643,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $db      = db_connect();
         $userId  = $this->insertUser();
         $product = $this->insertProduct(['stock' => 10]);
-        $orderId = $this->createPendingOrder($userId, $product, 3);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product, 3);
         $this->ageOrder($orderId, 40);
 
         $before = (int) $db->table('products')->where('id', $product['id'])->get()->getRowArray()['stock'];
@@ -574,7 +659,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
     {
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
-        $orderId = $this->createPendingOrder($userId, $product);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product);
         $this->ageOrder($orderId, 40);
         $this->model->expirePending(30);
 
@@ -589,7 +674,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
     {
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
-        $orderId = $this->createPendingOrder($userId, $product);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product);
         $this->ageOrder($orderId, 40);
         $this->model->expirePending(30);
 
@@ -604,7 +689,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
     {
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
-        $orderId = $this->createPendingOrder($userId, $product);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product);
 
         $result = $this->model->getByUser($userId, ['status' => '']);
 
@@ -617,7 +702,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
     {
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
-        $orderId = $this->createPendingOrder($userId, $product);
+        $orderId = $this->insertLegacyPendingOrder($userId, $product);
 
         $result = $this->model->adminGetAll(['status' => '']);
 
@@ -873,14 +958,14 @@ final class OrderLifecycleTest extends CIUnitTestCase
 
     // ── CC: 동시성 방어 ───────────────────────────────────────────────────────
 
-    /** CC-01: 포인트 잔액 부족 → 롤백, balance 불변 */
+    /** CC-01: 포인트 잔액 부족 → 시도 자체가 롤백, balance 불변 */
     public function testPointOveruse_rollsBack_balanceUnchanged(): void
     {
         $db      = db_connect();
         $userId  = $this->insertUser(3000);
         $product = $this->insertProduct();
 
-        $result = $this->model->createPending(
+        $result = $this->trackAttempt((new OrderAttemptModel())->createAttempt(
             $userId,
             $this->shippingData(),
             [$this->makeCartItem($product)],
@@ -889,14 +974,19 @@ final class OrderLifecycleTest extends CIUnitTestCase
             0,
             4000,
             0  // try to use 4000, only have 3000
-        );
+        ));
         $this->assertSame(0, $result);
 
         $user = $db->table('users')->where('id', $userId)->get()->getRowArray();
         $this->assertSame(3000, (int) $user['point_balance']);
     }
 
-    /** CC-02: 동일 pg_tid로 두 주문 결제 시도 — 두 번째 실패, 재고 이중 차감 없음 */
+    /**
+     * CC-02: 동일 pg_tid로 두 주문 결제 시도 — 두 번째 실패, 재고 이중 차감 없음
+     *
+     * confirmPaid() 는 레거시 orders.status='pending' 주문에만 동작하므로, 이
+     * 회귀 테스트는 레거시 pending 주문 두 건으로 계속 검증한다.
+     */
     public function testDuplicatePgTid_secondConfirmFails_stockDeductedOnce(): void
     {
         $db       = db_connect();
@@ -904,8 +994,8 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $product  = $this->insertProduct(['stock' => 10]);
         $sameTid  = 'TID-DUPE-' . uniqid();
 
-        $orderId1 = $this->createPendingOrder($userId, $product, 2);
-        $orderId2 = $this->createPendingOrder($userId, $product, 2);
+        $orderId1 = $this->insertLegacyPendingOrder($userId, $product, 2);
+        $orderId2 = $this->insertLegacyPendingOrder($userId, $product, 2);
 
         $ok1 = $this->model->confirmPaid($orderId1, 'toss', $sameTid, 'card', []);
         $ok2 = $this->model->confirmPaid($orderId2, 'toss', $sameTid, 'card', []);
@@ -918,7 +1008,12 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $this->assertSame(8, (int) $p['stock']);
     }
 
-    /** CC-03: total_qty=1 쿠폰 — 한 주문 사용 후 validate 실패 */
+    /**
+     * CC-03: total_qty=1 쿠폰 — 한 주문 사용 후 validate 실패
+     *
+     * 쿠폰 선점은 이슈 #214 로 주문 시도 생성 시점(createAttempt)으로 옮겨졌다 —
+     * used_count 증가는 결제 확정을 기다리지 않고 시도 생성 즉시 일어난다.
+     */
     public function testCouponTotalQty_afterFirstUse_validateFails(): void
     {
         $userId1 = $this->insertUser();
@@ -926,9 +1021,16 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $product = $this->insertProduct();
         $coupon  = $this->insertCoupon(['total_qty' => 1, 'used_count' => 0]);
 
-        // 첫 번째 주문에서 쿠폰 사용 → used_count=1
-        $orderId = $this->createPendingOrder($userId1, $product, 1, $coupon['id'], null, 3000);
-        $this->assertGreaterThan(0, $orderId);
+        // 첫 번째 주문 시도에서 쿠폰 사용 → used_count=1
+        $attemptId = $this->trackAttempt((new OrderAttemptModel())->createAttempt(
+            $userId1,
+            $this->shippingData(),
+            [$this->makeCartItem($product)],
+            $coupon['id'],
+            null,
+            3000
+        ));
+        $this->assertGreaterThan(0, $attemptId);
 
         // used_count가 total_qty에 도달했으므로 두 번째 사용자 validate 실패
         $result = $this->couponService->validate($coupon['code'], $userId2, 10000);
