@@ -258,11 +258,7 @@ class OrderController extends BaseController
 
             $order = $this->orderModel->getWithItems($orderId, $userId);
 
-            // 주문에 담긴 장바구니 행만 정확히 비운다(같은 상품의 다른 옵션·미선택 항목은 남긴다).
-            $this->cartModel->removeByIds(
-                $userId,
-                array_map(static fn (array $item): int => (int) $item['id'], $items),
-            );
+            // 장바구니 비우기는 convertAttempt() 안에서 처리된다(무통장도 포함).
             session()->remove(CartModel::CHECKOUT_SESSION_KEY);
 
             return $this->response->setJSON([
@@ -276,9 +272,14 @@ class OrderController extends BaseController
         }
 
         // PG 결제 — 승인 콜백이 와야 orders 로 전환된다. 여기서는 시도 배열을 넘긴다.
-        $attempt  = $this->attemptModel->withItems(
-            $this->attemptModel->find($attemptId)
-        );
+        $attemptRow = $this->attemptModel->find($attemptId);
+        if ($attemptRow === null) {
+            log_message('critical', "[Order] 방금 만든 주문 시도를 다시 읽지 못함 — attempt_id={$attemptId}");
+
+            return $this->response->setJSON(['success' => false, 'message' => '주문 생성에 실패했습니다.']);
+        }
+
+        $attempt  = $this->attemptModel->withItems($attemptRow);
         $pg       = PGFactory::make($pgProvider);
         $pgParams = $pg->buildPaymentParams($attempt);
 
