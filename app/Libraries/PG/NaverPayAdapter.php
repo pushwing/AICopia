@@ -15,7 +15,8 @@ class NaverPayAdapter implements PGInterface
     private readonly string $clientId;
     private readonly string $clientSecret;
     private readonly string $chainId;
-    private string $apiBase = 'https://dev.apis.naver.com/naverpay-partner/naverpay/payments/v2';
+    private readonly string $mode;
+    private readonly string $apiBase;
 
     public function __construct()
     {
@@ -23,6 +24,12 @@ class NaverPayAdapter implements PGInterface
         $this->clientId     = $cfg->naverpayClientId;
         $this->clientSecret = $cfg->naverpayClientSecret;
         $this->chainId      = $cfg->naverpayChainId;
+        $this->mode         = $cfg->naverpayMode;
+
+        // mode에 따라 API 서버가 바뀐다(개발: dev.apis.naver.com, 운영: apis.naver.com).
+        // partnerId는 가입 완료 시 네이버페이가 발급하는 값으로, URL 경로에 그대로 들어간다.
+        $host           = $this->mode === 'production' ? 'apis.naver.com' : 'dev.apis.naver.com';
+        $this->apiBase  = "https://{$host}/{$cfg->naverpayPartnerId}/naverpay/payments/v2";
     }
 
     /**
@@ -35,6 +42,7 @@ class NaverPayAdapter implements PGInterface
 
         return [
             'pg'          => 'naverpay',
+            'mode'        => $this->mode,
             'clientId'    => $this->clientId,
             'chainId'     => $this->chainId,
             'orderId'     => $order['order_number'],
