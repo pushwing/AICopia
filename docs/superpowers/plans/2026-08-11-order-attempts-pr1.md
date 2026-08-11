@@ -1578,18 +1578,33 @@ Expected: FAIL — `Call to undefined method App\Models\OrderModel::convertAttem
         array $rawResponse
     ): int {
         $attemptModel = new OrderAttemptModel();
+        $now          = date('Y-m-d H:i:s');
+
+        // 클레임을 전환 트랜잭션 **안**에서 잡는다.
+        //
+        // 밖에서 잡으면(= 먼저 커밋되면) 이후 전환이 예기치 않게 죽었을 때 시도가
+        // converted 인 채로 남고, expireStale() 은 pending 만 훑으므로 선점된
+        // 쿠폰·포인트가 영구히 묶인다 — 이슈 #214 가 없애려던 유령 레코드가
+        // order_attempts 에서 재발하는 꼴이다.
+        //
+        // 안에서 잡으면 롤백 시 pending 으로 되돌아가 만료 스윕이 정상 회수한다.
+        // 조건부 UPDATE 가 행 잠금을 잡으므로 동시 콜백은 커밋될 때까지 대기했다가
+        // status='converted' 를 보고 거부된다 — 멱등성은 그대로다.
+        $this->db->transStart();
 
         $attempt = $attemptModel->claimForConversion($attemptId);
         if ($attempt === null) {
+            $this->db->transRollback();
+
             return 0;
         }
 
         $items = $attempt['items'];
-        $now   = date('Y-m-d H:i:s');
 
         // 스냅샷이 비었으면 라인 0건짜리 주문이 결제 완료 상태로 만들어진다.
         // 전환 자체를 실패시켜 보상 경로(환불 추적)로 넘긴다.
         if ($items === []) {
+            $this->db->transRollback();
             log_message('critical', "[Order] 주문 시도 스냅샷이 비어 전환 불가 — attempt_id={$attemptId}");
             $this->compensateFailedConversion($attempt, '주문 시도 스냅샷 손상 — 주문 취소', $pgTid === null ? null : [
                 'pg_provider' => $pgProvider,
@@ -1601,8 +1616,6 @@ Expected: FAIL — `Call to undefined method App\Models\OrderModel::convertAttem
 
             return 0;
         }
-
-        $this->db->transStart();
 
         $orderId = (int) $this->insert([
             'user_id'                => (int) $attempt['user_id'],
@@ -2089,6 +2102,10 @@ git commit -m "♻️ refactor: 주문 생성을 order_attempts 기반으로 전
 **Interfaces:**
 - Consumes: Task 4의 `findPendingForUser()`, Task 5의 `convertAttempt()`
 - Produces: 콜백 URL이 `attempt_id=<attempt id>` 를 싣는다
+
+> **설계 노트 — 실패 콜백이 먼저 온 뒤 성공 콜백이 늦게 오는 경우**
+> `fail()` 이나 취소 콜백이 `markFailed()` 로 시도를 확정한 뒤 지연된 성공 콜백이 도착하면, `convertAttempt()` 의 클레임이 `null` 을 받아 전환이 거부된다(fail-closed). 이 설계 자체는 옳지만 **그 순간 PG 청구는 이미 살아 있다.**
+> 따라서 콜백에서 전환이 거부됐는데 PG 승인은 성공한 경우, `critical` 로그를 남기고 `$pg->cancel(...)` 로 승인 취소를 시도해야 한다. 이번 PR에서 자동 취소가 어렵다면 최소한 **`critical` 로그 + 사용자에게 "확인 후 환불" 안내**로 처리하고, `TODO(#113)` 과 함께 남긴다.
 
 - [ ] **Step 1: 6개 어댑터의 콜백 URL 파라미터 변경**
 
