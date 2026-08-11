@@ -544,26 +544,42 @@ final class OrderAttemptModelTest extends CIUnitTestCase
      * A-11: 클레임은 한 번만 성공한다 (결제 멱등성의 핵심)
      *
      * claimForConversion() 의 UPDATE 는 status·converted_at·updated_at 을 매번
-     * 같은 목표값으로 다시 쓴다. WHERE status='pending' 가드 없이 같은 초(second)
-     * 안에서 두 번 호출하면, MySQL 의 affected_rows 는 "매치된 행 수"가 아니라
-     * "실제로 값이 바뀐 행 수"를 세기 때문에 두 번째 호출도 우연히 0 을 반환해
-     * 가드가 없어도 테스트가 통과해버린다(회귀를 못 잡는 공허한 테스트가 됨).
-     * 실제 PG 콜백 재전송은 수 초 간격으로도 벌어지므로, 1초 이상 텀을 둬서
-     * updated_at 이 실제로 달라지는 상황을 강제해야 가드 유무가 결과를 가른다.
+     * 같은 목표값으로 다시 쓴다. MySQL 의 affected_rows 는 "매치된 행 수"가
+     * 아니라 "실제로 값이 바뀐 행 수"를 세기 때문에, WHERE status='pending'
+     * 가드가 없어도 같은 값을 다시 쓰면 affectedRows 가 0 이 되어 두 번째
+     * 호출이 우연히 null 을 반환할 수 있다 — sleep 으로 초를 흘려보내
+     * updated_at 을 갱신시키는 방식은 이 우연에 기대는 것이라 회귀를 못
+     * 잡을 수 있다.
+     *
+     * 대신 1차 클레임 뒤 converted_at 에 구분 가능한 센티넬 값을 직접
+     * 심어두고, 2차 클레임이 그 값을 실제로 건드리지 않았는지까지
+     * 단언한다. WHERE status='pending' 가드가 사라지면 2차 UPDATE 가
+     * 센티넬을 덮어쓰므로, 이 단언은 가드 유무와 무관하게 항상 변이를
+     * 탐지한다.
      */
     public function testClaimForConversion_isIdempotent(): void
     {
+        $db        = db_connect();
         $userId    = $this->insertUser();
         $product   = $this->insertProduct();
         $attemptId = $this->createAttempt($userId, $product);
 
         $first = $this->model->claimForConversion($attemptId);
-        sleep(1);
+
+        // 센티넬: 2차 클레임이 행을 실제로 건드리면 값이 달라지도록 표식을 심는다.
+        $sentinel = '2000-01-01 00:00:00';
+        $db->table('order_attempts')->where('id', $attemptId)->update(['converted_at' => $sentinel]);
+
         $second = $this->model->claimForConversion($attemptId);
 
         $this->assertNotNull($first);
         $this->assertSame($attemptId, (int) $first['id']);
         $this->assertNull($second, '두 번째 클레임은 반드시 실패해야 한다');
+        $this->assertSame(
+            $sentinel,
+            $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['converted_at'],
+            '이미 클레임된 시도는 두 번째 호출에서 어떤 컬럼도 다시 쓰이면 안 된다'
+        );
     }
 
     /** A-12: markFailed 는 쿠폰·포인트를 복구한다 */
@@ -659,5 +675,91 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         $this->model->expireStale(30);
 
         $this->assertSame('pending', $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['status']);
+    }
+
+    /**
+     * A-17: findPendingForUser() — 본인 소유의 pending 시도는 items 키가
+     * 붙어 반환된다
+     */
+    public function testFindPendingForUser_ownPending_returnsAttemptWithItems(): void
+    {
+        $userId    = $this->insertUser();
+        $product   = $this->insertProduct();
+        $attemptId = $this->createAttempt($userId, $product);
+
+        $result = $this->model->findPendingForUser($attemptId, $userId);
+
+        $this->assertNotNull($result);
+        $this->assertSame($attemptId, (int) $result['id']);
+        $this->assertArrayHasKey('items', $result);
+        $this->assertCount(1, $result['items']);
+    }
+
+    /**
+     * A-18: findPendingForUser() — PG 콜백에서 소유권을 검증하는 관문이다.
+     * 다른 사용자 id 로 조회하면 반드시 null 을 반환해야 한다(where('user_id', ...)
+     * 가드 회귀 방지).
+     */
+    public function testFindPendingForUser_otherUser_returnsNull(): void
+    {
+        $userId    = $this->insertUser();
+        $otherUser = $this->insertUser();
+        $product   = $this->insertProduct();
+        $attemptId = $this->createAttempt($userId, $product);
+
+        $result = $this->model->findPendingForUser($attemptId, $otherUser);
+
+        $this->assertNull($result);
+    }
+
+    /** A-19: findPendingForUser() — 이미 클레임(converted)된 시도는 조회되지 않는다 */
+    public function testFindPendingForUser_alreadyConverted_returnsNull(): void
+    {
+        $userId    = $this->insertUser();
+        $product   = $this->insertProduct();
+        $attemptId = $this->createAttempt($userId, $product);
+
+        $this->model->claimForConversion($attemptId);
+
+        $result = $this->model->findPendingForUser($attemptId, $userId);
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * A-20: restoreCoupon() 의 source='code' 삭제 분기.
+     *
+     * 기존 insertUserCoupon() 헬퍼는 항상 source='admin' 인 행을 만들어
+     * update 로 되돌리는 분기만 탄다. userCouponId 를 null 로 넘기면
+     * preemptCoupon() 이 코드 입력 경로를 타 source='code' 인 user_coupons
+     * 행을 새로 INSERT 하므로, 그 행이 markFailed() 로 실제 DELETE 되는지
+     * 검증한다.
+     */
+    public function testMarkFailed_restoresCodeSourceCoupon_byDeletingRow(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $coupon  = $this->insertCoupon();
+
+        $attemptId = $this->createAttempt($userId, $product, 1, $coupon['id'], null, 3000);
+
+        $codeUc = $db->table('user_coupons')
+            ->where('user_id', $userId)
+            ->where('coupon_id', $coupon['id'])
+            ->where('source', 'code')
+            ->get()->getRowArray();
+        $this->assertNotNull($codeUc, 'preemptCoupon() 이 source=code 행을 생성해야 한다');
+        // 이 행은 insertUserCoupon() 을 거치지 않아 $this->cleanup 에 자동
+        // 등록되지 않는다. markFailed() 가 정상적으로 지우면 아래 delete 는
+        // no-op 이 되고, 테스트가 실패해도 tearDown() 에서 누수 없이 정리된다.
+        $this->cleanup['user_coupons'][] = (int) $codeUc['id'];
+
+        $this->assertTrue($this->model->markFailed($attemptId, '결제 실패'));
+
+        $this->assertNull(
+            $db->table('user_coupons')->where('id', $codeUc['id'])->get()->getRowArray(),
+            'source=code 행은 update 가 아니라 delete 로 복구되어야 한다'
+        );
     }
 }
