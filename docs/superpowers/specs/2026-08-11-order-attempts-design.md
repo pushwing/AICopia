@@ -185,4 +185,8 @@ TDD로 진행하되 **기존 안전장치 테스트를 먼저 attempt 기준으�
 
 ## 위험
 
-**결제는 승인됐는데 주문이 생성되지 않는 상태**가 이 작업의 최대 위험이다. 전환 트랜잭션이 재고 부족 등으로 롤백되면 attempt는 `converted`로 잠긴 채 주문이 없는 상태가 된다. 현재도 같은 위험이 있어 `compensateFailedConfirm()`([OrderModel.php:1223](../../../app/Models/OrderModel.php))이 보상 경로를 맡고 있으므로, 이 경로를 attempt 기준으로 이전하고 전환 실패 시 attempt를 `pending`으로 되돌리는 대신 **`failed` + 사유 기록 + 관리자 알림**으로 처리한다. 되돌리면 같은 결제로 재전환이 시도될 수 있다.
+**결제는 승인됐는데 주문이 생성되지 않는 상태**가 이 작업의 최대 위험이다. 전환 트랜잭션이 재고 부족 등으로 롤백되면 attempt는 `converted`로 잠긴 채 주문이 없는 상태가 된다. 현재도 같은 위험이 있어 `compensateFailedConfirm()`([OrderModel.php:1223](../../../app/Models/OrderModel.php))이 보상 경로를 맡고 있다.
+
+전환 실패 시 attempt를 `pending`으로 되돌리지 않는다 — 되돌리면 같은 결제로 재전환이 시도된다. 대신 **`failed` + 사유를 기록하고, 취소 상태의 주문 1건과 `paid` 결제행을 남긴다.** 주문을 만들지 않으면 `payments.order_id`가 NOT NULL이라 청구 사실 자체를 기록할 수 없고, 관리자의 환불 대상 화면(`findRefundPending()`([OrderModel.php:1287](../../../app/Models/OrderModel.php)))에서 사라진다. "주문은 `cancelled`인데 결제가 `paid`" 조합이 곧 환불 필요 신호라는 기존 규약을 그대로 쓴다.
+
+이렇게 만들어진 `cancelled` 주문은 사용자 주문내역의 "취소/환불" 탭에도 보인다. 실제로 돈이 빠져나간 건이므로 보이는 편이 맞다.
