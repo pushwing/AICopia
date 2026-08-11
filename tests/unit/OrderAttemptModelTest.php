@@ -654,7 +654,10 @@ final class OrderAttemptModelTest extends CIUnitTestCase
 
         $count = $this->model->expireStale(30);
 
-        $this->assertSame(1, $count);
+        // expireStale() 은 테이블 전체를 훑으므로 반환 개수를 정확히 1 로 단언하면
+        // 앞선 실행이 남긴 pending 행 하나에도 깨진다. 이 테스트가 지켜야 할 것은
+        // "내가 만든 시도가 만료되고 복구됐는가" 이므로 그 행을 직접 단언한다.
+        $this->assertGreaterThanOrEqual(1, $count);
         $this->assertSame('expired', $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['status']);
         $this->assertSame(5000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance']);
         $this->assertSame(0, $db->table('orders')->where('user_id', $userId)->countAllResults());
