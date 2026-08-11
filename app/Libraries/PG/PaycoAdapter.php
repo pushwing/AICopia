@@ -36,7 +36,7 @@ class PaycoAdapter implements PGInterface
             'productName'   => $this->buildOrderName($order),
             'totalAmount'   => $this->payableAmount($order),
             'taxFreeAmount' => 0,
-            'returnUrl'     => base_url('payment/callback/payco?order_id=' . $order['id']),
+            'returnUrl'     => base_url('payment/callback/payco?attempt_id=' . $order['id']),
             // 사용자가 PAYCO 결제창에서 그냥 취소한 것은 실패가 아니다 — 주문서로
             // 돌려보낸다. 장바구니는 결제 확정 전까지 비워지지 않는다(OrderController::create()).
             'cancelUrl'     => base_url('order'),

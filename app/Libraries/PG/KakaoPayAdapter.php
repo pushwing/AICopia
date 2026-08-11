@@ -108,7 +108,7 @@ class KakaoPayAdapter implements PGInterface
             'quantity'         => array_sum(array_column($order['items'] ?? [], 'qty')) ?: 1,
             'total_amount'     => $this->payableAmount($order),
             'tax_free_amount'  => 0,
-            'approval_url'     => $baseUrl . 'payment/callback/kakaopay?order_id=' . $order['id'],
+            'approval_url'     => $baseUrl . 'payment/callback/kakaopay?attempt_id=' . $order['id'],
             // 카드 승인 거절 등 진짜 결제 실패는 fail_url — 결제 실패 화면으로 안내한다.
             'fail_url'         => $baseUrl . 'order/fail/' . $order['order_number'],
             // 사용자가 카카오페이 결제창에서 그냥 취소한 것은 실패가 아니다 — 주문서로

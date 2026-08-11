@@ -52,9 +52,9 @@ class TossPaymentsAdapter implements PGInterface
             'customerName' => $order['receiver_name'],
 
             // 콜백 URL 은 다른 PG 어댑터와 동일하게 어댑터가 만든다.
-            // 콜백은 주문을 DB PK 로 조회하므로 order_id 에는 반드시 id 를 넘긴다
-            // (토스가 successUrl 에 덧붙이는 orderId 는 위 주문번호라 이름이 겹치지 않는다).
-            'successUrl'  => base_url('payment/callback/toss?order_id=' . $order['id']),
+            // 콜백은 주문 시도를 PK 로 조회하므로 attempt_id 에는 반드시 id 를 넘긴다
+            // (토스가 successUrl 에 덧붙이는 orderId 는 주문번호라 이름이 겹치지 않는다).
+            'successUrl'  => base_url('payment/callback/toss?attempt_id=' . $order['id']),
             'failUrl'     => base_url('order/fail/' . $order['order_number']),
         ];
     }

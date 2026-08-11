@@ -47,14 +47,14 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
         $this->assertSame('WON', $params['currency']);
     }
 
-    /** 인증 완료 후 돌아올 returnUrl 이 콜백 라우트를 order_id 와 함께 가리켜야 한다. */
+    /** 인증 완료 후 돌아올 returnUrl 이 콜백 라우트를 attempt_id 와 함께 가리켜야 한다. */
     public function testInicisParamsIncludeReturnUrl(): void
     {
         $params = (new InicisAdapter())->buildPaymentParams($this->order());
 
         $this->assertArrayHasKey('returnUrl', $params);
         $this->assertStringContainsString('payment/callback/inicis', (string) $params['returnUrl']);
-        $this->assertStringContainsString('order_id=4242', (string) $params['returnUrl']);
+        $this->assertStringContainsString('attempt_id=4242', (string) $params['returnUrl']);
         $this->assertStringStartsWith('http', (string) $params['returnUrl'], 'returnUrl 은 절대 URL 이어야 합니다.');
     }
 
@@ -109,7 +109,7 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
 
         $this->assertArrayHasKey('returnUrl', $params);
         $this->assertStringContainsString('payment/callback/nicepay', (string) $params['returnUrl']);
-        $this->assertStringContainsString('order_id=4242', (string) $params['returnUrl']);
+        $this->assertStringContainsString('attempt_id=4242', (string) $params['returnUrl']);
         $this->assertStringStartsWith('http', (string) $params['returnUrl'], 'returnUrl 은 절대 URL 이어야 합니다.');
     }
 
