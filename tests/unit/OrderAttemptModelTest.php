@@ -490,4 +490,53 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         $this->assertSame(0, $id);
         $this->assertSame($beforeCount, $db->table('order_attempts')->countAllResults());
     }
+
+    /**
+     * A-06: 수량 1장짜리 쿠폰은 두 번째 attempt 에서 선점에 실패한다
+     *
+     * 브리프 원안은 같은 사용자에게 같은 쿠폰의 user_coupon 을 두 장 발급하지만,
+     * `user_coupons` 에는 `UNIQUE(user_id, coupon_id)` 제약(2026-06-10-000009
+     * 마이그레이션)이 있어 그 조합은 애초에 INSERT 될 수 없다. 실제로 발생 가능한
+     * 레이스는 "총 수량이 한정된 쿠폰을 서로 다른 사용자가 각자 issued 상태로
+     * 보유"한 상황이므로, 두 번째 user_coupon 은 별도 사용자에게 발급한다 —
+     * 검증 대상인 `coupons.used_count < total_qty` 가드는 동일하게 걸린다.
+     */
+    public function testCreateAttempt_exhaustedCoupon_returnsZero(): void
+    {
+        $db        = db_connect();
+        $userId    = $this->insertUser();
+        $otherUser = $this->insertUser();
+        $product   = $this->insertProduct();
+        $coupon    = $this->insertCoupon(['total_qty' => 1]);
+
+        $firstUc  = $this->insertUserCoupon($userId, $coupon['id']);
+        $secondUc = $this->insertUserCoupon($otherUser, $coupon['id']);
+
+        $first  = $this->createAttempt($userId, $product, 1, $coupon['id'], $firstUc, 3000);
+        $second = $this->createAttempt($otherUser, $product, 1, $coupon['id'], $secondUc, 3000);
+
+        $this->assertGreaterThan(0, $first);
+        $this->assertSame(0, $second, '소진된 쿠폰으로 두 번째 시도가 만들어지면 안 된다');
+
+        // 두 번째 시도가 롤백됐으므로 used_count 는 1 에서 멈춰야 한다.
+        $this->assertSame(1, (int) $db->table('coupons')->where('id', $coupon['id'])->get()->getRowArray()['used_count']);
+        $this->assertSame('issued', $db->table('user_coupons')->where('id', $secondUc)->get()->getRowArray()['status']);
+    }
+
+    /** A-07: 이미 사용된 user_coupon 은 재선점되지 않는다 */
+    public function testCreateAttempt_alreadyUsedUserCoupon_returnsZero(): void
+    {
+        $db           = db_connect();
+        $userId       = $this->insertUser();
+        $product      = $this->insertProduct();
+        $coupon       = $this->insertCoupon();
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id']);
+
+        $first  = $this->createAttempt($userId, $product, 1, $coupon['id'], $userCouponId, 3000);
+        $second = $this->createAttempt($userId, $product, 1, $coupon['id'], $userCouponId, 3000);
+
+        $this->assertGreaterThan(0, $first);
+        $this->assertSame(0, $second);
+        $this->assertSame(1, (int) $db->table('coupons')->where('id', $coupon['id'])->get()->getRowArray()['used_count']);
+    }
 }
