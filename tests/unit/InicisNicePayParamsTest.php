@@ -47,16 +47,29 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
         $this->assertSame('WON', $params['currency']);
     }
 
-    /** 인증 후 돌아올 returnUrl·closeUrl 이 콜백 라우트를 order_id 와 함께 가리켜야 한다. */
-    public function testInicisParamsIncludeReturnAndCloseUrl(): void
+    /** 인증 완료 후 돌아올 returnUrl 이 콜백 라우트를 order_id 와 함께 가리켜야 한다. */
+    public function testInicisParamsIncludeReturnUrl(): void
     {
         $params = (new InicisAdapter())->buildPaymentParams($this->order());
 
         $this->assertArrayHasKey('returnUrl', $params);
-        $this->assertArrayHasKey('closeUrl', $params);
         $this->assertStringContainsString('payment/callback/inicis', (string) $params['returnUrl']);
         $this->assertStringContainsString('order_id=4242', (string) $params['returnUrl']);
         $this->assertStringStartsWith('http', (string) $params['returnUrl'], 'returnUrl 은 절대 URL 이어야 합니다.');
+    }
+
+    /**
+     * 사용자가 결제창을 그냥 닫은 것은 실패가 아니다 — closeUrl 은 order/fail(결제
+     * 실패 화면)이 아니라 주문서(order)로 돌아가야 한다. 장바구니는 결제 확정 전까지
+     * 비워지지 않으므로 주문서를 그대로 다시 보여줄 수 있다.
+     */
+    public function testInicisCloseUrlReturnsToOrderPageNotFailPage(): void
+    {
+        $params = (new InicisAdapter())->buildPaymentParams($this->order());
+
+        $this->assertArrayHasKey('closeUrl', $params);
+        $this->assertStringNotContainsString('order/fail', (string) $params['closeUrl']);
+        $this->assertStringEndsWith('/order', rtrim((string) $params['closeUrl'], '/'));
     }
 
     /** signature 는 oid·price·timestamp 를, mKey 는 signKey 를 SHA256 해시한 값이다. */
