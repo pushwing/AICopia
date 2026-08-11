@@ -1624,6 +1624,11 @@ Expected: FAIL — `Call to undefined method App\Models\OrderModel::convertAttem
         // order_number 는 attempt 채번 시점에 orders·order_attempts 양쪽을 확인했지만,
         // 그 사이 다른 주문이 같은 번호를 차지했을 가능성이 남는다. INSERT 실패를
         // 그냥 넘기면 order_id 0 으로 하위 INSERT 가 이어져 고아 행이 생긴다.
+        //
+        // DBDebug=true 지만 트랜잭션 **안**에서는 CI4 가 예외를 삼키고 insert() 가
+        // false 를 돌려주며 transStatus() 가 false 가 된다(실측 확인). 따라서
+        // try/catch 는 불필요하고 — PHPStan 이 catch.neverThrown 으로 거부한다 —
+        // 아래 `=== 0` 가드가 그대로 동작한다. 트랜잭션 밖에서는 예외가 난다.
         if ($orderId === 0) {
             $this->db->transRollback();
             log_message('critical', "[Order] 주문 INSERT 실패 (주문번호 충돌 의심) — attempt_id={$attemptId}, order_number={$attempt['order_number']}");
