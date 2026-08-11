@@ -77,7 +77,7 @@ class OrderController extends BaseController
         return $this->render('admin/orders/anomalies', [
             'flagged'      => $flagged,
             'days'         => $days,
-            'statusLabels' => self::STATUS_LABELS,
+            'statusLabels' => OrderModel::STATUS_LABELS,
         ]);
     }
 
@@ -279,7 +279,7 @@ class OrderController extends BaseController
             'order'               => $order,
             'receipt'             => $receipt,
             'refundPending'       => $refundPending,
-            'statusLabels'        => self::STATUS_LABELS,
+            'statusLabels'        => OrderModel::STATUS_LABELS,
             'nextStatus'          => self::NEXT_STATUS,
             'returnReasonPayer'   => $returnReasonPayer,
             'exchangeReasonPayer' => $exchangeReasonPayer,
@@ -528,7 +528,7 @@ class OrderController extends BaseController
 
         $orders = $builder->get()->getResultArray();
 
-        $statusLabels = self::STATUS_LABELS;
+        $statusLabels = OrderModel::STATUS_LABELS;
 
         $lines   = [];
         $lines[] = "\xEF\xBB\xBF" . implode(',', ['주문번호', '수취인', '상태', '배송업체', '송장번호']);
