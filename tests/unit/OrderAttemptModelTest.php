@@ -345,14 +345,16 @@ final class OrderAttemptModelTest extends CIUnitTestCase
     /** A-07b: id 키가 없는 배열을 넘겨도 withItems() 가 경고 없이 처리한다 */
     public function testWithItems_missingIdKey_logsWithoutWarning(): void
     {
-        // id 키가 없으면 로그 문자열에서 $attempt['id'] ?? '?' 로 방어되어 '?' 를 사용한다.
-        // 이 경우에도 items_snapshot 디코드는 정상 진행되고 items 배열이 붙는다.
-        $attempt = ['items_snapshot' => '[]'];
+        // 방어 대상인 `$attempt['id'] ?? '?'` 는 디코드가 **실패했을 때만** 실행된다.
+        // 유효한 JSON 을 넣으면 그 경로를 타지 않아 아무것도 검증하지 못하므로,
+        // 반드시 깨진 스냅샷 + id 키 없음 조합이어야 한다.
+        $attempt = ['items_snapshot' => '{bad json'];
 
         $result = $this->model->withItems($attempt);
 
         $this->assertSame([], $result['items']);
-        $this->assertArrayHasKey('items', $result);
+        // 로그가 '?' 로 대체돼 나갔다는 것이 곧 방어 코드가 실행됐다는 증거다.
+        $this->assertLogged('critical', '[OrderAttempt] items_snapshot 디코드 실패 — attempt_id=?');
     }
 
     /**
