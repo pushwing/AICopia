@@ -331,8 +331,17 @@ class OrderController extends BaseController
     }
 
     /** GET /order/fail/:orderNumber */
-    public function fail(string $orderNumber): string
+    public function fail(string $orderNumber): \CodeIgniter\HTTP\RedirectResponse|string
     {
+        // 토스는 카카오페이·PAYCO·이니시스·네이버페이와 달리 별도 취소 URL이 없어,
+        // 사용자가 결제창을 그냥 닫아도 진짜 승인 실패와 구분 없이 failUrl(이 라우트)로
+        // 온다. code 가 취소성 코드면 다른 PG와 동일하게 주문서로 돌려보낸다 — 진짜
+        // 승인 실패(카드 한도 초과 등)는 이 코드가 아니므로 그대로 실패 화면을 보여준다.
+        $code = $this->request->getGet('code');
+        if (in_array($code, ['PAY_PROCESS_CANCELED', 'PAY_PROCESS_ABORTED', 'USER_CANCEL'], true)) {
+            return redirect()->to('/order');
+        }
+
         $userId  = (int) session()->get('user_id');
         $order   = $this->orderModel->where('order_number', $orderNumber)->where('user_id', $userId)->first();
         $message = session()->getFlashdata('pg_error') ?? '결제에 실패했습니다.';
