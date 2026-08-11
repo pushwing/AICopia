@@ -2252,18 +2252,21 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Models\OrderAttemptModel;
-use App\Models\OrderModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
+use CodeIgniter\Test\StreamFilterTrait;
 
 /**
  * orders:expire — 신규 시도와 레거시 주문을 모두 걷어가는지
  * 이슈 #214
+ *
+ * 모델 메서드를 직접 부르지 않고 커맨드를 실제로 구동한다. 커맨드가 둘 중
+ * 하나만 호출하도록 퇴행하면 이 테스트가 잡아야 하기 때문이다.
  */
 final class ExpireOrdersCommandTest extends CIUnitTestCase
 {
     use DatabaseTestTrait;
+    use StreamFilterTrait;
 
     protected $DBGroup = 'tests';
     protected $migrate = false;
@@ -2361,13 +2364,19 @@ final class ExpireOrdersCommandTest extends CIUnitTestCase
         $orderId          = (int) $db->insertID();
         $this->orderIds[] = $orderId;
 
-        $attemptCount = new OrderAttemptModel()->expireStale(30);
-        $orderCount   = new OrderModel()->expirePending(30);
+        // 커맨드를 실제로 구동한다. 모델을 직접 부르면 커맨드의 퇴행을 못 잡는다.
+        command('orders:expire 30');
 
-        $this->assertSame(1, $attemptCount);
-        $this->assertGreaterThanOrEqual(1, $orderCount);
-        $this->assertSame('expired', $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['status']);
-        $this->assertSame('expired', $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status']);
+        $this->assertSame(
+            'expired',
+            $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['status'],
+            '커맨드가 order_attempts 를 만료시키지 않았다'
+        );
+        $this->assertSame(
+            'expired',
+            $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status'],
+            '커맨드가 레거시 orders.pending 을 만료시키지 않았다 — 배포 호환 경로가 빠졌다'
+        );
     }
 }
 ```
@@ -2378,7 +2387,9 @@ Run:
 ```bash
 vendor/bin/phpunit tests/unit/ExpireOrdersCommandTest.php
 ```
-Expected: `OK (1 test, ...)` — 두 모델 메서드가 이미 존재하므로 통과한다. 이 테스트는 커맨드가 둘 다 부르도록 강제하는 근거가 된다.
+Expected: FAIL — `커맨드가 order_attempts 를 만료시키지 않았다`. 현재 커맨드는 `expirePending()` 만 부르므로 시도는 `pending` 그대로다.
+
+> `schedule_orders_expire_enabled` 설정이 `0` 이면 커맨드가 즉시 스킵해 두 단언이 모두 실패한다. 실패 메시지가 예상과 다르면 먼저 `SELECT value FROM settings WHERE key_name = 'schedule_orders_expire_enabled'` 로 확인하고, 테스트 `setUp()` 에서 해당 설정을 `1` 로 맞춘 뒤 `tearDown()` 에서 되돌린다.
 
 - [ ] **Step 3: 커맨드 수정**
 
