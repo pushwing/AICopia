@@ -28,10 +28,12 @@ class SecurityHeadersFilter implements FilterInterface
             // stdpay.inicis.com — INIStdPay SDK 본체
             // stdux.inicis.com — INIStdPay가 이어서 로드하는 2차 스크립트(INIStdPay_third-party.js)
             // pay.nicepay.co.kr — 나이스페이 AUTHNICE SDK
-            "script-src 'self' cdn.jsdelivr.net t1.kakaocdn.net js.tosspayments.com stdpay.inicis.com stdux.inicis.com pay.nicepay.co.kr 'unsafe-inline'",
+            // nsp.pay.naver.com — 네이버페이 SDK(Naver.Pay) 본체
+            "script-src 'self' cdn.jsdelivr.net t1.kakaocdn.net js.tosspayments.com stdpay.inicis.com stdux.inicis.com pay.nicepay.co.kr nsp.pay.naver.com 'unsafe-inline'",
 
             // stdpay.inicis.com — INIStdPay가 <link>로 주입하는 결제창 스타일(stdcss/INIStdPay.css)
-            "style-src 'self' cdn.jsdelivr.net stdpay.inicis.com 'unsafe-inline'",
+            // ssl.pstatic.net — 네이버페이 SDK가 로드하는 결제창 스타일(naverpay_sdk_*.css)
+            "style-src 'self' cdn.jsdelivr.net stdpay.inicis.com ssl.pstatic.net 'unsafe-inline'",
 
             // stdux.inicis.com — 이니시스 결제창 UI 이미지(닫기 버튼 등)
             // search.pstatic.net — 상품등록 "네이버 이미지 검색" 결과 미리보기(썸네일 프록시)
@@ -62,7 +64,11 @@ class SecurityHeadersFilter implements FilterInterface
             // 그 팝업 문서는 about:blank(동일 출처)라 이 페이지의 CSP를 그대로 상속한다.
             // 따라서 팝업 방식이어도 frame-src 허용이 필요하다 — 빠지면 팝업 안이
             // "이 콘텐츠는 차단되어 있습니다"로 뜨고 주소검색이 불가능해진다.
-            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr postcode.map.kakao.com",
+            //
+            // nsp.pay.naver.com — 네이버페이 결제창도 SDK가 띄운 팝업 안에 iframe으로
+            // 렌더링된다(위 카카오 우편번호와 동일 구조). 빠지면 팝업이 뜨자마자
+            // "연결을 거부했습니다"로 결제창 내용이 차단된다.
+            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr postcode.map.kakao.com nsp.pay.naver.com",
 
             // 이니시스·나이스페이는 결제창을 팝업이 아니라 페이지 위 레이어(iframe)로
             // 띄우고, 그 iframe 안에서 returnUrl·closeUrl(order/fail, payment/callback)을
