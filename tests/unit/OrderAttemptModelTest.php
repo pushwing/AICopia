@@ -492,7 +492,7 @@ final class OrderAttemptModelTest extends CIUnitTestCase
     }
 
     /**
-     * A-06: 수량 1장짜리 쿠폰은 두 번째 attempt 에서 선점에 실패한다
+     * A-09: 수량 1장짜리 쿠폰은 두 번째 attempt 에서 선점에 실패한다
      *
      * 브리프 원안은 같은 사용자에게 같은 쿠폰의 user_coupon 을 두 장 발급하지만,
      * `user_coupons` 에는 `UNIQUE(user_id, coupon_id)` 제약(2026-06-10-000009
@@ -523,7 +523,7 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         $this->assertSame('issued', $db->table('user_coupons')->where('id', $secondUc)->get()->getRowArray()['status']);
     }
 
-    /** A-07: 이미 사용된 user_coupon 은 재선점되지 않는다 */
+    /** A-10: 이미 사용된 user_coupon 은 재선점되지 않는다 */
     public function testCreateAttempt_alreadyUsedUserCoupon_returnsZero(): void
     {
         $db           = db_connect();
