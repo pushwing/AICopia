@@ -1334,6 +1334,13 @@ class OrderModel extends Model
     /** @param array<int, array<string, mixed>> $items */
     public function calculateShippingFee(array $items, int $totalProduct): int
     {
+        // 무료배송 상품이 하나라도 있으면 본품·애드온 구분 없이 전체 주문을 무료배송으로 처리한다(이슈 #170).
+        foreach ($items as $item) {
+            if (($item['shipping_type'] ?? '') === 'free') {
+                return 0;
+            }
+        }
+
         // 조건부 무료 기준 충족 시 전체 주문 무료배송
         foreach ($items as $item) {
             if (($item['shipping_type'] ?? '') === 'conditional'
@@ -1343,29 +1350,10 @@ class OrderModel extends Model
             }
         }
 
-        // 본품 상품 id -> 무료배송 여부. 추가구성상품(애드온)의 배송비는
-        // 본품이 무료배송이면 함께 무료로 처리한다(이슈 #170).
-        $freeParentIds = [];
-        foreach ($items as $item) {
-            if (empty($item['parent_product_id']) && ($item['shipping_type'] ?? '') === 'free') {
-                $freeParentIds[(int) ($item['product_id'] ?? 0)] = true;
-            }
-        }
-
-        // 충족되지 않은 경우 개별 배송비 중 최댓값
+        // 충족되지 않은 경우 개별 배송비 중 최댓값 (여기 도달하면 free 상품은 없으므로 fixed/conditional만 남는다)
         $fee = 0;
         foreach ($items as $item) {
-            $parentId = (int) ($item['parent_product_id'] ?? 0);
-            if ($parentId > 0 && isset($freeParentIds[$parentId])) {
-                continue;
-            }
-
-            $itemFee = match ($item['shipping_type'] ?? 'free') {
-                'free'    => 0,
-                'fixed'   => (int) ($item['shipping_fee'] ?? 0),
-                default   => (int) ($item['shipping_fee'] ?? 0),
-            };
-            $fee = max($fee, $itemFee);
+            $fee = max($fee, (int) ($item['shipping_fee'] ?? 0));
         }
 
         return $fee;

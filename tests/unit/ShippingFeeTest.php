@@ -45,14 +45,24 @@ final class ShippingFeeTest extends CIUnitTestCase
         $this->assertSame(2500, $this->model->calculateShippingFee($items, 0));
     }
 
-    public function testMultipleItemsReturnsMaxFee(): void
+    public function testMultipleFixedItemsWithoutFreeItemReturnsMaxFee(): void
     {
+        $items = [
+            ['shipping_type' => 'fixed', 'free_threshold' => 0, 'shipping_fee' => 2500],
+            ['shipping_type' => 'fixed', 'free_threshold' => 0, 'shipping_fee' => 5000],
+        ];
+        $this->assertSame(5000, $this->model->calculateShippingFee($items, 10000));
+    }
+
+    public function testAnyFreeShippingItemWaivesWholeOrderFee(): void
+    {
+        // 무료배송 상품이 하나라도 있으면 나머지 유료배송 상품이 섞여 있어도 전체 무료배송으로 처리한다.
         $items = [
             ['shipping_type' => 'fixed', 'free_threshold' => 0, 'shipping_fee' => 2500],
             ['shipping_type' => 'fixed', 'free_threshold' => 0, 'shipping_fee' => 5000],
             ['shipping_type' => 'free',  'free_threshold' => 0, 'shipping_fee' => 0],
         ];
-        $this->assertSame(5000, $this->model->calculateShippingFee($items, 10000));
+        $this->assertSame(0, $this->model->calculateShippingFee($items, 10000));
     }
 
     public function testEmptyItemsReturnsZero(): void
