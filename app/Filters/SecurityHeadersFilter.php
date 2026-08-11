@@ -64,7 +64,12 @@ class SecurityHeadersFilter implements FilterInterface
             // "이 콘텐츠는 차단되어 있습니다"로 뜨고 주소검색이 불가능해진다.
             "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr postcode.map.kakao.com",
 
-            "frame-ancestors 'none'",
+            // 이니시스·나이스페이는 결제창을 팝업이 아니라 페이지 위 레이어(iframe)로
+            // 띄우고, 그 iframe 안에서 returnUrl·closeUrl(order/fail, payment/callback)을
+            // 직접 로드한다. frame-ancestors 'none' 이면 우리 페이지가 그 iframe 안에서
+            // "연결을 거부했습니다"로 차단돼 결제 종료 후 화면이 아예 뜨지 않는다 —
+            // 이 두 PG 도메인만 예외로 허용한다(frame-src 목록과 대칭).
+            'frame-ancestors stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr',
             "object-src 'none'",
             "base-uri 'self'",
 
