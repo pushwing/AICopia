@@ -56,7 +56,9 @@ class SecurityHeadersFilter implements FilterInterface
             // cdn.jsdelivr.net — 부트스트랩 소스맵(*.map). 개발자도구를 열면 브라우저가
             // 소스맵을 fetch 하는데 이것도 connect-src 대상이라, 빠지면 주문서 콘솔에
             // CSP 위반 메시지가 계속 쌓여 실제 결제 오류를 가린다(기능 영향은 없다).
-            "connect-src 'self' cdn.jsdelivr.net apigw.tosspayments.com apigw-sandbox.tosspayments.com log.tosspayments.com event.tosspayments.com",
+            // test-nsp.pay.naver.com — 네이버페이 결제창 CSS의 소스맵(naverpay_sdk.css.map)도
+            // 동일하게 개발자도구를 열면 fetch된다(기능 영향 없음, 위와 같은 이유로 함께 허용).
+            "connect-src 'self' cdn.jsdelivr.net apigw.tosspayments.com apigw-sandbox.tosspayments.com log.tosspayments.com event.tosspayments.com test-nsp.pay.naver.com",
 
             // payment-gateway(-sandbox).tosspayments.com — 토스 결제창은 팝업이 아니라
             // iframe으로 열린다. frame-src를 지정하지 않으면 default-src 'self'로 폴백돼 차단된다.
@@ -71,13 +73,16 @@ class SecurityHeadersFilter implements FilterInterface
             // 따라서 팝업 방식이어도 frame-src 허용이 필요하다 — 빠지면 팝업 안이
             // "이 콘텐츠는 차단되어 있습니다"로 뜨고 주소검색이 불가능해진다.
             //
-            // nsp.pay.naver.com — 네이버페이 결제창도 SDK가 띄운 팝업 안에 iframe으로
-            // 렌더링된다(위 카카오 우편번호와 동일 구조). 빠지면 팝업이 뜨자마자
-            // "연결을 거부했습니다"로 결제창 내용이 차단된다.
-            // pay.naver.com/m.pay.naver.com(운영) · test-pay.naver.com/test-m.pay.naver.com(개발,
-            // 샌드박스) — 실제 결제 화면(PC/모바일)이 뜨는 도메인. mode 설정(NAVERPAY_MODE)에 따라
-            // 어느 쪽을 쓸지 갈리므로 둘 다 허용해 둔다.
-            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr postcode.map.kakao.com nsp.pay.naver.com pay.naver.com m.pay.naver.com test-pay.naver.com test-m.pay.naver.com",
+            // nsp.pay.naver.com(운영) · test-nsp.pay.naver.com(개발, 샌드박스) — 네이버페이
+            // 결제창은 SDK와 같은 도메인 자체를 iframe으로 띄운다(위 카카오 우편번호와 동일 구조로
+            // window.open('') 팝업 안에 삽입). 실측 결과 pay.naver.com/test-pay.naver.com이
+            // 아니라 이 도메인이었다 — 막히면 iframe이 about:blank로 남아 SDK의 postMessage
+            // 핸드셰이크가 실패하고 "일시적 오류가 발생했습니다"로 뜬다.
+            // pay.naver.com/m.pay.naver.com/test-pay.naver.com/test-m.pay.naver.com — 네이버페이
+            // 공식 가이드가 문서화한 결제 서비스 도메인(PC/모바일, 운영/개발). 실측으로 확인된
+            // nsp 계열과 달리 이번 흐름에서 직접 관측되진 않았지만, 다른 진입 경로(모바일 등)에서
+            // 쓰일 수 있어 예방적으로 남겨둔다.
+            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr postcode.map.kakao.com nsp.pay.naver.com test-nsp.pay.naver.com pay.naver.com m.pay.naver.com test-pay.naver.com test-m.pay.naver.com",
 
             // 이니시스·나이스페이는 결제창을 팝업이 아니라 페이지 위 레이어(iframe)로
             // 띄우고, 그 iframe 안에서 returnUrl·closeUrl(order/fail, payment/callback)을
