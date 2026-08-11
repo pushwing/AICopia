@@ -57,6 +57,17 @@ class PaymentController extends BaseController
             return redirect()->to('/')->with('error', '유효하지 않은 주문입니다.');
         }
 
+        // 네이버페이는 성공·취소 모두 같은 returnUrl로 오고 resultCode 로만 구분한다
+        // (카카오페이·PAYCO·이니시스처럼 별도 취소 URL이 없다). 취소(결제창을 그냥
+        // 닫음)는 승인 실패가 아니므로 동일하게 주문서로 돌려보낸다 — 장바구니는
+        // 결제 확정 전까지 비워지지 않는다.
+        if ($pgProvider === 'naverpay') {
+            $resultCode = $this->request->getGet('resultCode') ?? $this->request->getPost('resultCode');
+            if ($resultCode === 'Fail') {
+                return redirect()->to('/order');
+            }
+        }
+
         // PG별 토큰 파라미터 이름이 다름
         $pgToken = $this->resolvePgToken($pgProvider);
         if ($pgToken === '' || $pgToken === '0') {
