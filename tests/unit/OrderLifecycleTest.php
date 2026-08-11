@@ -569,6 +569,36 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $this->assertSame(10, $after);
     }
 
+    /** E-06: getByUser 기본("전체") 조회는 만료 주문을 제외한다 */
+    public function testGetByUser_defaultStatus_excludesExpiredOrders(): void
+    {
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $orderId = $this->createPendingOrder($userId, $product);
+        $this->ageOrder($orderId, 40);
+        $this->model->expirePending(30);
+
+        $result = $this->model->getByUser($userId, ['status' => '']);
+
+        $ids = array_map('intval', array_column($result['items'], 'id'));
+        $this->assertNotContains($orderId, $ids);
+    }
+
+    /** E-07: getByUser "취소/환불" 탭 조회에는 만료 주문이 계속 노출된다 */
+    public function testGetByUser_cancelTab_includesExpiredOrders(): void
+    {
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $orderId = $this->createPendingOrder($userId, $product);
+        $this->ageOrder($orderId, 40);
+        $this->model->expirePending(30);
+
+        $result = $this->model->getByUser($userId, ['status' => 'cancel']);
+
+        $ids = array_map('intval', array_column($result['items'], 'id'));
+        $this->assertContains($orderId, $ids);
+    }
+
     // ── S: updateStatus ───────────────────────────────────────────────────────
 
     /** S-01: paid → preparing */
