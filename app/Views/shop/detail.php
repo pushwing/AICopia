@@ -606,7 +606,7 @@ let basePrice   = <?= (int) $displayPrice ?>;
 let currentSkuId = null;
 
 // ─── 부속 애드온 선택 ───────────────────────────────────────────────────────────
-// 상품명은 관리자가 직접 입력하지 않을 수도 있다(NaverShoppingProvider 로 외부 API에서
+// 상품명은 관리자가 직접 입력하지 않을 수도 있다(NaverImageSearchProvider 로 외부 API에서
 // 채워질 수 있음) — 신뢰할 수 없는 문자열이므로 HTML 삽입 전 반드시 이스케이프한다.
 // JSON_HEX_* 플래그로 스크립트 종료 태그와 같은 값이 스크립트 블록을 탈출하지 못하게 막는다.
 const addonsData = <?= json_encode(array_values(array_map(static function (array $a): array {

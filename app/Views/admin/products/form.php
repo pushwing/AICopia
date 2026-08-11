@@ -16,7 +16,7 @@
                 <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
                     <span>기본 정보</span>
                     <button type="button" class="btn btn-sm btn-outline-success" id="btnNaverSearch">
-                        <i class="bi bi-search me-1"></i>네이버 상품 검색
+                        <i class="bi bi-search me-1"></i>네이버 이미지 검색
                     </button>
                 </div>
                 <div class="card-body">
@@ -335,12 +335,12 @@
     </div>
 </div>
 
-<!-- 네이버 쇼핑 검색 모달 -->
+<!-- 네이버 이미지 검색 모달 -->
 <div class="modal fade" id="naverSearchModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-search me-2"></i>네이버 쇼핑 상품 검색</h5>
+                <h5 class="modal-title"><i class="bi bi-search me-2"></i>네이버 이미지 검색</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -838,7 +838,7 @@ document.getElementById('btnUseOriginalDesc').addEventListener('click', function
     aiDescModal.hide();
 });
 
-// ── 네이버 쇼핑 상품 검색 ─────────────────────────────────────────────────────
+// ── 네이버 이미지 검색 ───────────────────────────────────────────────────────
 const naverModal    = new bootstrap.Modal(document.getElementById('naverSearchModal'));
 let   naverPage     = 1;
 let   naverKeyword  = '';
@@ -915,22 +915,19 @@ async function execNaverSearch(append) {
         }
 
         data.items.forEach(function (item) {
-            const price = parseInt(item.lprice, 10);
             const col   = document.createElement('div');
             col.className = 'col-6 col-md-4 col-lg-3';
             col.innerHTML = `
                 <div class="card h-100 border naver-item" style="cursor:pointer"
                      data-title="${item.title.replace(/"/g,'&quot;')}"
-                     data-price="${price}"
                      data-image="${item.image.replace(/"/g,'&quot;')}">
-                    <img src="${item.image}" class="card-img-top" style="height:140px;object-fit:cover"
+                    <img src="${item.thumbnail}" class="card-img-top" style="height:140px;object-fit:cover"
                          referrerpolicy="no-referrer" onerror="this.src='/favicon.ico'">
                     <div class="card-body p-2">
                         <div class="small fw-semibold lh-sm mb-1" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
                             ${item.title}
                         </div>
-                        <div class="text-danger fw-bold small">${price ? price.toLocaleString() + '원' : '가격 미정'}</div>
-                        <div class="text-muted" style="font-size:0.7rem">${item.mallName || item.brand}</div>
+                        <div class="text-muted" style="font-size:0.7rem">${item.width && item.height ? item.width + '×' + item.height : ''}</div>
                     </div>
                     <div class="card-footer p-1 text-center">
                         <button type="button" class="btn btn-sm btn-success w-100 btn-naver-apply">적용</button>
@@ -963,12 +960,10 @@ document.getElementById('naverSearchResults').addEventListener('click', async fu
 
     const card     = applyBtn.closest('.naver-item');
     const title    = card.dataset.title;
-    const price    = parseInt(card.dataset.price, 10);
     const imageUrl = card.dataset.image;
 
-    // 상품명·가격 채우기
+    // 상품명 채우기 (이미지 검색 결과에는 가격 정보가 없음)
     document.querySelector('input[name="name"]').value = title;
-    if (price > 0) document.querySelector('input[name="price"]').value = price;
     document.querySelector('input[name="name"]').dispatchEvent(new Event('input'));
 
     naverModal.hide();

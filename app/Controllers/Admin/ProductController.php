@@ -9,7 +9,7 @@ use App\Exceptions\AiKeyMissingException;
 use App\Libraries\AiCategoryAdvisor;
 use App\Libraries\Mailer;
 use App\Libraries\MediaUploader;
-use App\Libraries\NaverShoppingProvider;
+use App\Libraries\NaverImageSearchProvider;
 use App\Models\CategoryModel;
 use App\Models\MediaModel;
 use App\Models\ProductAddonModel;
@@ -626,7 +626,7 @@ class ProductController extends BaseController
         ]);
     }
 
-    /** GET /admin/products/naver-search — 네이버 쇼핑 상품 검색 (AJAX) */
+    /** GET /admin/products/naver-search — 네이버 이미지 검색 (AJAX) */
     public function naverSearch(): \CodeIgniter\HTTP\ResponseInterface
     {
         $keyword = trim((string) $this->request->getGet('q'));
@@ -652,10 +652,10 @@ class ProductController extends BaseController
         $start   = ($page - 1) * $display + 1;
 
         try {
-            $result = new NaverShoppingProvider()->search($keyword, $display, $start);
+            $result = new NaverImageSearchProvider()->search($keyword, $display, $start);
             return $this->response->setJSON($result);
         } catch (\Throwable $e) {
-            log_message('error', 'NaverShopping: ' . $e->getMessage());
+            log_message('error', 'NaverImageSearch: ' . $e->getMessage());
             return $this->response->setJSON(['error' => '검색 중 오류가 발생했습니다.'])->setStatusCode(500);
         }
     }

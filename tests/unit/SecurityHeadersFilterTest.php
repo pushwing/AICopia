@@ -18,7 +18,7 @@ final class SecurityHeadersFilterTest extends CIUnitTestCase
         $this->filter = new SecurityHeadersFilter();
     }
 
-    public function testCspAllowsNaverShoppingImageCdn(): void
+    public function testCspAllowsNaverImageSearchThumbnailCdn(): void
     {
         $request  = service('request');
         $response = service('response');
@@ -26,7 +26,7 @@ final class SecurityHeadersFilterTest extends CIUnitTestCase
         $result = $this->filter->after($request, $response, null);
 
         $csp = $result->getHeaderLine('Content-Security-Policy');
-        $this->assertStringContainsString('shopping-phinf.pstatic.net', $csp);
+        $this->assertStringContainsString('search.pstatic.net', $csp);
     }
 
     /**
