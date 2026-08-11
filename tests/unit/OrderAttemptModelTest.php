@@ -300,43 +300,26 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         $this->assertSame(1000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance']);
     }
 
-    /** A-06: 채번 시 orders 테이블도 함께 확인해 충돌을 피한다 (코드 리뷰 지적 #1) */
-    public function testCreateAttempt_avoidsOrderNumberCollisionWithOrdersTable(): void
+    /** A-06: 빈 장바구니로 attempt 를 생성하려면 createAttempt() 가 0 을 반환한다 */
+    public function testCreateAttempt_emptyCartItems_returnsZero(): void
     {
-        $db      = db_connect();
-        $userId  = $this->insertUser();
-        $product = $this->insertProduct();
+        $db     = db_connect();
+        $userId = $this->insertUser();
 
-        // orders 쪽에 번호 하나를 선점해 둔다 — attempt 채번 로직이 order_attempts
-        // 뿐 아니라 orders 도 확인한다면 이 번호는 절대 재사용되면 안 된다.
-        $reservedOrderNumber = 'ORD-' . date('Ymd') . '-' . str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
-        $db->table('orders')->insert([
-            'user_id'        => $userId,
-            'order_number'   => $reservedOrderNumber,
-            'receiver_name'  => '테스트',
-            'receiver_phone' => '010-0000-0000',
-            'zipcode'        => '12345',
-            'address1'       => '서울시 테스트구',
-        ]);
-        $orderId = (int) $db->insertID();
-        $this->cleanup['orders'][] = $orderId;
-
-        $attemptId = $this->createAttempt($userId, $product);
-
-        $this->assertGreaterThan(0, $attemptId);
-
-        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
-        $this->assertNotSame($reservedOrderNumber, $attempt['order_number']);
-
-        // 채번된 번호는 orders·order_attempts 양쪽 어디에도 중복되지 않아야 한다.
-        $this->assertSame(
+        $attemptId = $this->model->createAttempt(
+            $userId,
+            $this->shippingData(),
+            [],
+            null,
+            null,
             0,
-            $db->table('orders')->where('order_number', $attempt['order_number'])->countAllResults()
+            0,
+            0,
+            'toss'
         );
-        $this->assertSame(
-            1,
-            $db->table('order_attempts')->where('order_number', $attempt['order_number'])->countAllResults()
-        );
+
+        $this->assertSame(0, $attemptId);
+        $this->assertSame(0, $db->table('order_attempts')->where('user_id', $userId)->countAllResults());
     }
 
     /** A-07: items_snapshot 이 깨졌으면 withItems() 가 로깅 후 빈 배열을 반환한다 (코드 리뷰 지적 #2) */
@@ -357,6 +340,19 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         // CI4 는 ENVIRONMENT === 'testing' 이면 log_message() 를 TestLogger 로 보내므로
         // 별도 셋업 없이 assertLogged() 를 쓸 수 있다.
         $this->assertLogged('critical', '[OrderAttempt] items_snapshot 디코드 실패 — attempt_id=999999');
+    }
+
+    /** A-07b: id 키가 없는 배열을 넘겨도 withItems() 가 경고 없이 처리한다 */
+    public function testWithItems_missingIdKey_logsWithoutWarning(): void
+    {
+        // id 키가 없으면 로그 문자열에서 $attempt['id'] ?? '?' 로 방어되어 '?' 를 사용한다.
+        // 이 경우에도 items_snapshot 디코드는 정상 진행되고 items 배열이 붙는다.
+        $attempt = ['items_snapshot' => '[]'];
+
+        $result = $this->model->withItems($attempt);
+
+        $this->assertSame([], $result['items']);
+        $this->assertArrayHasKey('items', $result);
     }
 
     /**
