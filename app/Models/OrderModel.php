@@ -477,9 +477,20 @@ class OrderModel extends Model
         ]);
 
         // pg_tid UNIQUE 위반 등 INSERT 실패 시 명시적 롤백
+        //
+        // 이 시점에 이미 PG 승인은 끝난 상태다. 롤백되면 시도는 pending 으로
+        // 돌아가 30분 뒤 expireStale() 이 "미결제"로 오인해 쿠폰·포인트를 회수하는데,
+        // 여기서는 compensateFailedConversion() 을 부르지 않으므로(재고 차감과 달리
+        // 이 실패는 사실상 발생 불가능한 pg_tid 충돌에 가까워 별도 청구 추적 흐름을
+        // 새로 만들기보다 즉시 눈에 띄게 로깅해 수동 대응을 유도한다) 최소한 로그로
+        // attempt_id·pg_tid·금액을 남긴다.
         if (! $paymentOk || $this->db->affectedRows() === 0) {
             $this->db->transRollback();
             $this->db->resetTransStatus();
+            log_message(
+                'critical',
+                "[Order] 결제 INSERT 실패(pg_tid 충돌 의심) — attempt_id={$attemptId}, pg_tid=" . ($pgTid ?? 'null') . ", amount={$attempt['payable_amount']}"
+            );
 
             return 0;
         }
@@ -510,6 +521,13 @@ class OrderModel extends Model
         $this->db->transComplete();
 
         if (! $this->db->transStatus()) {
+            // PG 승인은 이미 끝났는데 커밋이 실패하면 아무 흔적도 남지 않는다 —
+            // 최소한 로그로는 추적 가능하게 남긴다.
+            log_message(
+                'critical',
+                "[Order] 전환 트랜잭션 커밋 실패 — attempt_id={$attemptId}, order_id={$orderId}, pg_tid=" . ($pgTid ?? 'null')
+            );
+
             return 0;
         }
 
@@ -521,9 +539,20 @@ class OrderModel extends Model
     /**
      * 전환 실패 보상 — 이미 일어난 청구를 추적 가능한 형태로 남긴다.
      *
-     * 시도는 이미 converted 로 클레임된 상태라 markFailed() 로는 되돌릴 수 없다.
-     * 여기서 직접 failed 로 확정하고 쿠폰·포인트를 되돌린 뒤, 취소 상태의 주문과
-     * 결제행을 만들어 findRefundPending() 이 환불 대상으로 잡을 수 있게 한다.
+     * 클레임(claimForConversion)이 전환 트랜잭션 안에서 잡히므로, 재고 부족 등으로
+     * 그 트랜잭션이 롤백되면 시도는 pending 으로 되돌아간다. 이 메서드가 시작되는
+     * 시점과 실제로 상태를 확정하는 시점 사이에 markFailed()/expireStale() 이 같은
+     * 시도를 먼저 걷어갈 수 있으므로, finalizeStale() 과 동일하게 **조건부 UPDATE 를
+     * 맨 먼저** 실행해 그 결과(claimed)에 따라 복구 여부를 가른다 — 그래야 양쪽이
+     * 동시에 쿠폰·포인트를 복구하는 이중 환급을 막을 수 있다(이슈 #214 회귀).
+     *
+     * 단, 청구 흔적(취소 주문 + paid 결제행)은 경합에서 지더라도 반드시 남겨야
+     * 환불 추적(findRefundPending)이 끊기지 않는다 — 그래서 주문·결제행 생성은
+     * claimed 여부와 무관하게 항상 수행한다.
+     *
+     * 조건부 UPDATE 를 맨 앞에서 실행하므로 order_attempts 행 잠금도 가장 먼저
+     * 잡힌다 — finalizeStale() 의 잠금 순서(order_attempts → coupons/users)와
+     * 같아져, 기존에 반대 순서로 잠그던 데드락 가능성도 함께 없앤다.
      *
      * 실패한 트랜잭션이 롤백된 뒤 호출해야 하며, 자체 트랜잭션으로 처리한다.
      *
@@ -559,6 +588,17 @@ class OrderModel extends Model
             'cancelled_at'           => $now,
         ], true);
 
+        // 보상 주문 자체가 만들어지지 않으면 하위 INSERT 를 이어갈 이유가 없다.
+        // 시도는 여전히 'pending' 이므로(아직 조건부 UPDATE 를 타지 않았다) 다음
+        // expireStale()/markFailed() 스윕이 정상적으로 걷어간다.
+        if ($orderId === 0) {
+            $this->db->transRollback();
+            $this->db->resetTransStatus();
+            log_message('critical', "[Order] 보상 주문 생성 실패 — attempt_id={$attempt['id']}, order_number={$attempt['order_number']}");
+
+            return;
+        }
+
         $rows = [];
         foreach ($attempt['items'] as $item) {
             $rows[] = array_merge($item, ['order_id' => $orderId, 'created_at' => $now]);
@@ -583,23 +623,42 @@ class OrderModel extends Model
             ]);
         }
 
+        // 상태 전이를 조건부 UPDATE 로 먼저 확정한다(finalizeStale 과 같은 순서).
+        // 롤백으로 pending 이 된 시도를 만료 스윕·markFailed 가 먼저 걷어갔다면
+        // 쿠폰·포인트는 이미 복구된 것이므로 여기서 또 되돌리면 이중 환급이 된다.
+        $this->db->query(
+            'UPDATE order_attempts SET status = ?, failed_at = ?, fail_reason = ?, updated_at = ?
+             WHERE id = ? AND status = ?',
+            ['failed', $now, $note, $now, $attempt['id'], 'pending']
+        );
+        $claimed = $this->db->affectedRows() > 0;
+
         // 선점은 order_attempt_id 에 걸려 있으므로 두 키를 함께 넘긴다.
         // PHP 의 + 연산자는 왼쪽 배열의 키를 우선하므로 id 는 새 주문 id 로 덮인다.
         $restoreTarget = ['id' => $orderId, 'order_attempt_id' => $attempt['id']] + $attempt;
-        $this->restoreCoupon($restoreTarget);
-        $this->restorePoints($restoreTarget, 'stock');
+        if ($claimed) {
+            $this->restoreCoupon($restoreTarget);
+            $this->restorePoints($restoreTarget, 'stock');
+        }
 
+        // order_id 연결은 이번 호출이 claim 에서 졌더라도 항상 수행한다 — 방금
+        // 만든 보상 주문을 시도에서 추적할 수 있어야 한다.
         $this->db->table('order_attempts')->where('id', $attempt['id'])->update([
-            'status'      => 'failed',
-            'failed_at'   => $now,
-            'fail_reason' => $note,
-            'order_id'    => $orderId,
-            'updated_at'  => $now,
+            'order_id'   => $orderId,
+            'updated_at' => $now,
         ]);
 
         $this->writeStatusLog($orderId, '', 'cancelled', $note);
 
         $this->db->transComplete();
+
+        if (! $this->db->transStatus()) {
+            log_message('critical', "[Order] 보상 트랜잭션 커밋 실패 — attempt_id={$attempt['id']}, order_id={$orderId}");
+        }
+
+        // 이 트랜잭션의 성공·실패 여부가 다음 호출(같은 요청 내 다른 트랜잭션)에
+        // 새어나가지 않도록 항상 리셋한다.
+        $this->db->resetTransStatus();
     }
 
     /**

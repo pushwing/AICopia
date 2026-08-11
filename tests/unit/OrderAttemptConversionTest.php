@@ -30,6 +30,7 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         'orders'         => [],
         'products'       => [],
         'users'          => [],
+        'coupons'        => [],
     ];
 
     protected function setUp(): void
@@ -51,7 +52,12 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         }
         if ($this->cleanup['order_attempts'] !== []) {
             $db->table('point_logs')->whereIn('order_attempt_id', $this->cleanup['order_attempts'])->delete();
+            $db->table('user_coupons')->whereIn('order_attempt_id', $this->cleanup['order_attempts'])->delete();
             $db->table('order_attempts')->whereIn('id', $this->cleanup['order_attempts'])->delete();
+        }
+        if ($this->cleanup['coupons'] !== []) {
+            $db->table('user_coupons')->whereIn('coupon_id', $this->cleanup['coupons'])->delete();
+            $db->table('coupons')->whereIn('id', $this->cleanup['coupons'])->delete();
         }
         foreach (['products', 'users'] as $table) {
             if ($this->cleanup[$table] !== []) {
@@ -155,6 +161,30 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         return $orderId;
     }
 
+    /** @param array<string, mixed> $overrides */
+    private function insertCoupon(array $overrides = []): int
+    {
+        $db   = db_connect();
+        $data = array_merge([
+            'code'                => 'OCT' . uniqid(),
+            'name'                => 'OC쿠폰',
+            'type'                => 'fixed',
+            'discount_value'      => 1000,
+            'min_order_amount'    => 0,
+            'max_discount_amount' => 0,
+            'total_qty'           => 10,
+            'used_count'          => 5,
+            'is_active'           => 1,
+            'created_at'          => date('Y-m-d H:i:s'),
+            'updated_at'          => date('Y-m-d H:i:s'),
+        ], $overrides);
+        $db->table('coupons')->insert($data);
+        $id = (int) $db->insertID();
+        $this->cleanup['coupons'][] = $id;
+
+        return $id;
+    }
+
     /** C-01: 전환하면 orders + order_items 가 생기고 재고가 차감된다 */
     public function testConvertAttempt_createsOrderAndDeductsStock(): void
     {
@@ -234,9 +264,11 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         $this->assertSame(0, $orderId, '전환은 실패로 보고돼야 한다');
 
         // 청구는 이미 일어났으므로 환불 추적용 흔적이 남아야 한다.
+        // track()을 단언보다 먼저 실행해, 단언이 깨져도 보상 주문·payments·
+        // order_items·order_status_logs 가 테스트 DB 에 남지 않게 한다.
         $order = $db->table('orders')->where('user_id', $userId)->get()->getRowArray();
+        $this->track((int) ($order['id'] ?? 0));
         $this->assertNotNull($order);
-        $this->track((int) $order['id']);
         $this->assertSame('cancelled', $order['status']);
 
         $payment = $db->table('payments')->where('pg_tid', $tid)->get()->getRowArray();
@@ -245,5 +277,109 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
 
         $this->assertSame(1, (int) $db->table('products')->where('id', $product['id'])->get()->getRowArray()['stock']);
         $this->assertSame('failed', $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['status']);
+    }
+
+    /**
+     * C-05 (회귀 — Critical 리뷰): compensateFailedConversion() 이 이미 다른 주체가
+     * 걷어간 시도에 대해 쿠폰·포인트를 또 복구하면 안 된다 (이중 환급 금지).
+     *
+     * 실제 경합 창은 convertAttempt() 내부에서 전환 트랜잭션이 롤백된 직후(시도가
+     * DB 상 다시 'pending' 으로 보이는 순간)부터 compensateFailedConversion() 이
+     * order_attempts 를 조건부로 확정하는 순간까지다. 단일 스레드 PHPUnit 프로세스로는
+     * 그 찰나의 인터리빙을 그대로 재현할 수 없으므로, compensateFailedConversion() 이
+     * 호출되는 시점에 실제로 관찰하게 되는 사전 상태 — "시도가 이미 다른 주체
+     * (markFailed)에 의해 failed 로 확정되고 쿠폰·포인트가 이미 복구된 상태" —
+     * 를 직접 만든 뒤, 그 상태에서 compensateFailedConversion() 을 (Reflection 으로)
+     * 호출해 "복구가 두 번 일어나지 않는다"는 동작만 정밀하게 검증한다.
+     */
+    public function testCompensateFailedConversion_skipsRestore_whenAttemptAlreadyReapedElsewhere(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct(['stock' => 10]);
+
+        // used_count=5/total_qty=10 로 시작해, "선점으로 6 → 정상 복구 후 5" 를
+        // 코딩으로 관찰 가능하게 한다. GREATEST(0, ...) 클램프 때문에 0 근방에서는
+        // 이중 복구 여부가 값으로 드러나지 않는다.
+        $couponId = $this->insertCoupon(['used_count' => 5, 'total_qty' => 10]);
+
+        $db->table('users')->where('id', $userId)->update(['point_balance' => 5000]);
+
+        $attemptId = $this->attemptModel->createAttempt(
+            $userId,
+            [
+                'receiver_name'  => '테스트',
+                'receiver_phone' => '010-0000-0000',
+                'zipcode'        => '12345',
+                'address1'       => '서울시 테스트구',
+                'address2'       => null,
+                'delivery_memo'  => null,
+            ],
+            [[
+                'product_id'     => $product['id'],
+                'name'           => $product['name'],
+                'price'          => $product['price'],
+                'discount_price' => null,
+                'qty'            => 1,
+                'shipping_type'  => $product['shipping_type'],
+                'shipping_fee'   => $product['shipping_fee'],
+                'free_threshold' => $product['free_threshold'],
+            ]],
+            $couponId,
+            null,
+            1000,
+            5000,
+            0,
+            'toss'
+        );
+        $this->assertGreaterThan(0, $attemptId, '시도 생성(쿠폰·포인트 선점)은 성공해야 한다');
+        $this->cleanup['order_attempts'][] = $attemptId;
+
+        $this->assertSame(0, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance'], '선점 직후 포인트는 전액 차감돼야 한다');
+        $this->assertSame(6, (int) $db->table('coupons')->where('id', $couponId)->get()->getRowArray()['used_count'], '선점 직후 쿠폰 used_count 는 +1 이어야 한다');
+
+        // 경합 스윕 — 다른 주체(만료 스윕 등)가 compensateFailedConversion() 보다
+        // 먼저 이 시도를 걷어간다. 이 시점에 시도는 여전히 'pending' 이므로 성공한다.
+        $reaped = $this->attemptModel->markFailed($attemptId, '경쟁 스윕 — 다른 주체가 선점');
+        $this->assertTrue($reaped, '경쟁 스윕은 pending 상태에서 성공해야 한다');
+        $this->assertSame(5000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance'], '경쟁 스윕이 포인트를 정확히 1회 환급해야 한다');
+        $this->assertSame(5, (int) $db->table('coupons')->where('id', $couponId)->get()->getRowArray()['used_count'], '경쟁 스윕이 쿠폰 used_count 를 정확히 1회 되돌려야 한다');
+        $this->assertSame('failed', $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['status']);
+
+        // convertAttempt() 이 재고 부족 등으로 실패한 뒤 compensateFailedConversion()
+        // 에 실제로 넘기는 것과 동일한 형태의 attempt 배열을 준비한다.
+        $row     = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $attempt = $this->attemptModel->withItems($row);
+        $charge  = [
+            'pg_provider' => 'toss',
+            'pg_tid'      => 'TID-RACE-' . uniqid(),
+            'method'      => 'card',
+            'amount'      => 4000,
+            'raw'         => [],
+        ];
+
+        $method = new \ReflectionMethod(OrderModel::class, 'compensateFailedConversion');
+        $method->setAccessible(true);
+        $method->invoke($this->orderModel, $attempt, '테스트 보상 — 재고 부족(경합 재현)', $charge);
+
+        $compensated = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertNotNull($compensated['order_id'], '경합에서 졌더라도 보상 주문은 order_attempts 에 연결돼야 한다');
+        $this->track((int) $compensated['order_id']);
+
+        // 핵심 단언 — 이미 한 번 복구된 것을 또 복구하면 안 된다.
+        $this->assertSame(5000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance'], '이미 복구된 포인트를 compensateFailedConversion() 이 또 환급하면 안 된다');
+        $this->assertSame(5, (int) $db->table('coupons')->where('id', $couponId)->get()->getRowArray()['used_count'], '이미 복구된 쿠폰 used_count 를 compensateFailedConversion() 이 또 되돌리면 안 된다');
+        $this->assertSame(
+            1,
+            $db->table('point_logs')->where('order_attempt_id', $attemptId)->where('type', 'refund')->countAllResults(),
+            'refund 로그는 정확히 1건이어야 한다(이중 환급 금지)'
+        );
+
+        // 청구 흔적(취소 주문 + paid 결제행)은 경합에서 졌더라도 반드시 남아야 한다.
+        $order = $db->table('orders')->where('id', $compensated['order_id'])->get()->getRowArray();
+        $this->assertSame('cancelled', $order['status']);
+        $payment = $db->table('payments')->where('pg_tid', $charge['pg_tid'])->get()->getRowArray();
+        $this->assertNotNull($payment);
+        $this->assertSame('paid', $payment['status']);
     }
 }
