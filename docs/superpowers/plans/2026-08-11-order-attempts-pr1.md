@@ -855,16 +855,20 @@ git commit -m "✨ feat: OrderAttemptModel 주문 시도 생성 및 쿠폰·포�
     /** A-06: 수량 1장짜리 쿠폰은 두 번째 attempt 에서 선점에 실패한다 */
     public function testCreateAttempt_exhaustedCoupon_returnsZero(): void
     {
-        $db      = db_connect();
-        $userId  = $this->insertUser();
-        $product = $this->insertProduct();
-        $coupon  = $this->insertCoupon(['total_qty' => 1]);
+        $db        = db_connect();
+        $userId    = $this->insertUser();
+        $otherUser = $this->insertUser();
+        $product   = $this->insertProduct();
+        $coupon    = $this->insertCoupon(['total_qty' => 1]);
 
+        // user_coupons 에 UNIQUE(user_id, coupon_id) 가 있어(2026-06-10-000009) 한 사용자가
+        // 같은 쿠폰을 2장 가질 수 없다. 마지막 1장을 두고 두 사용자가 경합하는 형태가
+        // 실제 위협 모델이기도 하다.
         $firstUc  = $this->insertUserCoupon($userId, $coupon['id']);
-        $secondUc = $this->insertUserCoupon($userId, $coupon['id']);
+        $secondUc = $this->insertUserCoupon($otherUser, $coupon['id']);
 
         $first  = $this->createAttempt($userId, $product, 1, $coupon['id'], $firstUc, 3000);
-        $second = $this->createAttempt($userId, $product, 1, $coupon['id'], $secondUc, 3000);
+        $second = $this->createAttempt($otherUser, $product, 1, $coupon['id'], $secondUc, 3000);
 
         $this->assertGreaterThan(0, $first);
         $this->assertSame(0, $second, '소진된 쿠폰으로 두 번째 시도가 만들어지면 안 된다');
