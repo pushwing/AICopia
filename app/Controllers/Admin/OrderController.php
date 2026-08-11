@@ -16,6 +16,9 @@ class OrderController extends BaseController
     private readonly OrderModel     $orderModel;
     private readonly OrderMemoModel $memoModel;
 
+    // 필터 드롭다운 목록 · 상태 변경 화이트리스트 전용(레거시 pending/expired 제외).
+    // 라벨을 화면에 렌더링할 때는 이 상수가 아니라 전체 목록인
+    // App\Models\OrderModel::STATUS_LABELS 를 사용한다.
     private const array STATUS_LABELS = [
         'awaiting_payment'  => '입금 대기',
         'paid'              => '결제 완료',
@@ -89,6 +92,9 @@ class OrderController extends BaseController
                       (SELECT COUNT(*) FROM order_memos WHERE order_id = o.id) AS memo_count')
             ->join('users u', 'u.id = o.user_id', 'left')
             ->join('payments lp', 'lp.id = (SELECT MAX(id) FROM payments WHERE order_id = o.id)', 'left')
+            // 결제 확정 전 레거시 pending/expired 행은 목록에서 감춘다(삭제는 하지 않음 —
+            // point_logs·user_coupons 가 order_id 를 참조 중이라 고아 참조가 생긴다). (이슈 #214)
+            ->whereNotIn('o.status', ['pending', 'expired'])
             ->orderBy('o.id', 'DESC')
             ->get()->getResultArray();
 
@@ -111,7 +117,7 @@ class OrderController extends BaseController
             'payment_method' => $r['payment_method'] ?? '',
             'total_amount'   => (int) $r['total_amount'],
             'status'         => $r['status'],
-            'status_label'   => self::STATUS_LABELS[$r['status']] ?? $r['status'],
+            'status_label'   => OrderModel::STATUS_LABELS[$r['status']] ?? $r['status'],
             'memo_count'     => (int) $r['memo_count'],
         ], $rows);
 
@@ -191,7 +197,7 @@ class OrderController extends BaseController
             $sheet->setCellValue($col(7, $rowNum), $order['address2'] ?? '');
             $sheet->setCellValue($col(8, $rowNum), $productSummary);
             $sheet->setCellValue($col(9, $rowNum), (int) $order['total_amount']);
-            $sheet->setCellValue($col(10, $rowNum), self::STATUS_LABELS[$order['status']] ?? $order['status']);
+            $sheet->setCellValue($col(10, $rowNum), OrderModel::STATUS_LABELS[$order['status']] ?? $order['status']);
         }
 
         foreach (range('A', 'J') as $col) {
