@@ -285,6 +285,203 @@ class OrderAttemptModel extends Model
     }
 
     /**
+     * 전환을 위한 원자적 클레임.
+     *
+     * 조건부 UPDATE 가 행 잠금을 잡아 동시 콜백을 직렬화한다. 두 번째 요청은
+     * affectedRows 가 0 이라 null 을 받는다 — orders.status='pending' 을 조건으로
+     * 걸던 기존 confirmPaid() 의 멱등성 가드를 그대로 옮긴 것이다.
+     *
+     * @return array<string, mixed>|null 클레임에 성공한 attempt. 이미 처리됐으면 null.
+     */
+    public function claimForConversion(int $attemptId): ?array
+    {
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->query(
+            'UPDATE order_attempts SET status = ?, converted_at = ?, updated_at = ?
+             WHERE id = ? AND status = ?',
+            ['converted', $now, $now, $attemptId, 'pending']
+        );
+
+        if ($this->db->affectedRows() === 0) {
+            return null;
+        }
+
+        $attempt = $this->db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+
+        return $attempt === null ? null : $this->withItems($attempt);
+    }
+
+    /** 전환으로 만들어진 주문을 시도에 연결한다. */
+    public function linkOrder(int $attemptId, int $orderId): void
+    {
+        $this->db->table('order_attempts')->where('id', $attemptId)->update([
+            'order_id'   => $orderId,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * 결제 실패·이탈 확정 + 쿠폰·포인트 복구.
+     *
+     * 상태 전이를 조건부 UPDATE 로 먼저 확정하고, 성공했을 때만 복구를 돌린다.
+     * 그래서 두 번 불려도 포인트가 두 번 환급되지 않는다.
+     *
+     * @return bool 이번 호출이 실제로 복구를 수행했으면 true
+     */
+    public function markFailed(int $attemptId, string $reason): bool
+    {
+        return $this->finalizeStale($attemptId, 'failed', $reason);
+    }
+
+    /**
+     * N분 이상 지난 pending 시도를 만료 처리한다.
+     *
+     * 결제 실패 콜백이 오지 않은 경우의 안전망이다. 정상 이탈은 markFailed() 가
+     * 즉시 걷어가므로 여기까지 오는 건 콜백 자체가 유실된 경우다.
+     *
+     * @return int 실제로 만료 처리된 건수
+     */
+    public function expireStale(int $minutesOld = 30): int
+    {
+        $cutoff = date('Y-m-d H:i:s', strtotime("-{$minutesOld} minutes"));
+
+        $rows = $this->db->table('order_attempts')
+            ->select('id')
+            ->where('status', 'pending')
+            ->where('created_at <', $cutoff)
+            ->get()->getResultArray();
+
+        $count = 0;
+        foreach ($rows as $row) {
+            if ($this->finalizeStale((int) $row['id'], 'expired', '결제 미완료 자동 만료')) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * 사용자 소유의 진행 중 시도 1건. 콜백에서 쓴다.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findPendingForUser(int $attemptId, int $userId): ?array
+    {
+        $attempt = $this->db->table('order_attempts')
+            ->where('id', $attemptId)
+            ->where('user_id', $userId)
+            ->where('status', 'pending')
+            ->get()->getRowArray();
+
+        return $attempt === null ? null : $this->withItems($attempt);
+    }
+
+    /**
+     * pending 시도를 종료 상태로 확정하고 쿠폰·포인트를 되돌린다.
+     *
+     * 상태 전이가 이번 호출에서 실제로 일어났을 때만 복구한다 — 이 순서가
+     * 이중 환급을 구조적으로 막는다.
+     */
+    private function finalizeStale(int $attemptId, string $status, string $reason): bool
+    {
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->transStart();
+
+        $column = $status === 'failed' ? 'failed_at' : 'expired_at';
+        $this->db->query(
+            "UPDATE order_attempts SET status = ?, {$column} = ?, fail_reason = ?, updated_at = ?
+             WHERE id = ? AND status = ?",
+            [$status, $now, $reason, $now, $attemptId, 'pending']
+        );
+
+        if ($this->db->affectedRows() === 0) {
+            $this->db->transComplete();
+
+            return false;
+        }
+
+        $attempt = $this->db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->restoreCoupon($attempt);
+        $this->restorePoints($attempt, $status);
+
+        $this->db->transComplete();
+
+        return $this->db->transStatus();
+    }
+
+    /**
+     * 선점한 쿠폰을 되돌린다.
+     *
+     * @param array<string, mixed> $attempt
+     */
+    private function restoreCoupon(array $attempt): void
+    {
+        if (! $attempt['coupon_id'] || (int) $attempt['coupon_discount_amount'] === 0) {
+            return;
+        }
+
+        $this->db->query(
+            'UPDATE coupons SET used_count = GREATEST(0, used_count - 1) WHERE id = ?',
+            [$attempt['coupon_id']]
+        );
+
+        $uc = $this->db->table('user_coupons')
+            ->where('coupon_id', $attempt['coupon_id'])
+            ->where('order_attempt_id', $attempt['id'])
+            ->where('status', 'used')
+            ->get()->getRowArray();
+
+        if (! $uc) {
+            return;
+        }
+
+        // 코드 입력으로 그 자리에서 만들어진 행은 되돌릴 원래 상태가 없다.
+        if ($uc['source'] === 'code') {
+            $this->db->table('user_coupons')->where('id', $uc['id'])->delete();
+
+            return;
+        }
+
+        $this->db->table('user_coupons')->where('id', $uc['id'])->update([
+            'status'           => 'issued',
+            'order_attempt_id' => null,
+            'used_at'          => null,
+            'updated_at'       => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * 선점한 포인트를 환급한다.
+     *
+     * @param array<string, mixed> $attempt
+     */
+    private function restorePoints(array $attempt, string $status): void
+    {
+        $used = (int) $attempt['point_used_amount'];
+        if ($used <= 0) {
+            return;
+        }
+
+        $this->db->query(
+            'UPDATE users SET point_balance = point_balance + ? WHERE id = ?',
+            [$used, $attempt['user_id']]
+        );
+
+        $this->db->table('point_logs')->insert([
+            'user_id'          => $attempt['user_id'],
+            'type'             => 'refund',
+            'amount'           => $used,
+            'order_id'         => null,
+            'order_attempt_id' => $attempt['id'],
+            'note'             => $status === 'expired' ? '주문 만료 포인트 환급' : '결제 미완료 포인트 환급',
+            'created_at'       => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
      * items_snapshot 을 디코드해 items 키로 붙인다. PG 어댑터가 기대하는
      * 주문 배열 형태(order_number·payable_amount·receiver_name·items)를 만족시킨다.
      *

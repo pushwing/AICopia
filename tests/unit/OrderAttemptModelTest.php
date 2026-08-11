@@ -539,4 +539,125 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         $this->assertSame(0, $second);
         $this->assertSame(1, (int) $db->table('coupons')->where('id', $coupon['id'])->get()->getRowArray()['used_count']);
     }
+
+    /**
+     * A-11: 클레임은 한 번만 성공한다 (결제 멱등성의 핵심)
+     *
+     * claimForConversion() 의 UPDATE 는 status·converted_at·updated_at 을 매번
+     * 같은 목표값으로 다시 쓴다. WHERE status='pending' 가드 없이 같은 초(second)
+     * 안에서 두 번 호출하면, MySQL 의 affected_rows 는 "매치된 행 수"가 아니라
+     * "실제로 값이 바뀐 행 수"를 세기 때문에 두 번째 호출도 우연히 0 을 반환해
+     * 가드가 없어도 테스트가 통과해버린다(회귀를 못 잡는 공허한 테스트가 됨).
+     * 실제 PG 콜백 재전송은 수 초 간격으로도 벌어지므로, 1초 이상 텀을 둬서
+     * updated_at 이 실제로 달라지는 상황을 강제해야 가드 유무가 결과를 가른다.
+     */
+    public function testClaimForConversion_isIdempotent(): void
+    {
+        $userId    = $this->insertUser();
+        $product   = $this->insertProduct();
+        $attemptId = $this->createAttempt($userId, $product);
+
+        $first = $this->model->claimForConversion($attemptId);
+        sleep(1);
+        $second = $this->model->claimForConversion($attemptId);
+
+        $this->assertNotNull($first);
+        $this->assertSame($attemptId, (int) $first['id']);
+        $this->assertNull($second, '두 번째 클레임은 반드시 실패해야 한다');
+    }
+
+    /** A-12: markFailed 는 쿠폰·포인트를 복구한다 */
+    public function testMarkFailed_restoresCouponAndPoints(): void
+    {
+        $db           = db_connect();
+        $userId       = $this->insertUser(5000);
+        $product      = $this->insertProduct();
+        $coupon       = $this->insertCoupon();
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id']);
+
+        $attemptId = $this->createAttempt($userId, $product, 1, $coupon['id'], $userCouponId, 3000, 5000);
+
+        $this->assertTrue($this->model->markFailed($attemptId, '사용자 결제창 이탈'));
+
+        $this->assertSame(5000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance']);
+        $this->assertSame(0, (int) $db->table('coupons')->where('id', $coupon['id'])->get()->getRowArray()['used_count']);
+
+        $uc = $db->table('user_coupons')->where('id', $userCouponId)->get()->getRowArray();
+        $this->assertSame('issued', $uc['status']);
+        $this->assertNull($uc['order_attempt_id']);
+
+        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertSame('failed', $attempt['status']);
+        $this->assertSame('사용자 결제창 이탈', $attempt['fail_reason']);
+    }
+
+    /** A-13: markFailed 를 두 번 불러도 포인트는 한 번만 환급된다 */
+    public function testMarkFailed_twice_refundsPointsOnce(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser(5000);
+        $product = $this->insertProduct();
+
+        $attemptId = $this->createAttempt($userId, $product, 1, null, null, 0, 5000);
+
+        $this->assertTrue($this->model->markFailed($attemptId, '1차'));
+        $this->assertFalse($this->model->markFailed($attemptId, '2차'), '이미 처리된 시도는 다시 복구하면 안 된다');
+
+        $this->assertSame(5000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance']);
+        $this->assertSame(
+            1,
+            $db->table('point_logs')->where('order_attempt_id', $attemptId)->where('type', 'refund')->countAllResults()
+        );
+    }
+
+    /** A-14: 클레임된 시도는 실패 처리되지 않는다 */
+    public function testMarkFailed_afterClaim_returnsFalse(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser(5000);
+        $product = $this->insertProduct();
+
+        $attemptId = $this->createAttempt($userId, $product, 1, null, null, 0, 5000);
+        $this->model->claimForConversion($attemptId);
+
+        $this->assertFalse($this->model->markFailed($attemptId, '경합'));
+        $this->assertSame(0, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance']);
+    }
+
+    /** A-15: 30분 초과 pending 은 만료되고 복구된다. orders 는 생기지 않는다 */
+    public function testExpireStale_expiresAndRestores(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser(5000);
+        $product = $this->insertProduct();
+
+        $attemptId = $this->createAttempt($userId, $product, 1, null, null, 0, 5000);
+        $db->table('order_attempts')->where('id', $attemptId)->update([
+            'created_at' => date('Y-m-d H:i:s', strtotime('-40 minutes')),
+        ]);
+
+        $count = $this->model->expireStale(30);
+
+        $this->assertSame(1, $count);
+        $this->assertSame('expired', $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['status']);
+        $this->assertSame(5000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance']);
+        $this->assertSame(0, $db->table('orders')->where('user_id', $userId)->countAllResults());
+    }
+
+    /** A-16: 29분 지난 시도는 만료 대상이 아니다 */
+    public function testExpireStale_recentAttempt_untouched(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+
+        $attemptId = $this->createAttempt($userId, $product);
+        $db->table('order_attempts')->where('id', $attemptId)->update([
+            'created_at' => date('Y-m-d H:i:s', strtotime('-29 minutes')),
+        ]);
+
+        $this->model->expireStale(30);
+
+        $this->assertSame('pending', $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['status']);
+    }
 }
