@@ -29,9 +29,14 @@ class KakaoPayAdapter implements PGInterface
      */
     public function buildPaymentParams(array $order): array
     {
+        $keyError = $this->validateKeys();
+        if ($keyError !== null) {
+            return ['pg' => 'kakaopay', 'error' => $keyError];
+        }
+
         $ready = $this->ready($order);
         if (empty($ready['next_redirect_pc_url'])) {
-            return $this->buildReadyFailureResult();
+            return $this->buildReadyFailureResult(is_string($ready['msg'] ?? null) ? $ready['msg'] : null);
         }
 
         return [
@@ -47,11 +52,31 @@ class KakaoPayAdapter implements PGInterface
      * p.pg 값으로 PG별 처리를 분기하므로, 'pg' 키가 빠지면 카카오페이 전용 에러 처리로
      * 가지 못하고 "지원하지 않는 PG입니다" 로 떨어져 실제 원인을 가린다.
      *
+     * 카카오 API 가 실패 사유(msg)를 내려주면 뭉뚱그린 기본 문구 대신 그대로 노출해
+     * 운영자가 원인(키 오류·CID 미등록 등)을 바로 알 수 있게 한다.
+     *
      * @return array<string, mixed>
      */
-    private function buildReadyFailureResult(): array
+    private function buildReadyFailureResult(?string $apiMessage = null): array
     {
-        return ['pg' => 'kakaopay', 'error' => '카카오페이 결제 준비 실패'];
+        return ['pg' => 'kakaopay', 'error' => $apiMessage ?: '카카오페이 결제 준비 실패'];
+    }
+
+    /**
+     * 시크릿 키가 비어 있으면 카카오 API 가 401 을 던지고, ready() 응답에는
+     * next_redirect_pc_url 이 없어 무조건 "결제 준비 실패"로만 보인다.
+     * 토스 어댑터(TossPaymentsAdapter::validateKeys())와 동일하게 네트워크를 타기
+     * 전에 키 존재를 먼저 걸러 실제 설정 문제를 바로 보여준다.
+     *
+     * @return string|null 문제가 없으면 null, 있으면 사용자에게 보여줄 메시지
+     */
+    private function validateKeys(): ?string
+    {
+        if ($this->secretKey === '') {
+            return '카카오페이 시크릿 키가 설정되지 않았습니다. (.env 의 KAKAOPAY_SECRET_KEY)';
+        }
+
+        return null;
     }
 
     /**
