@@ -33,6 +33,10 @@ class PG extends BaseConfig
     public string $naverpayClientId     = '';
     public string $naverpayClientSecret = '';
     public string $naverpayChainId      = '';
+    public string $naverpayPartnerId    = '';
+    // SDK·API 서버가 함께 바뀌는 값이라 하나로 통일한다.
+    // development(dev.apis.naver.com, 테스트/심사 전 clientId) or production(apis.naver.com, 승인된 운영 clientId)
+    public string $naverpayMode = 'development';
 
     // ── PAYCO ────────────────────────────────────────────────────────────────
     public string $paycoSellerKey = '';
@@ -57,6 +61,8 @@ class PG extends BaseConfig
         $this->naverpayClientId     = env('NAVERPAY_CLIENT_ID', '');
         $this->naverpayClientSecret = env('NAVERPAY_CLIENT_SECRET', '');
         $this->naverpayChainId      = env('NAVERPAY_CHAIN_ID', '');
+        $this->naverpayPartnerId    = env('NAVERPAY_PARTNER_ID', '');
+        $this->naverpayMode         = env('NAVERPAY_MODE', 'development');
 
         $this->paycoSellerKey = env('PAYCO_SELLER_KEY', '');
         $this->paycoSecretKey = env('PAYCO_SECRET_KEY', '');
