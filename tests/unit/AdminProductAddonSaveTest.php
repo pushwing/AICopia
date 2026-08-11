@@ -163,7 +163,7 @@ final class AdminProductAddonSaveTest extends CIUnitTestCase
         $this->assertNotContains($hidden, $ids, '판매중이 아닌 상품은 후보에서 빠져야 한다');
     }
 
-    public function testAddonSearchExcludesSkuBearingProduct(): void
+    public function testAddonSearchIncludesSkuBearingProduct(): void
     {
         $this->insertProduct('MAIN');
         $hasSku = $this->insertProduct('HASSKU');
@@ -188,10 +188,10 @@ final class AdminProductAddonSaveTest extends CIUnitTestCase
         $body = json_decode((string) $response->getBody(), true);
         $ids  = array_map(static fn (array $r): int => (int) $r['id'], $body['items'] ?? []);
 
-        $this->assertNotContains(
+        $this->assertContains(
             $hasSku,
             $ids,
-            'SKU(옵션)를 가진 상품은 애드온 후보 검색 결과에서 제외돼야 한다 — 재고 무결성 보호',
+            'SKU(옵션)를 가진 상품도 애드온 후보 검색 결과에 나와야 한다',
         );
     }
 

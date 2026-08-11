@@ -1077,13 +1077,7 @@ class ProductController extends BaseController
         $builder = $this->addonProductBuilder()
             ->like('p.name', $keyword)
             ->where('p.status', 'on_sale')
-            ->where('p.deleted_at IS NULL', null, false)
-            // 옵션(SKU)이 있는 상품을 애드온으로 연결하면 옵션 재고가 차감되지 않아
-            // 재고 무결성이 깨진다(SKU 재고 무결성 방지). 옵션 지원은 후속 작업이므로
-            // 그때까지 검색 후보 단계에서부터 애초에 연결할 수 없게 막는다.
-            ->whereNotIn('p.id', static function (\CodeIgniter\Database\BaseBuilder $builder) {
-                return $builder->select('product_id')->from('product_skus');
-            });
+            ->where('p.deleted_at IS NULL', null, false);
 
         if ($exclude > 0) {
             $builder->where('p.id !=', $exclude);

@@ -160,6 +160,50 @@ final class ProductSkuTest extends CIUnitTestCase
         $this->assertSame(['S', 'M', 'L'], $values);
     }
 
+    // ── B: getOptionsAndSkusForProducts (배치) ───────────────────────────────
+
+    public function testGetOptionsAndSkusForProducts_emptyIds_returnsEmpty(): void
+    {
+        $this->assertSame([], $this->model->getOptionsAndSkusForProducts([]));
+    }
+
+    public function testGetOptionsAndSkusForProducts_mixOfWithAndWithoutOptions(): void
+    {
+        $withOpt = $this->insertProduct();
+        $noOpt   = $this->insertProduct();
+
+        $this->model->saveOptionsAndSkus($withOpt, [
+            'options' => [['name' => '색상', 'values' => [['tmp_id' => 'c1', 'value' => '빨강']]]],
+            'skus'    => [['price_diff' => 300, 'stock' => 4, 'sku_code' => null, 'value_tmp_ids' => ['c1']]],
+        ]);
+
+        $result = $this->model->getOptionsAndSkusForProducts([$withOpt, $noOpt]);
+
+        $this->assertCount(1, $result[$withOpt]['options']);
+        $this->assertSame('색상:빨강', $result[$withOpt]['skus'][0]['option_label']);
+        $this->assertEquals(300, (int) $result[$withOpt]['skus'][0]['price_diff']);
+        $this->assertSame(['options' => [], 'skus' => []], $result[$noOpt]);
+    }
+
+    public function testGetOptionsAndSkusForProducts_matchesSingleProductMethod(): void
+    {
+        $productId = $this->insertProduct();
+        $this->model->saveOptionsAndSkus($productId, [
+            'options' => [
+                ['name' => '색상', 'values'  => [['tmp_id' => 'c1', 'value' => '빨강']]],
+                ['name' => '사이즈', 'values' => [['tmp_id' => 's1', 'value' => 'S']]],
+            ],
+            'skus' => [
+                ['price_diff' => 500, 'stock' => 3, 'sku_code' => 'RED-S', 'value_tmp_ids' => ['c1', 's1']],
+            ],
+        ]);
+
+        $single = $this->model->getOptionsAndSkus($productId);
+        $batch  = $this->model->getOptionsAndSkusForProducts([$productId])[$productId];
+
+        $this->assertSame($single, $batch, '단건 조회와 배치 조회 결과가 같은 상품에 대해 동일해야 한다');
+    }
+
     // ── S: saveOptionsAndSkus ─────────────────────────────────────────────────
 
     public function testSaveOptionsAndSkus_emptyOptions_savesNothing(): void

@@ -32,6 +32,21 @@ final class ProductDetailAddonTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         $db = db_connect();
+
+        if ($this->cleanup['products'] !== []) {
+            $skuRows = $db->table('product_skus')->whereIn('product_id', $this->cleanup['products'])->get()->getResultArray();
+            if ($skuRows) {
+                $db->table('product_sku_values')->whereIn('sku_id', array_column($skuRows, 'id'))->delete();
+            }
+            $db->table('product_skus')->whereIn('product_id', $this->cleanup['products'])->delete();
+
+            $optRows = $db->table('product_options')->whereIn('product_id', $this->cleanup['products'])->get()->getResultArray();
+            if ($optRows) {
+                $db->table('product_option_values')->whereIn('option_id', array_column($optRows, 'id'))->delete();
+            }
+            $db->table('product_options')->whereIn('product_id', $this->cleanup['products'])->delete();
+        }
+
         foreach (['product_addons', 'products'] as $table) {
             if ($this->cleanup[$table] !== []) {
                 $db->table($table)->whereIn('id', $this->cleanup[$table])->delete();
@@ -155,6 +170,52 @@ final class ProductDetailAddonTest extends CIUnitTestCase
             $html,
             'addonsData JSON에 JSON_HEX_TAG/JSON_HEX_APOS hex-escape 형태가 없음',
         );
+    }
+
+    /**
+     * 옵션(SKU)이 있는 애드온은 본품처럼 옵션 select 가 카드 안에 렌더링돼야 한다.
+     */
+    public function testRendersOptionSelectForSkuBearingAddon(): void
+    {
+        $main  = $this->insertProduct('MAIN');
+        $addon = $this->insertProduct('ADDON');
+
+        $db = db_connect();
+        $db->table('product_options')->insert([
+            'product_id' => $addon,
+            'name'       => '색상',
+            'sort_order' => 0,
+        ]);
+        $optionId = (int) $db->insertID();
+        $db->table('product_option_values')->insert([
+            'option_id'  => $optionId,
+            'value'      => '빨강',
+            'sort_order' => 0,
+        ]);
+        $valueId = (int) $db->insertID();
+        $db->table('product_skus')->insert([
+            'product_id' => $addon,
+            'price_diff' => 1000,
+            'stock'      => 5,
+            'sku_code'   => null,
+        ]);
+        $skuId = (int) $db->insertID();
+        $db->table('product_sku_values')->insert([
+            'sku_id'          => $skuId,
+            'option_value_id' => $valueId,
+        ]);
+
+        $this->link($main, [$addon]);
+
+        $html = $this->detail($main);
+
+        $this->assertMatchesRegularExpression(
+            '/addon-option-select[^>]*data-addon-idx="0"/',
+            $html,
+            '옵션이 있는 애드온에는 옵션 select 가 렌더링돼야 한다',
+        );
+        $this->assertStringContainsString('빨강', $html, '옵션값이 select 안에 렌더링돼야 한다');
+        $this->assertStringContainsString('"price_diff":1000', $html, 'addonsData JSON에 SKU price_diff가 포함돼야 한다');
     }
 
     /**
