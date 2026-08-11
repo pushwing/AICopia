@@ -104,4 +104,48 @@ final class KakaoPayErrorResponseTest extends CIUnitTestCase
         $this->assertArrayHasKey('msg', $result);
         $this->assertStringContainsString('카카오페이 서버 연결 실패', (string) $result['msg']);
     }
+
+    /**
+     * 카카오 표준 에러 포맷("msg" 키)이 아니라 게이트웨이 단계 등에서 다른
+     * 형식으로 거부되면 뭉뚱그린 "HTTP 400" 문구만으로는 어떤 필드가 문제인지
+     * 알 수 없다. msg 가 없을 때는 원본 응답 바디를 그대로 실어, 카카오가
+     * 실제로 어떤 키・값으로 응답했는지 바로 보이게 한다.
+     */
+    public function testInterpretResponseIncludesRawBodyWhenMsgMissing(): void
+    {
+        $adapter = new KakaoPayAdapter();
+        $invoker = $this->getPrivateMethodInvoker($adapter, 'interpretResponse');
+
+        /** @var array<string, mixed> $result */
+        $result = $invoker(400, '{"code":-1,"error_description":"invalid client"}');
+
+        $this->assertStringContainsString('HTTP 400', (string) $result['msg']);
+        $this->assertStringContainsString('error_description', (string) $result['msg']);
+        $this->assertStringContainsString('invalid client', (string) $result['msg']);
+    }
+
+    /** 카카오가 표준 msg 를 내려주면 원본 바디를 덧붙이지 않고 그대로 쓴다. */
+    public function testInterpretResponseKeepsApiMsgWhenPresent(): void
+    {
+        $adapter = new KakaoPayAdapter();
+        $invoker = $this->getPrivateMethodInvoker($adapter, 'interpretResponse');
+
+        /** @var array<string, mixed> $result */
+        $result = $invoker(400, '{"msg":"invalid param(cid has invalid value)"}');
+
+        $this->assertSame('invalid param(cid has invalid value)', $result['msg']);
+    }
+
+    /** JSON 이 아닌 응답(HTML 에러 페이지 등)도 별도 메시지로 구분한다. */
+    public function testInterpretResponseHandlesUnparsableBody(): void
+    {
+        $adapter = new KakaoPayAdapter();
+        $invoker = $this->getPrivateMethodInvoker($adapter, 'interpretResponse');
+
+        /** @var array<string, mixed> $result */
+        $result = $invoker(502, '<html>Bad Gateway</html>');
+
+        $this->assertStringContainsString('파싱 실패', (string) $result['msg']);
+        $this->assertStringContainsString('HTTP 502', (string) $result['msg']);
+    }
 }
