@@ -19,6 +19,18 @@ $userCoupons  = $userCoupons ?? [];
 $available = \App\Libraries\AddonGrouping::order($available ?? []);
 ?>
 
+<style>
+/* INIStdPay.css 는 부트스트랩3 방식(.fade.in { opacity: 1 })을 기대하는데
+   이 프로젝트는 부트스트랩5(.fade.show)를 쓴다. 부트스트랩5의 전역 .fade
+   규칙이 이니시스가 주입한 레이어에도 적용돼 opacity:0으로 고정되고,
+   display/pointer-events는 그대로라 화면 전체가 보이지 않는 채로 클릭만
+   막는 먹통 레이어가 된다 — 이니시스 레이어에 한정해 되돌린다. */
+.inipay_modal.fade.in,
+.inipay_modal-backdrop.fade.in {
+    opacity: 1 !important;
+}
+</style>
+
 <div class="container py-4">
 
     <h4 class="fw-bold mb-4">주문서</h4>
@@ -343,6 +355,11 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                             <?= number_format($totalAmount) ?>원 결제하기
                         </button>
 
+                        <div id="paymentStuckHint" class="text-center small text-danger mt-2 d-none">
+                            결제창이 응답하지 않나요?
+                            <a href="#" id="btnPaymentReload" class="text-danger fw-bold">새로고침</a>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -643,10 +660,30 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         return !! e && PAYMENT_CANCELED_CODES.includes(e.code);
     }
 
+    // 일부 PG(이니시스 등)는 결제창을 새 창이 아니라 현재 페이지 위 레이어(오버레이)로 띄운다.
+    // 그 레이어 안 콘텐츠가 비정상 종료되면(예: 광고 삽입) PG SDK 가 종료 신호를 못 받아
+    // 오버레이만 남아 화면이 먹통이 될 수 있다 — 새로고침 탈출구를 보여준다.
+    let paymentStuckTimer = null;
+    function armPaymentStuckHint(delayMs) {
+        clearTimeout(paymentStuckTimer);
+        paymentStuckTimer = setTimeout(function () {
+            document.getElementById('paymentStuckHint')?.classList.remove('d-none');
+        }, delayMs);
+    }
+    function disarmPaymentStuckHint() {
+        clearTimeout(paymentStuckTimer);
+        document.getElementById('paymentStuckHint')?.classList.add('d-none');
+    }
+    document.getElementById('btnPaymentReload')?.addEventListener('click', function (e) {
+        e.preventDefault();
+        location.reload();
+    });
+
     // ─── 주문 생성 → PG 결제창 ────────────────────────────────────────────────
     document.getElementById('btnOrder')?.addEventListener('click', async function () {
         if (! validate()) return;
 
+        disarmPaymentStuckHint();
         const btn = this;
         btn.disabled    = true;
         btn.textContent = '처리 중...';
@@ -774,6 +811,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                 throw new Error('이니시스 결제 모듈을 불러오지 못했습니다.');
             }
             INIStdPay.pay('SendPayForm_id');
+            armPaymentStuckHint(10000);
             return;
         }
 
