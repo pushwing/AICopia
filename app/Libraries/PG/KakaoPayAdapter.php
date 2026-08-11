@@ -31,7 +31,7 @@ class KakaoPayAdapter implements PGInterface
     {
         $ready = $this->ready($order);
         if (empty($ready['next_redirect_pc_url'])) {
-            return ['error' => '카카오페이 결제 준비 실패'];
+            return $this->buildReadyFailureResult();
         }
 
         return [
@@ -40,6 +40,18 @@ class KakaoPayAdapter implements PGInterface
             'mobileUrl'   => $ready['next_redirect_mobile_url'] ?? '',
             'tid'         => $ready['tid'],
         ];
+    }
+
+    /**
+     * ready() 실패 시 반환값에도 'pg' 키를 넣어야 한다 — checkout.php 의 launchPG() 가
+     * p.pg 값으로 PG별 처리를 분기하므로, 'pg' 키가 빠지면 카카오페이 전용 에러 처리로
+     * 가지 못하고 "지원하지 않는 PG입니다" 로 떨어져 실제 원인을 가린다.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildReadyFailureResult(): array
+    {
+        return ['pg' => 'kakaopay', 'error' => '카카오페이 결제 준비 실패'];
     }
 
     /**
