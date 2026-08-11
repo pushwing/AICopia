@@ -1065,6 +1065,10 @@ class OrderModel extends Model
             } else {
                 $builder->where('status', $status);
             }
+        } else {
+            // "전체" 탭 기본 조회에서는 미결제 자동 만료 주문을 제외한다.
+            // 만료 주문은 "취소/환불" 탭(status=cancel)에서 계속 확인 가능하다.
+            $builder->where('status !=', 'expired');
         }
 
         $total  = (clone $builder)->countAllResults();
