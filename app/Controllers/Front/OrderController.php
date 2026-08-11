@@ -208,7 +208,12 @@ class OrderController extends BaseController
         }
 
         if ($saveAddress) {
-            $this->addressModel->saveAddress($userId, $shippingData);
+            // 첫 번째 주소는 자동으로 기본 배송지로 설정 (MyPageController::addressStore() 와 동일한 규칙)
+            $isFirstAddress = $this->addressModel->where('user_id', $userId)->countAllResults() === 0;
+            $addressId      = $this->addressModel->saveAddress($userId, $shippingData);
+            if ($isFirstAddress) {
+                $this->addressModel->setDefault($addressId, $userId);
+            }
         }
 
         // 무료 주문 — 결제창 없이 바로 확정한다(재고 차감·장바구니 비우기는 confirmFree 안에서).
