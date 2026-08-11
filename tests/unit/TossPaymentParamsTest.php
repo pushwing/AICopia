@@ -88,7 +88,7 @@ final class TossPaymentParamsTest extends CIUnitTestCase
      * 뷰에서 orderId 를 콜백의 attempt_id 로 재사용하면, orderId 가 주문번호로 바뀌는
      * 순간 콜백이 주문 시도를 찾지 못한다(콜백은 DB PK 로 조회한다).
      */
-    public function testSuccessUrlPointsToCallbackWithDatabaseOrderId(): void
+    public function testSuccessUrlPointsToCallbackWithAttemptId(): void
     {
         $params = $this->adapter()->buildPaymentParams($this->order());
 

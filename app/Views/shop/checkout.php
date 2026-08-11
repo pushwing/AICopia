@@ -812,7 +812,10 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         }
 
         if (pg === 'payco') {
-            location.href = p.returnUrl || '/payment/callback/payco?order_id=' + p.orderId;
+            // returnUrl 은 PaycoAdapter::buildPaymentParams() 가 항상 채워 보낸다(다른
+            // PG와 동일 패턴). 폴백을 두면 p.orderId(=order_number, PK 아님)로
+            // attempt_id 를 가장한 잘못된 콜백 URL을 만들게 되므로 폴백을 두지 않는다.
+            location.href = p.returnUrl;
             return;
         }
 
