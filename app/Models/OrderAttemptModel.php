@@ -45,7 +45,8 @@ class OrderAttemptModel extends Model
      * @param array<string, mixed>             $shippingData
      * @param array<int, array<string, mixed>> $cartItems
      *
-     * @return int attempt id. 선점 실패(쿠폰 소진·포인트 부족)나 금액 불일치면 0.
+     * @return int attempt id. 빈 장바구니, 선점 실패(쿠폰 소진·포인트 부족), 금액 불일치,
+     *             주문번호 채번 실패면 0.
      */
     public function createAttempt(
         int $userId,
@@ -58,6 +59,11 @@ class OrderAttemptModel extends Model
         int $pointEarned = 0,
         ?string $pgProvider = null
     ): int {
+        // 빈 스냅샷으로 PG 결제창이 뜨는 것을 결제 전에 차단한다.
+        if ($cartItems === []) {
+            return 0;
+        }
+
         $orderModel = new OrderModel();
 
         // 옵션 추가금까지 포함한 실제 단가로 합산한다 — items_snapshot 과
@@ -91,6 +97,23 @@ class OrderAttemptModel extends Model
 
         $this->db->transStart();
 
+        // generateOrderNumber() 가 직전에 두 테이블 모두 비어 있음을 확인했지만, 그
+        // 확인과 이 INSERT 사이에 다른 요청이 같은 번호를 먼저 잡는 잔여 경합은 여전히
+        // 남는다 — order_attempts 의 UNIQUE 인덱스가 최종 방어선이다.
+        //
+        // 이 INSERT 는 예외를 던지지 않는다: DBDebug=true(app/Config/Database.php:36,174)
+        // 라도, 바로 위 transStart() 로 이미 트랜잭션이 열려 있는 상태(transDepth !== 0)
+        // 에서는 CodeIgniter 가 UNIQUE 위반을 예외로 다시 던지지 않고 insert() 가
+        // false 를 반환하도록 삼킨다(BaseConnection::query() — transException 을 켜지
+        // 않는 한 항상 이렇다. 트랜잭션 밖에서 단독 호출하면 예외가 던져진다). 이는
+        // try/catch 로 감싸봤어도 PHPStan 이 "Dead catch" 로 잡아낼 만큼 실측·정적
+        // 분석 모두로 확인된 동작이다.
+        //
+        // 대신 실패는 두 겹으로 이미 0 으로 수렴한다: insert() 가 false 를 반환하면
+        // (int) false === 0 이라 $attemptId 자체가 0 이 되고, 실패한 쿼리는
+        // handleTransStatus() 를 통해 $this->db->transStatus() 를 false 로 남기므로
+        // 아래 transComplete() 이후의 최종 반환문이 $attemptId 값과 무관하게 0 을
+        // 반환한다.
         $attemptId = (int) $this->insert([
             'user_id'                => $userId,
             'order_number'           => $orderNumber,
@@ -277,7 +300,8 @@ class OrderAttemptModel extends Model
         // 깨진 채로 조용히 [] 가 되면, 전환 시점에 상품 라인이 0건인 주문이 결제
         // 완료 상태로 만들어질 수 있다 — 실패는 반드시 로깅한다.
         if (! is_array($decoded)) {
-            log_message('critical', "[OrderAttempt] items_snapshot 디코드 실패 — attempt_id={$attempt['id']}");
+            $attemptId = $attempt['id'] ?? '?';
+            log_message('critical', "[OrderAttempt] items_snapshot 디코드 실패 — attempt_id={$attemptId}");
             $decoded = [];
         }
 
@@ -299,12 +323,13 @@ class OrderAttemptModel extends Model
      * 최대 10회 시도하며, 모두 충돌하면 null 을 반환한다.
      *
      * 동시 요청이 같은 후보를 고르는 경합은 order_attempts 의 UNIQUE 인덱스가
-     * 최종 방어선으로 잡는다(INSERT 실패 → 트랜잭션 롤백) — 결제 이전이라 허용된다.
+     * 최종 방어선으로 잡는다(INSERT 실패 → 트랜잭션 롤백, createAttempt() 의
+     * INSERT 주변 주석 참고) — 결제 이전이라 허용된다.
      */
     private function generateOrderNumber(): ?string
     {
         for ($i = 0; $i < 10; $i++) {
-            $candidate = 'ORD-' . date('Ymd') . '-' . str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
+            $candidate = $this->orderNumberCandidate();
 
             $existsInAttempts = $this->db->table('order_attempts')
                 ->where('order_number', $candidate)
@@ -319,5 +344,11 @@ class OrderAttemptModel extends Model
         }
 
         return null;
+    }
+
+    /** 후보 주문번호 1개. 테스트가 시퀀스를 주입할 수 있도록 분리돼 있다. */
+    protected function orderNumberCandidate(): string
+    {
+        return 'ORD-' . date('Ymd') . '-' . str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
     }
 }

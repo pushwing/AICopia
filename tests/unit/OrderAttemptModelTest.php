@@ -351,5 +351,145 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         $result = $this->model->withItems($attempt);
 
         $this->assertSame([], $result['items']);
+        // `json_decode(...) ?: []` 로 되돌리면 디코드 실패(false)와 정상 빈 배열([])을
+        // 구분하지 못해도 items 는 여전히 [] 라 위 assertSame 만으로는 회귀를 못 잡는다
+        // (재리뷰 지적 #1). 관측 가능한 유일한 차이인 critical 로그를 함께 검증한다.
+        // CI4 는 ENVIRONMENT === 'testing' 이면 log_message() 를 TestLogger 로 보내므로
+        // 별도 셋업 없이 assertLogged() 를 쓸 수 있다.
+        $this->assertLogged('critical', '[OrderAttempt] items_snapshot 디코드 실패 — attempt_id=999999');
+    }
+
+    /**
+     * 테스트가 후보 주문번호 시퀀스를 결정론적으로 주입할 수 있도록,
+     * orderNumberCandidate() 를 오버라이드한 익명 서브클래스를 만든다.
+     * 시퀀스가 소진되면 마지막 값을 계속 반환한다(10회 연속 충돌 테스트용).
+     *
+     * @param list<string> $candidates
+     */
+    private function modelWithCandidates(array $candidates): OrderAttemptModel
+    {
+        return new class ($candidates) extends OrderAttemptModel {
+            private int $callCount = 0;
+
+            /** @param list<string> $candidates */
+            public function __construct(private readonly array $candidates)
+            {
+                parent::__construct();
+            }
+
+            protected function orderNumberCandidate(): string
+            {
+                $value = $this->candidates[$this->callCount] ?? $this->candidates[array_key_last($this->candidates)];
+                $this->callCount++;
+
+                return $value;
+            }
+        };
+    }
+
+    /** order_attempts 테이블에 최소 컬럼만 채워 채번 충돌용 행을 직접 심는다. */
+    private function insertRawAttempt(string $orderNumber, int $userId): int
+    {
+        $db = db_connect();
+        $db->table('order_attempts')->insert([
+            'user_id'        => $userId,
+            'order_number'   => $orderNumber,
+            'status'         => 'pending',
+            'receiver_name'  => '테스트',
+            'receiver_phone' => '010-0000-0000',
+            'zipcode'        => '12345',
+            'address1'       => '서울시 테스트구',
+            'items_snapshot' => '[]',
+            'created_at'     => date('Y-m-d H:i:s'),
+            'updated_at'     => date('Y-m-d H:i:s'),
+        ]);
+        $id = (int) $db->insertID();
+        $this->cleanup['order_attempts'][] = $id;
+
+        return $id;
+    }
+
+    /** orders 테이블에 최소 컬럼만 채워 채번 충돌용 행을 직접 심는다. */
+    private function insertRawOrder(string $orderNumber, int $userId): int
+    {
+        $db = db_connect();
+        $db->table('orders')->insert([
+            'user_id'        => $userId,
+            'order_number'   => $orderNumber,
+            'receiver_name'  => '테스트',
+            'receiver_phone' => '010-0000-0000',
+            'zipcode'        => '12345',
+            'address1'       => '서울시 테스트구',
+        ]);
+        $id = (int) $db->insertID();
+        $this->cleanup['orders'][] = $id;
+
+        return $id;
+    }
+
+    /** A-08(a): 후보가 orders 에만 이미 있으면 다음 후보로 재시도한다 (재리뷰 지적 #2) */
+    public function testCreateAttempt_orderNumberCandidate_retriesWhenTakenInOrders(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+
+        $taken = 'ORD-' . date('Ymd') . '-11111';
+        $free  = 'ORD-' . date('Ymd') . '-22222';
+        $this->insertRawOrder($taken, $userId);
+
+        $model = $this->modelWithCandidates([$taken, $free]);
+        $id    = $model->createAttempt($userId, $this->shippingData(), [$this->makeCartItem($product)], null, null, 0, 0, 0, 'toss');
+        if ($id > 0) {
+            $this->cleanup['order_attempts'][] = $id;
+        }
+
+        $this->assertGreaterThan(0, $id);
+        $attempt = $db->table('order_attempts')->where('id', $id)->get()->getRowArray();
+        $this->assertSame($free, $attempt['order_number']);
+    }
+
+    /** A-08(b): 후보가 order_attempts 에만 이미 있으면 다음 후보로 재시도한다 (재리뷰 지적 #2) */
+    public function testCreateAttempt_orderNumberCandidate_retriesWhenTakenInAttempts(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+
+        $taken = 'ORD-' . date('Ymd') . '-33333';
+        $free  = 'ORD-' . date('Ymd') . '-44444';
+        $this->insertRawAttempt($taken, $userId);
+
+        $model = $this->modelWithCandidates([$taken, $free]);
+        $id    = $model->createAttempt($userId, $this->shippingData(), [$this->makeCartItem($product)], null, null, 0, 0, 0, 'toss');
+        if ($id > 0) {
+            $this->cleanup['order_attempts'][] = $id;
+        }
+
+        $this->assertGreaterThan(0, $id);
+        $attempt = $db->table('order_attempts')->where('id', $id)->get()->getRowArray();
+        $this->assertSame($free, $attempt['order_number']);
+    }
+
+    /**
+     * A-08(c): 10회 연속 충돌하면 createAttempt() 가 0 을 반환하고 트랜잭션을 열지
+     * 않는다(= order_attempts 에 행이 생기지 않는다) (재리뷰 지적 #2)
+     */
+    public function testCreateAttempt_orderNumberCandidate_allTenCollide_returnsZeroWithoutInserting(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+
+        $taken = 'ORD-' . date('Ymd') . '-55555';
+        $this->insertRawAttempt($taken, $userId);
+        $beforeCount = $db->table('order_attempts')->countAllResults();
+
+        // 후보 시퀀스를 항상 같은(이미 선점된) 값만 반환하도록 해 10회 모두 충돌시킨다.
+        $model = $this->modelWithCandidates([$taken]);
+        $id    = $model->createAttempt($userId, $this->shippingData(), [$this->makeCartItem($product)], null, null, 0, 0, 0, 'toss');
+
+        $this->assertSame(0, $id);
+        $this->assertSame($beforeCount, $db->table('order_attempts')->countAllResults());
     }
 }
