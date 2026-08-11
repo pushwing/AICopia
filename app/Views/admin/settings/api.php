@@ -137,12 +137,17 @@
         </div>
     </div>
 
-    <!-- 네이버 쇼핑 검색 API -->
+    <!-- 네이버 이미지 검색 API -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white fw-semibold">
-            <span class="badge bg-success me-2">N</span>네이버 쇼핑 검색 API
+            <span class="badge bg-success me-2">N</span>네이버 이미지 검색 API
         </div>
         <div class="card-body">
+            <p class="small text-muted">
+                상품등록 화면의 "네이버 이미지 검색"에 사용됩니다. 네이버 쇼핑 검색 API는
+                2026-07-31부로 대체 API 없이 종료되어, 같은 애플리케이션의 이미지 검색으로
+                대체 적용했습니다.
+            </p>
             <div class="mb-3">
                 <label class="form-label small fw-semibold">클라이언트 ID</label>
                 <input type="text" name="naver_shopping_client_id" class="form-control form-control-sm"

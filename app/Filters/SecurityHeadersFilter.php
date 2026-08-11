@@ -34,7 +34,8 @@ class SecurityHeadersFilter implements FilterInterface
             "style-src 'self' cdn.jsdelivr.net stdpay.inicis.com 'unsafe-inline'",
 
             // stdux.inicis.com — 이니시스 결제창 UI 이미지(닫기 버튼 등)
-            "img-src 'self' data: blob: shopping-phinf.pstatic.net stdux.inicis.com",
+            // search.pstatic.net — 상품등록 "네이버 이미지 검색" 결과 미리보기(썸네일 프록시)
+            "img-src 'self' data: blob: search.pstatic.net stdux.inicis.com",
 
             "font-src 'self' cdn.jsdelivr.net data:",
 
