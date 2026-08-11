@@ -789,7 +789,24 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         }
 
         if (pg === 'naverpay') {
-            alert('네이버페이 결제창을 엽니다. (실제 SDK 연동 필요)');
+            await loadScript('https://nsp.pay.naver.com/sdk/js/naverpay.min.js');
+
+            if (typeof Naver === 'undefined' || !Naver.Pay) {
+                throw new Error('네이버페이 결제 모듈을 불러오지 못했습니다.');
+            }
+
+            const payConfig = { clientId: p.clientId };
+            if (p.chainId) payConfig.chainId = p.chainId;
+
+            const oPay = Naver.Pay.create(payConfig);
+            oPay.open({
+                merchantPayKey:    p.orderId,
+                productName:       p.productName,
+                totalPayAmount:    p.totalPayAmount,
+                taxScopeAmount:    p.taxScopeAmount,
+                taxExScopeAmount:  p.taxExScopeAmount,
+                returnUrl:         p.returnUrl,
+            });
             return;
         }
 
