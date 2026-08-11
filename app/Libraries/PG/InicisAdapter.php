@@ -134,6 +134,7 @@ class InicisAdapter implements PGInterface
         $ch = curl_init($this->apiBase . $path);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 5,
             CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
             CURLOPT_CUSTOMREQUEST  => $method,
             CURLOPT_POSTFIELDS     => http_build_query($body),

@@ -109,6 +109,7 @@ class NaverPayAdapter implements PGInterface
         $ch = curl_init($this->apiBase . $path);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 5,
             CURLOPT_HTTPHEADER     => [
                 'X-Naver-Client-Id: ' . $this->clientId,
                 'X-Naver-Client-Secret: ' . $this->clientSecret,
