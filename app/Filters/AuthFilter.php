@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filters;
 
+use App\Libraries\FrameBridge;
 use CodeIgniter\Filters\FilterInterface;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -22,6 +23,13 @@ class AuthFilter implements FilterInterface
         $requiredRole = $arguments[0] ?? 'member';
 
         if (! $isLoggedIn) {
+            // 이니시스·나이스페이 결제 레이어(iframe) 안에서 로드되면 SameSite=Lax
+            // 세션 쿠키가 안 실려 로그인 상태가 비어 보인다 — 로그인 화면으로
+            // 튕기지 말고 최상위 창을 같은 URL로 이동시키는 탈출 페이지를 준다.
+            if (FrameBridge::isFramed($request)) {
+                return service('response')->setBody(FrameBridge::render((string) current_url(true)));
+            }
+
             session()->setTempdata('redirect_url', current_url(), 300);
             return redirect()->to('/auth/login')->with('error', '로그인이 필요합니다.');
         }
