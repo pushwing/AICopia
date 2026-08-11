@@ -1537,7 +1537,12 @@ class OrderModel extends Model
      */
     private function restoreCoupon(array $order): void
     {
-        if (! $order['coupon_id'] || (int) $order['coupon_discount_amount'] === 0) {
+        // 선점은 coupon_id 유무만으로 일어나고 할인 금액과는 무관하다 —
+        // 무료배송 쿠폰을 배송비 0원 주문에 쓰면 할인액이 0이 될 수 있는데,
+        // 여기서 금액 조건을 추가로 걸면 그런 케이스만 복구가 누락돼
+        // coupons.used_count 가 부풀고 user_coupons 가 'used' 로 영구히
+        // 묶인다. 복구 조건은 반드시 선점 조건과 대칭이어야 한다.
+        if (! $order['coupon_id']) {
             return;
         }
 

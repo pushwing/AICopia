@@ -765,4 +765,41 @@ final class OrderAttemptModelTest extends CIUnitTestCase
             'source=code 행은 update 가 아니라 delete 로 복구되어야 한다'
         );
     }
+
+    /**
+     * A-21: 무료배송 쿠폰(할인액 0원)으로 배송비가 이미 0원인 주문을 시도한 뒤
+     * 실패하면, 선점된 쿠폰이 반드시 복구되어야 한다.
+     *
+     * restoreCoupon() 이 과거 `coupon_discount_amount !== 0` 을 추가 조건으로
+     * 요구했을 때는, preemptCoupon() 이 금액과 무관하게 무조건 선점했던 것과
+     * 비대칭이라 이 케이스에서 복구가 누락됐다 — coupons.used_count 가 영원히
+     * 부풀고 user_coupons 가 'used' 로 영구히 묶이는 회귀(쿠폰 영구 잠김)였다.
+     * couponDiscountAmount 를 0 으로 명시해 그 경로를 직접 재현한다.
+     */
+    public function testMarkFailed_freeShippingCouponWithZeroDiscount_stillRestoresCoupon(): void
+    {
+        $db           = db_connect();
+        $userId       = $this->insertUser();
+        $product      = $this->insertProduct();
+        $coupon       = $this->insertCoupon();
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id']);
+
+        // couponDiscount = 0 — 무료배송 쿠폰을 배송비 0원 주문에 쓴 상황을 재현한다.
+        $attemptId = $this->createAttempt($userId, $product, 1, $coupon['id'], $userCouponId, 0);
+
+        $this->assertGreaterThan(0, $attemptId, '선점은 할인액과 무관하게 성공해야 한다');
+        $this->assertSame(1, (int) $db->table('coupons')->where('id', $coupon['id'])->get()->getRowArray()['used_count']);
+
+        $this->assertTrue($this->model->markFailed($attemptId, '결제 실패'));
+
+        $this->assertSame(
+            0,
+            (int) $db->table('coupons')->where('id', $coupon['id'])->get()->getRowArray()['used_count'],
+            'used_count 가 되돌아가지 않으면 쿠폰이 영구히 소모된 것으로 남는다'
+        );
+
+        $uc = $db->table('user_coupons')->where('id', $userCouponId)->get()->getRowArray();
+        $this->assertSame('issued', $uc['status'], 'user_coupons 가 used 로 남으면 사용자가 쿠폰을 다시 쓸 수 없다');
+        $this->assertNull($uc['order_attempt_id']);
+    }
 }
