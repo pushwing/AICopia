@@ -1583,6 +1583,21 @@ Expected: FAIL — `Call to undefined method App\Models\OrderModel::convertAttem
         $items = $attempt['items'];
         $now   = date('Y-m-d H:i:s');
 
+        // 스냅샷이 비었으면 라인 0건짜리 주문이 결제 완료 상태로 만들어진다.
+        // 전환 자체를 실패시켜 보상 경로(환불 추적)로 넘긴다.
+        if ($items === []) {
+            log_message('critical', "[Order] 주문 시도 스냅샷이 비어 전환 불가 — attempt_id={$attemptId}");
+            $this->compensateFailedConversion($attempt, '주문 시도 스냅샷 손상 — 주문 취소', $pgTid === null ? null : [
+                'pg_provider' => $pgProvider,
+                'pg_tid'      => $pgTid,
+                'method'      => $method,
+                'amount'      => (int) $attempt['payable_amount'],
+                'raw'         => $rawResponse,
+            ]);
+
+            return 0;
+        }
+
         $this->db->transStart();
 
         $orderId = (int) $this->insert([
@@ -1606,13 +1621,28 @@ Expected: FAIL — `Call to undefined method App\Models\OrderModel::convertAttem
             'paid_at'                => $targetStatus === 'paid' ? $now : null,
         ], true);
 
+        // order_number 는 attempt 채번 시점에 orders·order_attempts 양쪽을 확인했지만,
+        // 그 사이 다른 주문이 같은 번호를 차지했을 가능성이 남는다. INSERT 실패를
+        // 그냥 넘기면 order_id 0 으로 하위 INSERT 가 이어져 고아 행이 생긴다.
+        if ($orderId === 0) {
+            $this->db->transRollback();
+            log_message('critical', "[Order] 주문 INSERT 실패 (주문번호 충돌 의심) — attempt_id={$attemptId}, order_number={$attempt['order_number']}");
+            $this->compensateFailedConversion($attempt, '주문 생성 실패 — 주문번호 충돌', $pgTid === null ? null : [
+                'pg_provider' => $pgProvider,
+                'pg_tid'      => $pgTid,
+                'method'      => $method,
+                'amount'      => (int) $attempt['payable_amount'],
+                'raw'         => $rawResponse,
+            ]);
+
+            return 0;
+        }
+
         $rows = [];
         foreach ($items as $item) {
             $rows[] = array_merge($item, ['order_id' => $orderId, 'created_at' => $now]);
         }
-        if ($rows !== []) {
-            $this->db->table('order_items')->insertBatch($rows);
-        }
+        $this->db->table('order_items')->insertBatch($rows);
 
         // 무통장은 입금이 확인되는 시점(confirmBankTransfer)에 재고를 뺀다.
         if ($targetStatus === 'paid') {
