@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
+use App\Libraries\FrameBridge;
 use App\Libraries\PG\PGFactory;
 use App\Models\OrderModel;
 
@@ -26,7 +27,7 @@ class PaymentController extends BaseController
      *   3. 재고 차감 + 주문 상태 → paid (트랜잭션)
      *   4. 주문 완료 페이지 리디렉트
      */
-    public function callback(string $pgProvider): \CodeIgniter\HTTP\RedirectResponse
+    public function callback(string $pgProvider): \CodeIgniter\HTTP\ResponseInterface
     {
         if (! in_array($pgProvider, PGFactory::providers(), true)) {
             return redirect()->to('/')->with('error', '잘못된 접근입니다.');
@@ -36,6 +37,14 @@ class PaymentController extends BaseController
         $userId  = (int) session()->get('user_id');
 
         if (! $orderId || ! $userId) {
+            // 이니시스·나이스페이는 이 returnUrl 을 자기 iframe 안에서 직접 로드한다.
+            // SameSite=Lax 세션 쿠키는 그런 크로스사이트 iframe 서브요청엔 실리지
+            // 않아 userId 가 비어 보일 수 있다 — 잘못된 접근으로 단정하기 전에
+            // 최상위 창을 같은 URL로 이동시켜 재시도할 기회를 준다.
+            if (! $userId && FrameBridge::isFramed($this->request)) {
+                return $this->response->setBody(FrameBridge::render((string) current_url(true)));
+            }
+
             return redirect()->to('/')->with('error', '잘못된 접근입니다.');
         }
 

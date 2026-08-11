@@ -29,6 +29,22 @@ final class AuthFilterTest extends CIUnitTestCase
         $this->assertInstanceOf(RedirectResponse::class, $result);
     }
 
+    /**
+     * 이니시스 결제 레이어(iframe) 안에서 order/fail 같은 auth:member 경로가
+     * 로드되면 SameSite=Lax 세션 쿠키가 안 실려 로그인 안 한 것처럼 보인다.
+     * 로그인 화면으로 튕기는 대신, 최상위 창을 재요청시키는 탈출 페이지를 줘야 한다.
+     */
+    public function testBeforeReturnsBridgePageWhenNotLoggedInAndFramed(): void
+    {
+        $request = service('request');
+        $request->setHeader('Sec-Fetch-Dest', 'iframe');
+
+        $result = $this->filter->before($request, ['member']);
+
+        $this->assertNotInstanceOf(RedirectResponse::class, $result);
+        $this->assertStringContainsString('location.href', (string) $result->getBody());
+    }
+
     public function testBeforeReturnsNullWhenMemberLoggedIn(): void
     {
         session()->set(['user_id' => 1, 'user_role' => 'member']);
