@@ -177,6 +177,11 @@ class KakaoPayAdapter implements PGInterface
     }
 
     /**
+     * curl 실패(DNS·SSL·타임아웃 등)와 "카카오가 msg 없이 실패 응답"을 구분해
+     * 둘 다 'msg' 로 실어 돌려준다 — ready()/confirm()/cancel() 모두 이 msg 를
+     * 그대로 사용자·운영자에게 보여주므로, 원인이 우리 서버→카카오 네트워크
+     * 구간인지 카카오 쪽 응답인지 뭉뚱그려지지 않는다.
+     *
      * @param  array<string, mixed> $body
      * @return array<string, mixed>
      */
@@ -185,6 +190,7 @@ class KakaoPayAdapter implements PGInterface
         $ch = curl_init($this->apiBase . $path);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 5,
             CURLOPT_HTTPHEADER     => [
                 'Authorization: SECRET_KEY ' . $this->secretKey,
                 'Content-Type: application/json',
@@ -193,7 +199,22 @@ class KakaoPayAdapter implements PGInterface
             CURLOPT_POSTFIELDS     => json_encode($body),
         ]);
         $result = curl_exec($ch);
-        return json_decode($result ?: '{}', true) ?? [];
+
+        if ($result === false) {
+            return ['msg' => '카카오페이 서버 연결 실패: ' . curl_error($ch)];
+        }
+
+        $status  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $decoded = json_decode($result, true);
+        if (! is_array($decoded)) {
+            return ['msg' => "카카오페이 응답 파싱 실패 (HTTP {$status})"];
+        }
+
+        if (! isset($decoded['msg']) && $status >= 400) {
+            $decoded['msg'] = "카카오페이 API 오류 (HTTP {$status})";
+        }
+
+        return $decoded;
     }
 
     /** @param array<string, mixed> $order */
