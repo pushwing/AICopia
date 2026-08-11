@@ -48,7 +48,8 @@ class OrderModel extends Model
      * 실결제 금액이 주문 가능한 값인지 검증한다.
      *
      * payable_amount 가 0 인 주문(100% 할인 쿠폰·포인트 전액 사용)은 PG 를 거치지
-     * 않고 즉시 확정하는 무료 주문 경로로 가므로 통과시킨다(→ confirmFree()).
+     * 않고 즉시 확정하는 무료 주문 경로로 가므로 통과시킨다(→ OrderController 에서
+     * convertAttempt(..., 'paid', 'free', ...) 로 확정).
      * 최소 결제 금액은 실제로 결제가 일어나는 1원 이상일 때만 따진다.
      *
      * @return string|null 거부 사유. 통과하면 null.
@@ -132,6 +133,11 @@ class OrderModel extends Model
      * 100% 할인 쿠폰이나 포인트 전액 사용으로 payable_amount 가 0 이 되면
      * 결제창에 요청할 금액이 없다. 재고 차감·장바구니 비우기·상태 로그는
      * PG 결제와 동일해야 하므로 confirmPaid() 를 그대로 태운다.
+     *
+     * 프로덕션 호출자 없음 — 신규 무료 주문은 OrderController 가
+     * convertAttempt(..., 'paid', 'free', ...) 로 바로 확정한다(이슈 #214).
+     * 이 메서드는 레거시 orders.status='pending' 무료 주문 확정용으로만 남아
+     * 있다. 제거 여부는 별도 판단(이슈 #214).
      */
     public function confirmFree(int $orderId): bool
     {

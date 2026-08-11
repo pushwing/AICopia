@@ -221,6 +221,20 @@ final class OrderFlowTest extends CIUnitTestCase
     }
 
     /**
+     * 쿠폰 코드 경로(userCouponId=null)로 preemptCoupon() 이 신규 INSERT 한
+     * user_coupons 행(source='code')을 조회해 cleanup 등록한다.
+     */
+    private function trackCodeCoupon(int $userId, int $couponId): void
+    {
+        $db  = db_connect();
+        $ids = array_column(
+            $db->table('user_coupons')->select('id')->where('user_id', $userId)->where('coupon_id', $couponId)->get()->getResultArray(),
+            'id'
+        );
+        $this->cleanup['user_coupons'] = array_merge($this->cleanup['user_coupons'], $ids);
+    }
+
+    /**
      * 결제 확정된 주문을 만든다.
      *
      * 주문 생성은 order_attempts 를 거치도록 바뀌었다(이슈 #214). 시도를 만든 뒤
@@ -263,6 +277,8 @@ final class OrderFlowTest extends CIUnitTestCase
             $this->trackPayments($orderId);
             $this->trackPointLogs($userId);
         }
+
+        $this->assertGreaterThan(0, $orderId, '주문 생성에 실패했습니다');
 
         return $orderId;
     }
@@ -349,6 +365,7 @@ final class OrderFlowTest extends CIUnitTestCase
         $coupon  = $this->insertCoupon(['discount_value' => 5000]);
 
         $orderId = $this->createPaidOrder($userId, $product, 1, $coupon['id'], null, 5000, 2000, 0);
+        $this->trackCodeCoupon($userId, $coupon['id']);
 
         $order = $db->table('orders')->where('id', $orderId)->get()->getRowArray();
         // 20000 + 3000 - 5000 - 2000 = 16000
@@ -365,6 +382,7 @@ final class OrderFlowTest extends CIUnitTestCase
 
         // 5000 + 0 - 3000 - 4000 = -2000 → max(0, -2000) = 0
         $orderId = $this->createPaidOrder($userId, $product, 1, $coupon['id'], null, 3000, 4000, 0);
+        $this->trackCodeCoupon($userId, $coupon['id']);
 
         $order = $db->table('orders')->where('id', $orderId)->get()->getRowArray();
         $this->assertSame(0, (int) $order['payable_amount']);

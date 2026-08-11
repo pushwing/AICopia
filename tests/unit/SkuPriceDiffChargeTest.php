@@ -172,9 +172,13 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
             return 0;
         }
 
-        return $this->trackOrder(
+        $orderId = $this->trackOrder(
             $this->model->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', [])
         );
+
+        $this->assertGreaterThan(0, $orderId, '주문 생성에 실패했습니다');
+
+        return $orderId;
     }
 
     /** @return array<string, mixed> */

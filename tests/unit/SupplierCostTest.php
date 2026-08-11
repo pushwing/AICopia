@@ -241,6 +241,8 @@ final class SupplierCostTest extends CIUnitTestCase
             $this->cleanup['orders'][] = $orderId;
         }
 
+        $this->assertGreaterThan(0, $orderId, '주문 생성에 실패했습니다');
+
         return $orderId;
     }
 
