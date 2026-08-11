@@ -204,14 +204,29 @@ class KakaoPayAdapter implements PGInterface
             return ['msg' => '카카오페이 서버 연결 실패: ' . curl_error($ch)];
         }
 
-        $status  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $decoded = json_decode($result, true);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        return $this->interpretResponse($status, $result);
+    }
+
+    /**
+     * 카카오가 표준 에러 포맷(msg 키)이 아니라 게이트웨이 단계 등에서 다른 형식으로
+     * 거부하면 "HTTP 400" 같은 상태코드만으로는 어떤 필드가 문제인지 알 수 없다.
+     * msg 가 없으면 원본 응답 바디를 그대로 실어 실제 어떤 키・값으로 응답했는지
+     * 바로 보이게 한다. 네트워크 호출과 분리해 두어야 응답 해석 로직만 단위 테스트할
+     * 수 있다(buildReadyPayload() 와 동일한 이유).
+     *
+     * @return array<string, mixed>
+     */
+    private function interpretResponse(int $status, string $rawBody): array
+    {
+        $decoded = json_decode($rawBody, true);
         if (! is_array($decoded)) {
-            return ['msg' => "카카오페이 응답 파싱 실패 (HTTP {$status})"];
+            return ['msg' => "카카오페이 응답 파싱 실패 (HTTP {$status}): " . mb_substr($rawBody, 0, 300)];
         }
 
         if (! isset($decoded['msg']) && $status >= 400) {
-            $decoded['msg'] = "카카오페이 API 오류 (HTTP {$status})";
+            $decoded['msg'] = "카카오페이 API 오류 (HTTP {$status}): " . mb_substr($rawBody, 0, 300);
         }
 
         return $decoded;
