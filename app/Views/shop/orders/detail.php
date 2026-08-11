@@ -46,7 +46,7 @@ $methodLabels = [
 ];
 
 [$badgeColor, $badgeLabel] = $statusBadge[$order['status']] ?? ['secondary', $order['status']];
-$canCancel          = in_array($order['status'], ['pending', 'awaiting_payment', 'paid'], true);
+$canCancel          = in_array($order['status'], ['awaiting_payment', 'paid'], true);
 $canConfirmDelivery = $order['status'] === 'shipped';
 $deliveredAt        = $order['delivered_at'] ?? null;
 $returnDeadline     = $deliveredAt ? strtotime($deliveredAt) + 7 * 24 * 3600 : null;

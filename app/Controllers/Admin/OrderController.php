@@ -509,6 +509,12 @@ class OrderController extends BaseController
     {
         $status = $this->request->getGet('status') ?: 'all';
 
+        // 화이트리스트 미검증 상태값(예: pending/expired)이 그대로 흘러들어와
+        // 레거시 주문이 CSV로 유출되는 것을 막는다 — 유효하지 않으면 전체(all)로 폴백.
+        if ($status !== 'all' && ! array_key_exists($status, self::STATUS_LABELS)) {
+            $status = 'all';
+        }
+
         $db     = \Config\Database::connect();
         $builder = $db->table('orders o')
             ->select('o.order_number, o.receiver_name, o.status, o.tracking_company, o.tracking_number')
