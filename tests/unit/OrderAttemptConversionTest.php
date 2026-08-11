@@ -369,9 +369,14 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         // 핵심 단언 — 이미 한 번 복구된 것을 또 복구하면 안 된다.
         $this->assertSame(5000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance'], '이미 복구된 포인트를 compensateFailedConversion() 이 또 환급하면 안 된다');
         $this->assertSame(5, (int) $db->table('coupons')->where('id', $couponId)->get()->getRowArray()['used_count'], '이미 복구된 쿠폰 used_count 를 compensateFailedConversion() 이 또 되돌리면 안 된다');
+        // OrderModel::restorePoints() 는 refund 로그에 order_id 만 남기고
+        // order_attempt_id 는 채우지 않으므로, order_attempt_id 로 스코프하면
+        // compensateFailedConversion() 이 이중 환급을 해도 markFailed() 쪽
+        // 1건만 잡혀 항상 참이 되는 단언이 된다. user_id 로 스코프해야 이
+        // 테스트 전용 사용자에 대한 refund 로그 총량(이중 환급 시 2건)이 잡힌다.
         $this->assertSame(
             1,
-            $db->table('point_logs')->where('order_attempt_id', $attemptId)->where('type', 'refund')->countAllResults(),
+            $db->table('point_logs')->where('user_id', $userId)->where('type', 'refund')->countAllResults(),
             'refund 로그는 정확히 1건이어야 한다(이중 환급 금지)'
         );
 

@@ -542,17 +542,17 @@ class OrderModel extends Model
      * 클레임(claimForConversion)이 전환 트랜잭션 안에서 잡히므로, 재고 부족 등으로
      * 그 트랜잭션이 롤백되면 시도는 pending 으로 되돌아간다. 이 메서드가 시작되는
      * 시점과 실제로 상태를 확정하는 시점 사이에 markFailed()/expireStale() 이 같은
-     * 시도를 먼저 걷어갈 수 있으므로, finalizeStale() 과 동일하게 **조건부 UPDATE 를
-     * 맨 먼저** 실행해 그 결과(claimed)에 따라 복구 여부를 가른다 — 그래야 양쪽이
-     * 동시에 쿠폰·포인트를 복구하는 이중 환급을 막을 수 있다(이슈 #214 회귀).
+     * 시도를 먼저 걷어갈 수 있으므로, **조건부 UPDATE 를 맨 먼저** 실행해 그
+     * 결과(claimed)에 따라 복구 여부를 가른다 — 그래야 양쪽이 동시에 쿠폰·포인트를
+     * 복구하는 이중 환급을 막을 수 있다(이슈 #214 회귀).
      *
      * 단, 청구 흔적(취소 주문 + paid 결제행)은 경합에서 지더라도 반드시 남겨야
      * 환불 추적(findRefundPending)이 끊기지 않는다 — 그래서 주문·결제행 생성은
      * claimed 여부와 무관하게 항상 수행한다.
      *
      * 조건부 UPDATE 를 맨 앞에서 실행하므로 order_attempts 행 잠금도 가장 먼저
-     * 잡힌다 — finalizeStale() 의 잠금 순서(order_attempts → coupons/users)와
-     * 같아져, 기존에 반대 순서로 잠그던 데드락 가능성도 함께 없앤다.
+     * 잡힌다 — convertAttempt() 의 잠금 순서(order_attempts → orders)와 같아져,
+     * 반대 순서로 잠그면 생길 수 있던 데드락 가능성도 함께 없앤다.
      *
      * 실패한 트랜잭션이 롤백된 뒤 호출해야 하며, 자체 트랜잭션으로 처리한다.
      *
@@ -567,6 +567,21 @@ class OrderModel extends Model
 
         $now = date('Y-m-d H:i:s');
 
+        // 상태 전이를 조건부 UPDATE 로 가장 먼저 확정한다(convertAttempt() 의
+        // claimForConversion() 과 동일하게 order_attempts 잠금을 orders 보다
+        // 먼저 잡는다). 롤백으로 pending 이 된 시도를 만료 스윕·markFailed 가
+        // 먼저 걷어갔다면 쿠폰·포인트는 이미 복구된 것이므로 여기서 또
+        // 되돌리면 이중 환급이 된다 — 그 판정을 $claimed 로 가른다.
+        $this->db->query(
+            'UPDATE order_attempts SET status = ?, failed_at = ?, fail_reason = ?, updated_at = ?
+             WHERE id = ? AND status = ?',
+            ['failed', $now, $note, $now, $attempt['id'], 'pending']
+        );
+        $claimed = $this->db->affectedRows() > 0;
+
+        // 청구 흔적(취소 주문 + order_items + paid 결제행)은 $claimed 와 무관하게
+        // 항상 남겨야 환불 추적(findRefundPending)이 끊기지 않는다. 게이트는
+        // 아래 restoreCoupon()/restorePoints() 호출에만 건다.
         $orderId = (int) $this->insert([
             'user_id'                => (int) $attempt['user_id'],
             'order_number'           => $attempt['order_number'],
@@ -589,8 +604,9 @@ class OrderModel extends Model
         ], true);
 
         // 보상 주문 자체가 만들어지지 않으면 하위 INSERT 를 이어갈 이유가 없다.
-        // 시도는 여전히 'pending' 이므로(아직 조건부 UPDATE 를 타지 않았다) 다음
-        // expireStale()/markFailed() 스윕이 정상적으로 걷어간다.
+        // 트랜잭션 전체가 롤백되므로 위에서 확정한 조건부 UPDATE 도 함께
+        // 되돌아가 시도는 원래 상태로 복구된다 — 다음 expireStale()/markFailed()
+        // 스윕이 정상적으로 걷어간다.
         if ($orderId === 0) {
             $this->db->transRollback();
             $this->db->resetTransStatus();
@@ -622,16 +638,6 @@ class OrderModel extends Model
                 'updated_at'   => $now,
             ]);
         }
-
-        // 상태 전이를 조건부 UPDATE 로 먼저 확정한다(finalizeStale 과 같은 순서).
-        // 롤백으로 pending 이 된 시도를 만료 스윕·markFailed 가 먼저 걷어갔다면
-        // 쿠폰·포인트는 이미 복구된 것이므로 여기서 또 되돌리면 이중 환급이 된다.
-        $this->db->query(
-            'UPDATE order_attempts SET status = ?, failed_at = ?, fail_reason = ?, updated_at = ?
-             WHERE id = ? AND status = ?',
-            ['failed', $now, $note, $now, $attempt['id'], 'pending']
-        );
-        $claimed = $this->db->affectedRows() > 0;
 
         // 선점은 order_attempt_id 에 걸려 있으므로 두 키를 함께 넘긴다.
         // PHP 의 + 연산자는 왼쪽 배열의 키를 우선하므로 id 는 새 주문 id 로 덮인다.
