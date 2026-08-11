@@ -144,6 +144,15 @@ class ShopController extends BaseController
 
         $optionsAndSkus = $this->skuModel->getOptionsAndSkus($productId);
 
+        // 추가구성상품 각각에 대한 옵션/SKU (본품과 같은 화면에서 여러 상품을 다루므로 배치 조회)
+        $addons        = new ProductAddonModel()->getForDisplay($productId);
+        $addonOptSkus  = $this->skuModel->getOptionsAndSkusForProducts(array_column($addons, 'id'));
+        foreach ($addons as &$addon) {
+            $addon['options'] = $addonOptSkus[$addon['id']]['options'] ?? [];
+            $addon['skus']    = $addonOptSkus[$addon['id']]['skus'] ?? [];
+        }
+        unset($addon);
+
         // 찜 여부
         $isWished = $userId > 0 && $this->wishlistModel->isWished($userId, (int) $product['id']);
 
@@ -213,8 +222,8 @@ class ShopController extends BaseController
             'product'         => $product,
             'images'          => $images,
             'shipping_policy' => $this->viewData['settings']['shipping_policy'] ?? '',
-            // 추가구성상품 (판매중·재고 있음만 노출)
-            'addons'          => new ProductAddonModel()->getForDisplay($productId),
+            // 추가구성상품 (판매중·재고 있음만 노출, 옵션/SKU 포함)
+            'addons'          => $addons,
             // 옵션 / SKU
             'options'         => $optionsAndSkus['options'],
             'skus'            => $optionsAndSkus['skus'],

@@ -31,34 +31,62 @@ class ProductSkuModel extends Model
     /** @return array{options: array<int, array<string, mixed>>, skus: array<int, array<string, mixed>>} */
     public function getOptionsAndSkus(int $productId): array
     {
+        return $this->getOptionsAndSkusForProducts([$productId])[$productId]
+            ?? ['options' => [], 'skus' => []];
+    }
+
+    /**
+     * 여러 상품의 옵션 구조 + SKU 목록을 배치로 조회한다(N+1 방지).
+     *
+     * 상품 상세의 추가구성상품처럼 여러 상품의 옵션을 한 화면에서 동시에 그려야
+     * 할 때 상품 수만큼 쿼리를 반복하지 않도록 한다.
+     *
+     * @param  list<int>                                                                                  $productIds
+     * @return array<int, array{options: array<int, array<string, mixed>>, skus: array<int, array<string, mixed>>}>
+     */
+    public function getOptionsAndSkusForProducts(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_filter(array_map(intval(...), $productIds))));
+
+        if ($productIds === []) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($productIds as $pid) {
+            $result[$pid] = ['options' => [], 'skus' => []];
+        }
+
         $options = $this->db->table('product_options')
-            ->where('product_id', $productId)
+            ->whereIn('product_id', $productIds)
             ->orderBy('sort_order', 'ASC')
             ->get()->getResultArray();
 
-        if (empty($options)) {
-            return ['options' => [], 'skus' => []];
+        $skus = $this->db->table('product_skus')->whereIn('product_id', $productIds)->get()->getResultArray();
+
+        if ($options === [] && $skus === []) {
+            return $result;
         }
 
-        $optionIds = array_column($options, 'id');
+        if ($options !== []) {
+            $optionIds = array_column($options, 'id');
 
-        $values = $this->db->table('product_option_values')
-            ->whereIn('option_id', $optionIds)
-            ->orderBy('sort_order', 'ASC')
-            ->get()->getResultArray();
+            $values = $this->db->table('product_option_values')
+                ->whereIn('option_id', $optionIds)
+                ->orderBy('sort_order', 'ASC')
+                ->get()->getResultArray();
 
-        $valuesByOption = [];
-        foreach ($values as $v) {
-            $valuesByOption[$v['option_id']][] = $v;
+            $valuesByOption = [];
+            foreach ($values as $v) {
+                $valuesByOption[$v['option_id']][] = $v;
+            }
+            foreach ($options as &$opt) {
+                $opt['values'] = $valuesByOption[$opt['id']] ?? [];
+            }
+            unset($opt);
         }
-        foreach ($options as &$opt) {
-            $opt['values'] = $valuesByOption[$opt['id']] ?? [];
-        }
-        unset($opt);
 
-        $skus = $this->db->table('product_skus')->where('product_id', $productId)->get()->getResultArray();
-
-        if ($skus) {
+        if ($skus !== []) {
             $skuIds = array_column($skus, 'id');
 
             $skuValues = $this->db->table('product_sku_values sv')
@@ -82,7 +110,24 @@ class ProductSkuModel extends Model
             unset($sku);
         }
 
-        return ['options' => $options, 'skus' => $skus];
+        $optionsByProduct = [];
+        foreach ($options as $opt) {
+            $optionsByProduct[$opt['product_id']][] = $opt;
+        }
+
+        $skusByProduct = [];
+        foreach ($skus as $sku) {
+            $skusByProduct[$sku['product_id']][] = $sku;
+        }
+
+        foreach ($productIds as $pid) {
+            $result[$pid] = [
+                'options' => $optionsByProduct[$pid] ?? [],
+                'skus'    => $skusByProduct[$pid] ?? [],
+            ];
+        }
+
+        return $result;
     }
 
     /**

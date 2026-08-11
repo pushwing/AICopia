@@ -158,22 +158,41 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                 </div>
                 <div class="card-body" id="addonListArea">
                     <?php foreach ($addons as $i => $addon): ?>
-                    <div class="d-flex align-items-center border rounded p-2 mb-2">
-                        <?php if ($addon['file_path']): ?>
-                        <img src="<?= esc(base_url($addon['file_path'])) ?>" class="rounded me-3" style="width:56px;height:56px;object-fit:cover" alt="">
-                        <?php endif; ?>
-                        <?php
-                        // discount_price는 0원일 수 있으므로 `?:` 대신 null 여부로만 대체 판단한다
-                        // (위 메인 상품 $hasDiscount 처리와 동일한 규칙).
-                        $addonPrice = $addon['discount_price'] !== null ? $addon['discount_price'] : $addon['price'];
-                        ?>
-                        <div class="flex-grow-1">
-                            <div class="small fw-semibold"><?= esc($addon['name']) ?></div>
-                            <div class="small text-danger"><?= number_format((int) $addonPrice) ?>원</div>
+                    <div class="border rounded p-2 mb-2" data-addon-idx="<?= (int) $i ?>">
+                        <div class="d-flex align-items-center">
+                            <?php if ($addon['file_path']): ?>
+                            <img src="<?= esc(base_url($addon['file_path'])) ?>" class="rounded me-3" style="width:56px;height:56px;object-fit:cover" alt="">
+                            <?php endif; ?>
+                            <?php
+                            // discount_price는 0원일 수 있으므로 `?:` 대신 null 여부로만 대체 판단한다
+                            // (위 메인 상품 $hasDiscount 처리와 동일한 규칙).
+                            $addonPrice = $addon['discount_price'] !== null ? $addon['discount_price'] : $addon['price'];
+                            ?>
+                            <div class="flex-grow-1">
+                                <div class="small fw-semibold"><?= esc($addon['name']) ?></div>
+                                <div class="small text-danger"><?= number_format((int) $addonPrice) ?>원</div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-addon-select="<?= (int) $i ?>">
+                                선택
+                            </button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-addon-select="<?= (int) $i ?>">
-                            선택
-                        </button>
+                        <?php if (! empty($addon['options'])): ?>
+                        <div class="mt-2 ps-1">
+                            <?php foreach ($addon['options'] as $optGroup): ?>
+                            <div class="d-flex gap-2 align-items-center mb-1">
+                                <span class="text-muted small" style="min-width:60px"><?= esc($optGroup['name']) ?></span>
+                                <select class="form-select form-select-sm addon-option-select"
+                                        data-addon-idx="<?= (int) $i ?>"
+                                        data-option-id="<?= (int) $optGroup['id'] ?>">
+                                    <option value="">선택하세요</option>
+                                    <?php foreach ($optGroup['values'] as $val): ?>
+                                    <option value="<?= (int) $val['id'] ?>"><?= esc($val['value']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
                     <div id="selectedAddons" class="mt-3"></div>
@@ -598,6 +617,15 @@ const addonsData = <?= json_encode(array_values(array_map(static function (array
         'id'    => (int) $a['id'],
         'name'  => (string) $a['name'],
         'price' => (int) $price,
+        'skus'  => array_map(static function (array $s): array {
+            return [
+                'id'               => (int) $s['id'],
+                'price_diff'       => (int) $s['price_diff'],
+                'stock'            => (int) $s['stock'],
+                'option_value_ids' => array_map('intval', $s['option_value_ids'] ?? []),
+                'option_label'     => (string) ($s['option_label'] ?? ''),
+            ];
+        }, $a['skus'] ?? []),
     ];
 }, $addons)), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
@@ -611,13 +639,14 @@ function renderSelectedAddons() {
     const el = document.getElementById('selectedAddons');
     if (! el) return;
     el.innerHTML = selectedAddons.map(function (a) {
+        const skuAttr = ' data-addon-id="' + a.id + '" data-addon-sku="' + (a.skuId || '') + '"';
         return '<div class="d-flex align-items-center border-top pt-2 mt-2 small">'
             + '<div class="flex-grow-1">' + escHtml(a.name) + '</div>'
-            + '<button type="button" class="btn btn-sm btn-outline-secondary" data-addon-action="dec" data-addon-id="' + a.id + '">-</button>'
+            + '<button type="button" class="btn btn-sm btn-outline-secondary" data-addon-action="dec"' + skuAttr + '>-</button>'
             + '<span class="mx-2">' + a.qty + '</span>'
-            + '<button type="button" class="btn btn-sm btn-outline-secondary" data-addon-action="inc" data-addon-id="' + a.id + '">+</button>'
+            + '<button type="button" class="btn btn-sm btn-outline-secondary" data-addon-action="inc"' + skuAttr + '>+</button>'
             + '<span class="ms-3 fw-semibold">' + (a.price * a.qty).toLocaleString('ko-KR') + '원</span>'
-            + '<button type="button" class="btn btn-sm btn-link text-danger" data-addon-action="remove" data-addon-id="' + a.id + '">삭제</button>'
+            + '<button type="button" class="btn btn-sm btn-link text-danger" data-addon-action="remove"' + skuAttr + '>삭제</button>'
             + '</div>';
     }).join('');
 }
@@ -625,14 +654,58 @@ function renderSelectedAddons() {
 // 목록의 "선택" 버튼: 이벤트 위임 + data-* 속성만 사용(속성 문자열에 데이터를
 // 직접 이어붙이지 않는다 — JSON.stringify 는 작은따옴표를 이스케이프하지 않으므로
 // onclick 속성 조합 방식은 상품명에 따옴표가 섞이면 속성 탈출로 이어질 수 있다).
+//
+// 옵션(SKU)이 있는 애드온은 본품의 onOptionChange() 와 동일한 방식으로, 선택한
+// 옵션값 조합에 맞는 SKU 를 addon.skus 에서 찾아 sku_id·추가금·라벨을 함께 담는다.
 document.getElementById('addonListArea')?.addEventListener('click', function (e) {
     const btn = e.target.closest('[data-addon-select]');
     if (! btn) return;
     const idx   = parseInt(btn.dataset.addonSelect, 10);
     const addon = addonsData[idx];
     if (! addon) return;
-    if (selectedAddons.some(function (a) { return a.id === addon.id; })) return;
-    selectedAddons.push({ id: addon.id, name: addon.name, price: addon.price, qty: 1 });
+
+    let skuId       = null;
+    let priceDiff   = 0;
+    let optionLabel = '';
+
+    if (addon.skus && addon.skus.length > 0) {
+        const selects  = document.querySelectorAll('.addon-option-select[data-addon-idx="' + idx + '"]');
+        const selected = Array.from(selects).map(function (s) { return parseInt(s.value) || 0; });
+
+        if (selected.length === 0 || selected.some(function (v) { return v === 0; })) {
+            alert('옵션을 선택해주세요.');
+            return;
+        }
+
+        const sku = addon.skus.find(function (s) {
+            return selected.every(function (vid) { return s.option_value_ids.includes(vid); })
+                && s.option_value_ids.length === selected.length;
+        });
+
+        if (! sku) {
+            alert('해당 옵션 조합은 준비 중입니다.');
+            return;
+        }
+        if (sku.stock < 1) {
+            alert('품절된 옵션입니다.');
+            return;
+        }
+
+        skuId       = sku.id;
+        priceDiff   = sku.price_diff;
+        optionLabel = sku.option_label;
+    }
+
+    const dupKey = addon.id + '_' + (skuId || 0);
+    if (selectedAddons.some(function (a) { return (a.id + '_' + (a.skuId || 0)) === dupKey; })) return;
+
+    selectedAddons.push({
+        id:    addon.id,
+        skuId: skuId,
+        name:  addon.name + (optionLabel ? ' (' + optionLabel + ')' : ''),
+        price: addon.price + priceDiff,
+        qty:   1,
+    });
     renderSelectedAddons();
 });
 
@@ -640,7 +713,8 @@ document.getElementById('selectedAddons')?.addEventListener('click', function (e
     const btn = e.target.closest('[data-addon-action]');
     if (! btn) return;
     const id   = parseInt(btn.dataset.addonId, 10);
-    const item = selectedAddons.find(function (a) { return a.id === id; });
+    const sku  = btn.dataset.addonSku ? parseInt(btn.dataset.addonSku, 10) : null;
+    const item = selectedAddons.find(function (a) { return a.id === id && (a.skuId || null) === sku; });
     if (! item) return;
 
     switch (btn.dataset.addonAction) {
@@ -651,7 +725,7 @@ document.getElementById('selectedAddons')?.addEventListener('click', function (e
             item.qty = Math.max(1, item.qty - 1);
             break;
         case 'remove':
-            selectedAddons = selectedAddons.filter(function (a) { return a.id !== id; });
+            selectedAddons = selectedAddons.filter(function (a) { return a !== item; });
             break;
     }
     renderSelectedAddons();
@@ -792,6 +866,7 @@ function addToCart(btn, onSuccess) {
     selectedAddons.forEach(function (a, i) {
         body.append('addons[' + i + '][product_id]', a.id);
         body.append('addons[' + i + '][qty]', a.qty);
+        if (a.skuId) body.append('addons[' + i + '][sku_id]', a.skuId);
     });
 
     btn.disabled = true;
