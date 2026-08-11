@@ -66,4 +66,33 @@ final class ShippingFeeTest extends CIUnitTestCase
         $items = [['shipping_type' => 'conditional', 'free_threshold' => 0, 'shipping_fee' => 3000]];
         $this->assertSame(3000, $this->model->calculateShippingFee($items, 50000));
     }
+
+    public function testAddonShippingFeeIgnoredWhenParentIsFreeShipping(): void
+    {
+        // 이슈 #170: 본품이 무료배송이면 함께 담긴 추가구성상품(애드온)의 배송비도 부과되지 않아야 한다.
+        $items = [
+            ['product_id' => 1, 'parent_product_id' => null, 'shipping_type' => 'free', 'free_threshold' => 0, 'shipping_fee' => 0],
+            ['product_id' => 2, 'parent_product_id' => 1, 'shipping_type' => 'fixed', 'free_threshold' => 0, 'shipping_fee' => 3000],
+        ];
+        $this->assertSame(0, $this->model->calculateShippingFee($items, 10000));
+    }
+
+    public function testAddonShippingFeeAppliesWhenParentIsNotFreeShipping(): void
+    {
+        // 본품이 무료배송이 아니면 애드온 배송비는 기존처럼 최댓값 비교에 참여한다.
+        $items = [
+            ['product_id' => 1, 'parent_product_id' => null, 'shipping_type' => 'fixed', 'free_threshold' => 0, 'shipping_fee' => 2500],
+            ['product_id' => 2, 'parent_product_id' => 1, 'shipping_type' => 'fixed', 'free_threshold' => 0, 'shipping_fee' => 3000],
+        ];
+        $this->assertSame(3000, $this->model->calculateShippingFee($items, 10000));
+    }
+
+    public function testAddonShippingFeeAppliesWhenParentNotInItems(): void
+    {
+        // 본품 행이 함께 넘어오지 않으면(예: 부분 선택 구매) 애드온은 자기 배송비대로 계산된다.
+        $items = [
+            ['product_id' => 2, 'parent_product_id' => 1, 'shipping_type' => 'fixed', 'free_threshold' => 0, 'shipping_fee' => 3000],
+        ];
+        $this->assertSame(3000, $this->model->calculateShippingFee($items, 10000));
+    }
 }
