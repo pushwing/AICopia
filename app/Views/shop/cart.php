@@ -62,14 +62,15 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                  data-cart-id="<?= (int) $item['id'] ?>"
                  data-product-id="<?= (int) $item['product_id'] ?>"
                  data-sku-id="<?= (int) ($item['sku_id'] ?? 0) ?>"
-                 data-price="<?= (int) $item['display_price'] ?>">
+                 data-price="<?= (int) $item['display_price'] ?>"
+                 <?php if ($isAddon): ?>data-parent-product-id="<?= (int) $item['parent_product_id'] ?>"<?php endif; ?>>
                 <div class="card-body py-3">
                     <div class="d-flex align-items-start gap-3">
 
                         <!-- 체크박스 -->
                         <div class="pt-1 flex-shrink-0">
                             <input type="checkbox" class="form-check-input item-check"
-                                   <?= $isSoldOut ? 'disabled' : 'checked' ?>>
+                                   <?= $isSoldOut ? 'disabled data-soldout="1"' : 'checked' ?>>
                         </div>
 
                         <?php if ($isAddon): ?>
@@ -254,17 +255,47 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
         }
     });
 
+    // 본품 체크 상태에 따라 연결된 애드온 체크박스를 잠그거나 푼다.
+    // - 본품 미체크: 애드온을 체크 해제하고 잠근다(직전 선택 상태는 기억해둔다).
+    // - 본품 체크: 애드온 잠금을 풀고, 잠기기 전 선택 상태로 복원한다.
+    // 품절로 이미 disabled된 애드온(data-soldout="1")은 건드리지 않는다.
+    function syncAddonLock(parentCheckbox) {
+        const parentCard = parentCheckbox.closest('.cart-item');
+        if (! parentCard) return;
+        const parentProductId = parentCard.dataset.productId;
+
+        document.querySelectorAll('.cart-item[data-parent-product-id="' + parentProductId + '"]').forEach(function (addonCard) {
+            const addonCheck = addonCard.querySelector('.item-check');
+            if (! addonCheck || addonCheck.dataset.soldout === '1') return;
+
+            if (parentCheckbox.checked) {
+                if (addonCheck.disabled) {
+                    addonCheck.disabled = false;
+                    addonCheck.checked  = addonCheck.dataset.prevChecked === '1';
+                }
+            } else if (! addonCheck.disabled) {
+                addonCheck.dataset.prevChecked = addonCheck.checked ? '1' : '0';
+                addonCheck.checked  = false;
+                addonCheck.disabled = true;
+            }
+        });
+    }
+
     // 전체 선택 토글
     document.getElementById('selectAll')?.addEventListener('change', function () {
         document.querySelectorAll('.item-check:not([disabled])').forEach(function (c) {
             c.checked = this.checked;
         }, this);
+        document.querySelectorAll('.item-check').forEach(syncAddonLock);
         updateSummary();
     });
 
-    // 개별 체크 → 합계 갱신
+    // 개별 체크 → 합계 갱신 + 연결된 애드온 잠금 동기화
     document.querySelectorAll('.item-check').forEach(function (c) {
-        c.addEventListener('change', updateSummary);
+        c.addEventListener('change', function () {
+            syncAddonLock(c);
+            updateSummary();
+        });
     });
 
     // 수량 +/− / input → 행 합계 + 주문 요약 갱신
@@ -326,7 +357,9 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
         });
     });
 
-    // 로드 시점에 기본 선택된 상품 수/합계를 요약에 반영한다.
+    // 로드 시점에 본품 체크 상태에 따라 애드온 잠금 상태를 먼저 맞추고,
+    // 기본 선택된 상품 수/합계를 요약에 반영한다.
+    document.querySelectorAll('.item-check').forEach(syncAddonLock);
     updateSummary();
 })();
 </script>
