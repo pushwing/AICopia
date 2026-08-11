@@ -113,6 +113,7 @@ class TossPaymentsAdapter implements PGInterface
         $ch = curl_init($this->apiBase . $path);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 5,
             CURLOPT_HTTPHEADER     => [
                 'Authorization: Basic ' . base64_encode($this->secretKey . ':'),
                 'Content-Type: application/json',

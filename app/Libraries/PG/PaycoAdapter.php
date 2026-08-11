@@ -116,6 +116,7 @@ class PaycoAdapter implements PGInterface
         $ch = curl_init($this->apiBase . $path);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 5,
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
             CURLOPT_CUSTOMREQUEST  => $method,
             CURLOPT_POSTFIELDS     => json_encode($body),
