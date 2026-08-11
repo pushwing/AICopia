@@ -795,7 +795,8 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                 throw new Error('네이버페이 결제 모듈을 불러오지 못했습니다.');
             }
 
-            const payConfig = { clientId: p.clientId };
+            // mode를 안 넘기면 운영으로 간주돼 샌드박스 clientId가 "유효하지 않은 가맹점"으로 거부된다.
+            const payConfig = { mode: p.mode || 'development', clientId: p.clientId, payType: 'normal' };
             if (p.chainId) payConfig.chainId = p.chainId;
 
             const oPay = Naver.Pay.create(payConfig);
