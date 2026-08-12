@@ -58,7 +58,8 @@
         $inShop     = in_array(true, [
             str_starts_with($uri, 'admin/products'), str_starts_with($uri, 'admin/promotions'),
             str_starts_with($uri, 'admin/suppliers'), str_starts_with($uri, 'admin/inventory'),
-            str_starts_with($uri, 'admin/orders'), str_starts_with($uri, 'admin/sales'),
+            str_starts_with($uri, 'admin/orders'), str_starts_with($uri, 'admin/order-attempts'),
+            str_starts_with($uri, 'admin/sales'),
             str_starts_with($uri, 'admin/coupons'), str_starts_with($uri, 'admin/points'),
         ]);
         $inOps      = in_array(true, [
@@ -104,6 +105,7 @@
             <a href="/admin/inventory"           class="nav-sublink <?= str_starts_with($uri, 'admin/inventory')  ? 'active' : '' ?>"><i class="bi bi-boxes me-2"></i>재고 관리</a>
             <div class="nav-subgroup">거래</div>
             <a href="/admin/orders"  class="nav-sublink <?= str_starts_with($uri, 'admin/orders')  ? 'active' : '' ?>"><i class="bi bi-receipt me-2"></i>주문 관리<?php if (($pendingOrders ?? 0) > 0): ?><span class="badge bg-danger ms-1" id="badge-orders" style="font-size:.65rem"><?= $pendingOrders ?></span><?php endif; ?></a>
+            <a href="/admin/order-attempts" class="nav-sublink <?= str_starts_with($uri, 'admin/order-attempts') ? 'active' : '' ?>"><i class="bi bi-clock-history me-2"></i>주문 시도 로그</a>
             <a href="/admin/sales"   class="nav-sublink <?= str_starts_with($uri, 'admin/sales')   ? 'active' : '' ?>"><i class="bi bi-graph-up-arrow me-2"></i>매출 관리</a>
             <a href="/admin/coupons" class="nav-sublink <?= str_starts_with($uri, 'admin/coupons') ? 'active' : '' ?>"><i class="bi bi-ticket-perforated me-2"></i>쿠폰 관리</a>
             <a href="/admin/points"  class="nav-sublink <?= str_starts_with($uri, 'admin/points')  ? 'active' : '' ?>"><i class="bi bi-star me-2"></i>포인트 관리</a>

@@ -53,6 +53,9 @@ class CouponService
             'code'                => $uc['code'],
             'name'                => $uc['name'],
             'type'                => $uc['type'],
+            // 누락되면 checkCoupon()의 등급 검증이 통째로 건너뛰어져
+            // 타 등급 회원이 등급 전용 쿠폰을 사용할 수 있게 된다.
+            'target_grade'        => $uc['target_grade'],
             'discount_value'      => $uc['discount_value'],
             'min_order_amount'    => $uc['min_order_amount'],
             'max_discount_amount' => $uc['max_discount_amount'],
@@ -101,7 +104,11 @@ class CouponService
 
         $now = date('Y-m-d H:i:s');
         if ($coupon['starts_at'] && $coupon['starts_at'] > $now) {
-            return $this->fail('아직 사용할 수 없는 쿠폰입니다.');
+            // 시작 시각을 함께 알려준다. 안 그러면 "쿠폰을 방금 발급받았는데 왜 못 쓰냐"는
+            // 오해로 이어진다 — 실제로 시작 1~2분 전에 테스트해 버그로 신고된 적이 있다.
+            return $this->fail(
+                date('Y-m-d H:i', strtotime((string) $coupon['starts_at'])) . '부터 사용할 수 있는 쿠폰입니다.',
+            );
         }
         if ($coupon['expires_at'] && $coupon['expires_at'] < $now) {
             return $this->fail('만료된 쿠폰입니다.');

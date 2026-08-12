@@ -858,4 +858,72 @@ final class OrderAttemptModelTest extends CIUnitTestCase
 
         $this->assertSame(0, $count);
     }
+
+    /**
+     * A-25: restoreCoupon() — 복구 시점에 쿠폰 유효기간이 이미 지났다면
+     * 'issued' 가 아니라 'expired' 로 되돌아가야 한다(이슈 #214 후속).
+     * used_count 는 유효기간과 무관하게 항상 복원된다.
+     */
+    public function testMarkFailed_expiredCoupon_restoresAsExpiredStatus(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $coupon  = $this->insertCoupon([
+            'expires_at' => date('Y-m-d H:i:s', strtotime('-1 day')),
+        ]);
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id']);
+
+        $attemptId = $this->createAttempt($userId, $product, 1, $coupon['id'], $userCouponId, 3000);
+
+        $this->assertTrue($this->model->markFailed($attemptId, '결제 실패'));
+
+        $this->assertSame(
+            0,
+            (int) $db->table('coupons')->where('id', $coupon['id'])->get()->getRowArray()['used_count'],
+            '만료 여부와 무관하게 used_count 는 항상 복원되어야 한다'
+        );
+
+        $uc = $db->table('user_coupons')->where('id', $userCouponId)->get()->getRowArray();
+        $this->assertSame('expired', $uc['status'], '유효기간이 지난 쿠폰은 다시 사용 가능한 상태로 복원되면 안 된다');
+        $this->assertNull($uc['order_attempt_id']);
+    }
+
+    /** A-26: restoreCoupon() — 유효기간이 아직 남은 쿠폰은 기존과 동일하게 'issued' 로 복원된다(회귀 방지). */
+    public function testMarkFailed_notYetExpiredCoupon_restoresAsIssuedStatus(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $coupon  = $this->insertCoupon([
+            'expires_at' => date('Y-m-d H:i:s', strtotime('+1 day')),
+        ]);
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id']);
+
+        $attemptId = $this->createAttempt($userId, $product, 1, $coupon['id'], $userCouponId, 3000);
+
+        $this->assertTrue($this->model->markFailed($attemptId, '결제 실패'));
+
+        $uc = $db->table('user_coupons')->where('id', $userCouponId)->get()->getRowArray();
+        $this->assertSame('issued', $uc['status']);
+        $this->assertNull($uc['order_attempt_id']);
+    }
+
+    /** A-27: restoreCoupon() — expires_at 이 NULL(무기한)이면 기존과 동일하게 'issued' 로 복원된다(회귀 방지). */
+    public function testMarkFailed_noExpiryCoupon_restoresAsIssuedStatus(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $coupon  = $this->insertCoupon(['expires_at' => null]);
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id']);
+
+        $attemptId = $this->createAttempt($userId, $product, 1, $coupon['id'], $userCouponId, 3000);
+
+        $this->assertTrue($this->model->markFailed($attemptId, '결제 실패'));
+
+        $uc = $db->table('user_coupons')->where('id', $userCouponId)->get()->getRowArray();
+        $this->assertSame('issued', $uc['status']);
+        $this->assertNull($uc['order_attempt_id']);
+    }
 }

@@ -24,11 +24,7 @@ class CouponController extends BaseController
         $result  = $service->validate($code, $userId, $orderAmount);
 
         if ($result['valid']) {
-            $coupon = $result['coupon'];
-            $discDesc = $coupon['type'] === 'fixed'
-                ? number_format($coupon['discount_value']) . '원 할인'
-                : $coupon['discount_value'] . '% 할인'
-                  . ((int) $coupon['max_discount_amount'] > 0 ? ' (최대 ' . number_format($coupon['max_discount_amount']) . '원)' : '');
+            $coupon          = $result['coupon'];
             $result['label'] = $coupon['name'] . ' — ' . number_format($result['discount']) . '원 할인';
         }
 
