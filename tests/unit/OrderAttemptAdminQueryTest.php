@@ -182,7 +182,7 @@ final class OrderAttemptAdminQueryTest extends CIUnitTestCase
         $pendingResult = $this->model->adminGetAll(['status' => 'pending', 'perPage' => 1000]);
         $failedResult  = $this->model->adminGetAll(['status' => 'failed', 'perPage' => 1000]);
 
-        $pendingIds = array_column($pendingResult['items'], 'id');
+        $pendingIds = array_map('intval', array_column($pendingResult['items'], 'id'));
         $failedIds  = array_map('intval', array_column($failedResult['items'], 'id'));
 
         $this->assertNotContains($attemptId, $pendingIds, 'failed 로 전이된 시도는 pending 필터에 잡히면 안 된다');
@@ -223,10 +223,11 @@ final class OrderAttemptAdminQueryTest extends CIUnitTestCase
     public function testAdminGetAll_includesLegacyPendingAndExpiredOrders(): void
     {
         $userId       = $this->insertUser();
-        $pendingOrder = $this->insertLegacyOrder($userId, 'pending', 'ORD-LEGACY-' . uniqid());
-        $expiredOrder = $this->insertLegacyOrder($userId, 'expired', 'ORD-LEGACY-' . uniqid());
+        $marker       = 'ORD-LEGACY-' . uniqid();
+        $pendingOrder = $this->insertLegacyOrder($userId, 'pending', $marker . '-A');
+        $expiredOrder = $this->insertLegacyOrder($userId, 'expired', $marker . '-B');
 
-        $result = $this->model->adminGetAll(['keyword' => 'ORD-LEGACY', 'perPage' => 1000]);
+        $result = $this->model->adminGetAll(['keyword' => $marker, 'perPage' => 1000]);
 
         $this->assertSame(2, $result['total']);
 
@@ -248,7 +249,7 @@ final class OrderAttemptAdminQueryTest extends CIUnitTestCase
         $paid   = $this->insertLegacyOrder($userId, 'pending', 'ORD-LGCPD-' . uniqid());
         db_connect()->table('orders')->where('id', $paid)->update(['status' => 'paid']);
 
-        $result = $this->model->adminGetAll(['keyword' => 'ORD-LEGACY-PAIDCHK', 'perPage' => 1000]);
+        $result = $this->model->adminGetAll(['keyword' => 'ORD-LGCPD', 'perPage' => 1000]);
 
         $this->assertSame(0, $result['total'], 'paid 로 확정된 레거시 주문은 이 화면에 노출되면 안 된다');
     }

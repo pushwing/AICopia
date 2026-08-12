@@ -597,8 +597,10 @@ class OrderAttemptModel extends Model
         $countRow = $this->db->query("SELECT COUNT(*) AS cnt FROM ({$unionSql}) u", $bindings)->getRowArray();
         $total    = (int) ($countRow['cnt'] ?? 0);
 
+        // created_at 은 초 단위라 같은 초에 생성된 attempt/legacy 행이 섞이면 순서가 미정의된다.
+        // source·id 를 추가 정렬키로 둬 페이지 경계에서 행이 중복·누락되지 않게 한다.
         $rows = $this->db->query(
-            "SELECT * FROM ({$unionSql}) u ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            "SELECT * FROM ({$unionSql}) u ORDER BY created_at DESC, source DESC, id DESC LIMIT ? OFFSET ?",
             [...$bindings, $perPage, ($page - 1) * $perPage]
         )->getResultArray();
 
