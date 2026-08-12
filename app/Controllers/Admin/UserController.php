@@ -7,6 +7,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Libraries\GradeService;
 use App\Libraries\Mailer;
+use App\Models\PointLogModel;
 use App\Models\UserModel;
 
 class UserController extends BaseController
@@ -306,13 +307,8 @@ class UserController extends BaseController
     /** GET /admin/users/:id/tab/points */
     public function tabPoints(int $id): \CodeIgniter\HTTP\ResponseInterface
     {
-        $db   = \Config\Database::connect();
-        $rows = $db->table('point_logs')
-            ->select('type, amount, note, created_at')
-            ->where('user_id', $id)
-            ->orderBy('id', 'DESC')
-            ->limit(50)
-            ->get()->getResultArray();
+        // 버려진 주문 시도의 선점·환급 쌍은 마이페이지와 동일하게 걸러진다.
+        $rows = new PointLogModel()->getRecentByUser($id);
 
         $row     = \Config\Database::connect()->table('users')->select('point_balance')->where('id', $id)->get()->getRowArray();
         $balance = $row ? (int) $row['point_balance'] : 0;
