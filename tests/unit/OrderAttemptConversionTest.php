@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Libraries\Order\ConversionFailure;
 use App\Models\OrderAttemptModel;
 use App\Models\OrderModel;
 use CodeIgniter\Test\CIUnitTestCase;
@@ -193,7 +194,7 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         $product   = $this->insertProduct(['stock' => 10]);
         $attemptId = $this->createAttempt($userId, $product, 3);
 
-        $orderId = $this->track($this->orderModel->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', []));
+        $orderId = $this->track($this->orderModel->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', [])->orderId);
 
         $this->assertGreaterThan(0, $orderId);
 
@@ -222,11 +223,17 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         $product   = $this->insertProduct(['stock' => 10]);
         $attemptId = $this->createAttempt($userId, $product);
 
-        $first  = $this->track($this->orderModel->convertAttempt($attemptId, 'paid', 'toss', 'TID-A-' . uniqid(), 'card', []));
-        $second = $this->track($this->orderModel->convertAttempt($attemptId, 'paid', 'toss', 'TID-B-' . uniqid(), 'card', []));
+        $first  = $this->track($this->orderModel->convertAttempt($attemptId, 'paid', 'toss', 'TID-A-' . uniqid(), 'card', [])->orderId);
+        $second = $this->orderModel->convertAttempt($attemptId, 'paid', 'toss', 'TID-B-' . uniqid(), 'card', []);
+        $this->track($second->orderId);
 
         $this->assertGreaterThan(0, $first);
-        $this->assertSame(0, $second, '두 번째 전환은 반드시 거부돼야 한다');
+        $this->assertFalse($second->succeeded(), '두 번째 전환은 반드시 거부돼야 한다');
+        $this->assertSame(
+            ConversionFailure::AlreadyFinalized,
+            $second->failure,
+            '중복 콜백은 fail-closed 거부로 구분돼야 한다(재고 부족과 섞이면 안 된다)'
+        );
         $this->assertSame(1, $db->table('orders')->where('user_id', $userId)->countAllResults());
         // 재고도 한 번만 차감돼야 한다.
         $this->assertSame(9, (int) $db->table('products')->where('id', $product['id'])->get()->getRowArray()['stock']);
@@ -240,7 +247,7 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         $product   = $this->insertProduct(['stock' => 10]);
         $attemptId = $this->createAttempt($userId, $product, 2);
 
-        $orderId = $this->track($this->orderModel->convertAttempt($attemptId, 'awaiting_payment', 'bank_transfer', null, '무통장입금', []));
+        $orderId = $this->track($this->orderModel->convertAttempt($attemptId, 'awaiting_payment', 'bank_transfer', null, '무통장입금', [])->orderId);
 
         $this->assertGreaterThan(0, $orderId);
         $this->assertSame('awaiting_payment', $db->table('orders')->where('id', $orderId)->get()->getRowArray()['status']);
@@ -259,9 +266,10 @@ final class OrderAttemptConversionTest extends CIUnitTestCase
         $attemptId = $this->createAttempt($userId, $product, 5);
         $tid       = 'TID-FAIL-' . uniqid();
 
-        $orderId = $this->orderModel->convertAttempt($attemptId, 'paid', 'toss', $tid, 'card', []);
+        $result = $this->orderModel->convertAttempt($attemptId, 'paid', 'toss', $tid, 'card', []);
 
-        $this->assertSame(0, $orderId, '전환은 실패로 보고돼야 한다');
+        $this->assertFalse($result->succeeded(), '전환은 실패로 보고돼야 한다');
+        $this->assertSame(ConversionFailure::OutOfStock, $result->failure);
 
         // 청구는 이미 일어났으므로 환불 추적용 흔적이 남아야 한다.
         // track()을 단언보다 먼저 실행해, 단언이 깨져도 보상 주문·payments·

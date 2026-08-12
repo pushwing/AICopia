@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Libraries\GradeService;
+use App\Libraries\Order\ConversionFailure;
+use App\Libraries\Order\ConversionResult;
 use CodeIgniter\Model;
 
 class OrderModel extends Model
@@ -156,10 +158,11 @@ class OrderModel extends Model
      * 주문 자체를 만들지 않으면 payments.order_id 를 채울 수 없어 환불 대상이
      * 관리자 화면에서 사라진다.
      *
-     * @param string                $targetStatus 'paid'(무료·PG 승인) 또는 'awaiting_payment'(무통장)
-     * @param array<string, mixed>  $rawResponse
+     * 실패는 원인별로 구분해 돌려준다 — 보상 주문이 남는 실패(재고 부족 등)와
+     * 아무 행도 남지 않는 실패(fail-closed 거부 등)는 로그·안내가 달라야 한다.
      *
-     * @return int 생성된 주문 id. 실패하면 0.
+     * @param string               $targetStatus 'paid'(무료·PG 승인) 또는 'awaiting_payment'(무통장)
+     * @param array<string, mixed> $rawResponse
      */
     public function convertAttempt(
         int $attemptId,
@@ -168,7 +171,7 @@ class OrderModel extends Model
         ?string $pgTid,
         string $method,
         array $rawResponse
-    ): int {
+    ): ConversionResult {
         $attemptModel = new OrderAttemptModel();
         $now          = date('Y-m-d H:i:s');
 
@@ -186,10 +189,23 @@ class OrderModel extends Model
 
         $attempt = $attemptModel->claimForConversion($attemptId);
         if ($attempt === null) {
+            // 이미 failed/converted 로 확정된 시도다. 여기서 보상 주문을 만들면
+            // 이미 걷어간 주체의 처리와 겹치므로 아무 행도 남기지 않는다 —
+            // 청구가 있었다면 호출자의 critical 로그가 유일한 단서다.
             $this->db->transRollback();
 
-            return 0;
+            return ConversionResult::failed(ConversionFailure::AlreadyFinalized);
         }
+
+        // 청구 흔적을 보상 주문에 남길 때 쓰는 페이로드. PG 거래가 없는
+        // 무료·무통장 전환은 null 이라 결제행을 만들지 않는다.
+        $charge = $pgTid === null ? null : [
+            'pg_provider' => $pgProvider,
+            'pg_tid'      => $pgTid,
+            'method'      => $method,
+            'amount'      => (int) $attempt['payable_amount'],
+            'raw'         => $rawResponse,
+        ];
 
         $items = $attempt['items'];
 
@@ -198,15 +214,8 @@ class OrderModel extends Model
         if ($items === []) {
             $this->db->transRollback();
             log_message('critical', "[Order] 주문 시도 스냅샷이 비어 전환 불가 — attempt_id={$attemptId}");
-            $this->compensateFailedConversion($attempt, '주문 시도 스냅샷 손상 — 주문 취소', $pgTid === null ? null : [
-                'pg_provider' => $pgProvider,
-                'pg_tid'      => $pgTid,
-                'method'      => $method,
-                'amount'      => (int) $attempt['payable_amount'],
-                'raw'         => $rawResponse,
-            ]);
 
-            return 0;
+            return $this->failWithCompensation($attempt, ConversionFailure::CorruptSnapshot, $charge);
         }
 
         $orderId = (int) $this->insert([
@@ -241,15 +250,8 @@ class OrderModel extends Model
         if ($orderId === 0) {
             $this->db->transRollback();
             log_message('critical', "[Order] 주문 INSERT 실패 (주문번호 충돌 의심) — attempt_id={$attemptId}, order_number={$attempt['order_number']}");
-            $this->compensateFailedConversion($attempt, '주문 생성 실패 — 주문번호 충돌', $pgTid === null ? null : [
-                'pg_provider' => $pgProvider,
-                'pg_tid'      => $pgTid,
-                'method'      => $method,
-                'amount'      => (int) $attempt['payable_amount'],
-                'raw'         => $rawResponse,
-            ]);
 
-            return 0;
+            return $this->failWithCompensation($attempt, ConversionFailure::OrderNumberConflict, $charge);
         }
 
         $rows = [];
@@ -263,15 +265,8 @@ class OrderModel extends Model
             foreach ($rows as $item) {
                 if (! $this->deductItemStock($item)) {
                     $this->db->transRollback();
-                    $this->compensateFailedConversion($attempt, '재고 부족으로 결제 확정 실패 — 주문 취소', $pgTid === null ? null : [
-                        'pg_provider' => $pgProvider,
-                        'pg_tid'      => $pgTid,
-                        'method'      => $method,
-                        'amount'      => (int) $attempt['payable_amount'],
-                        'raw'         => $rawResponse,
-                    ]);
 
-                    return 0;
+                    return $this->failWithCompensation($attempt, ConversionFailure::OutOfStock, $charge);
                 }
             }
         }
@@ -305,7 +300,7 @@ class OrderModel extends Model
                 "[Order] 결제 INSERT 실패(pg_tid 충돌 의심) — attempt_id={$attemptId}, pg_tid=" . ($pgTid ?? 'null') . ", amount={$attempt['payable_amount']}"
             );
 
-            return 0;
+            return ConversionResult::failed(ConversionFailure::PaymentConflict);
         }
 
         // 선점해 둔 쿠폰·포인트를 실제 주문에 연결한다. attempt 참조는 추적용으로 남긴다.
@@ -341,12 +336,47 @@ class OrderModel extends Model
                 "[Order] 전환 트랜잭션 커밋 실패 — attempt_id={$attemptId}, order_id={$orderId}, pg_tid=" . ($pgTid ?? 'null')
             );
 
-            return 0;
+            return ConversionResult::failed(ConversionFailure::CommitFailed);
         }
 
         $attemptModel->linkOrder($attemptId, $orderId);
 
-        return $orderId;
+        return ConversionResult::success($orderId);
+    }
+
+    /**
+     * 이미 일어난 청구를 추적 가능한 형태로 남기고 실패 결과를 만든다.
+     *
+     * 보상 자체가 실패(보상 주문 INSERT 실패 등)하면 환불 추적이 끊기므로,
+     * 그 사실을 결과의 compensated 로 정직하게 돌려준다 — 호출자가 "환불 목록에
+     * 뜬다"고 잘못 안내하지 않도록.
+     *
+     * @param array<string, mixed>                                                                                   $attempt
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null $charge
+     */
+    private function failWithCompensation(array $attempt, ConversionFailure $failure, ?array $charge): ConversionResult
+    {
+        return ConversionResult::failed(
+            $failure,
+            $this->compensateFailedConversion($attempt, $failure->note(), $charge)
+        );
+    }
+
+    /**
+     * 전환 이전 단계에서 확정된 실패를 보상한다 — 컨트롤러용 진입점.
+     *
+     * PG 승인은 끝났지만 convertAttempt() 를 시작하지 않은 경우(금액 2차 검증
+     * 실패 등)에 쓴다. 이 경로도 보상 주문 + paid 결제행을 남겨야 관리자
+     * "환불 필요" 목록에서 청구를 추적할 수 있다.
+     *
+     * 최외곽 트랜잭션 전제 — 호출부에서 트랜잭션으로 감싸지 않는다.
+     *
+     * @param array<string, mixed>                                                                                   $attempt pending 상태의 시도(withItems() 적용)
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null $charge
+     */
+    public function compensateChargedAttempt(array $attempt, ConversionFailure $failure, ?array $charge = null): ConversionResult
+    {
+        return $this->failWithCompensation($attempt, $failure, $charge);
     }
 
     /**
@@ -369,10 +399,12 @@ class OrderModel extends Model
      *
      * 실패한 트랜잭션이 롤백된 뒤 호출해야 하며, 자체 트랜잭션으로 처리한다.
      *
-     * @param array<string, mixed>                                                                                    $attempt
-     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null  $charge
+     * @param array<string, mixed>                                                                                   $attempt
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null $charge
+     *
+     * @return bool 보상 주문이 실제로 남아 환불 추적이 가능한지
      */
-    private function compensateFailedConversion(array $attempt, string $note, ?array $charge = null): void
+    private function compensateFailedConversion(array $attempt, string $note, ?array $charge = null): bool
     {
         // 직전 롤백으로 트랜잭션 상태가 false 로 남아 있으면 이 트랜잭션도 롤백된다.
         $this->db->resetTransStatus();
@@ -425,7 +457,7 @@ class OrderModel extends Model
             $this->db->resetTransStatus();
             log_message('critical', "[Order] 보상 주문 생성 실패 — attempt_id={$attempt['id']}, order_number={$attempt['order_number']}");
 
-            return;
+            return false;
         }
 
         $rows = [];
@@ -437,7 +469,11 @@ class OrderModel extends Model
         }
 
         // 주문은 cancelled 인데 결제가 paid 로 남은 조합이 곧 "환불 필요" 신호다.
+        // 청구가 있었는데 결제행을 남기지 못하면 환불 추적이 끊기므로, 그 사실을
+        // 반환값에 반영해 호출자가 "환불 목록에 뜬다"고 잘못 안내하지 않게 한다.
+        $chargeRecorded = $charge === null;
         if ($charge !== null && $charge['pg_tid'] !== '') {
+            $chargeRecorded = true;
             $this->db->table('payments')->ignore(true)->insert([
                 'order_id'     => $orderId,
                 'pg_provider'  => $charge['pg_provider'],
@@ -471,13 +507,16 @@ class OrderModel extends Model
 
         $this->db->transComplete();
 
-        if (! $this->db->transStatus()) {
+        $committed = $this->db->transStatus();
+        if (! $committed) {
             log_message('critical', "[Order] 보상 트랜잭션 커밋 실패 — attempt_id={$attempt['id']}, order_id={$orderId}");
         }
 
         // 이 트랜잭션의 성공·실패 여부가 다음 호출(같은 요청 내 다른 트랜잭션)에
         // 새어나가지 않도록 항상 리셋한다.
         $this->db->resetTransStatus();
+
+        return $committed && $chargeRecorded;
     }
 
     /**

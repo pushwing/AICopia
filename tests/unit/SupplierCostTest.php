@@ -236,7 +236,7 @@ final class SupplierCostTest extends CIUnitTestCase
             return 0;
         }
 
-        $orderId = (new OrderModel())->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', []);
+        $orderId = (new OrderModel())->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', [])->orderId;
         if ($orderId > 0) {
             $this->cleanup['orders'][] = $orderId;
         }

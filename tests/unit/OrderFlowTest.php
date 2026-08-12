@@ -269,7 +269,7 @@ final class OrderFlowTest extends CIUnitTestCase
         }
 
         $orderId = $this->trackOrder(
-            $this->model->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', [])
+            $this->model->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', [])->orderId
         );
 
         if ($orderId > 0) {
