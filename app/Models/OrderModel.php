@@ -1636,8 +1636,23 @@ class OrderModel extends Model
         if ($uc['source'] === 'code') {
             $this->db->table('user_coupons')->where('id', $uc['id'])->delete();
         } else {
+            // 복구 시점에 쿠폰 유효기간이 이미 지났다면 다시 사용 가능한 상태로
+            // 되살리지 않고 'expired' 로 되돌린다. used_count 감소는 위에서
+            // 유효기간과 무관하게 이미 수행했다 — 쿠폰이 실제로 소비된 게
+            // 아니므로 만료됐다고 차감분을 남겨두면 한정 수량 쿠폰의 재고가
+            // 영구히 준다.
+            $coupon = $this->db->table('coupons')
+                ->select('expires_at')
+                ->where('id', $order['coupon_id'])
+                ->get()->getRowArray();
+
+            $now    = date('Y-m-d H:i:s');
+            $status = ($coupon && $coupon['expires_at'] !== null && $coupon['expires_at'] < $now)
+                ? 'expired'
+                : 'issued';
+
             $this->db->table('user_coupons')->where('id', $uc['id'])->update([
-                'status'           => 'issued',
+                'status'           => $status,
                 'order_id'         => null,
                 'order_attempt_id' => null,
                 'used_at'          => null,
