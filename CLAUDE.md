@@ -57,7 +57,7 @@ for src in vendor/codeigniter4/framework/app/Config/*; do
 done
 [ -e system ] || ln -s vendor/codeigniter4/framework/system system
 cp vendor/codeigniter4/framework/env .env   # 이후 편집: DB, CI_ENVIRONMENT, AI 키, PG 키, OAuth 키, SMTP
-# app/Config/App.php: $appTimezone = 'Asia/Seoul' 로 설정
+# app/Config/App.php: $appTimezone = 'UTC' 로 설정 (아래 "타임존 규약" 참고)
 php spark migrate              # 테이블 생성 + 기본 데이터 시드
 ```
 
@@ -70,6 +70,37 @@ php spark migrate              # 테이블 생성 + 기본 데이터 시드
 브랜치 모델·표준 흐름·규칙은 규칙 문서로 분리했습니다 → @.claude/rules/git-workflow.md
 
 ## 아키텍처
+
+### 타임존 규약 (저장 UTC / 표시 KST)
+
+**서버·DB는 UTC, 웹 화면은 `Asia/Seoul`(KST, UTC+9).**
+
+| 계층 | 타임존 | 비고 |
+|------|--------|------|
+| 서버(OS·PHP·CI4 `$appTimezone`) | **UTC** | `app/Config/App.php`의 `$appTimezone = 'UTC'` |
+| DB에 저장되는 모든 시각 | **UTC** | `created_at`·`updated_at`·`expires_at`·`delivered_at`·`starts_at` 등 전부 |
+| 웹 화면 출력·사용자 입력 해석 | **Asia/Seoul** | 쿠폰 만료일, 주문 일시, 프로모션 기간, 통계 날짜 등 사용자가 보는 모든 시각 |
+| 배치·크론(`php spark tasks:run`) | **UTC** | 스케줄 표현식도 UTC 기준으로 해석됨 |
+
+**규칙**
+
+- **DB에 쓸 때는 UTC로 쓴다.** `$appTimezone`이 UTC이므로 `date('Y-m-d H:i:s')` / `Time::now()`의 결과가 곧 UTC다 — 저장 경로에서 별도 변환을 하지 말 것.
+- **사용자에게 보여줄 때만 KST로 변환한다.** DB 값을 그대로 `date()`·`strtotime()`으로 찍으면 UTC가 그대로 노출되어 9시간 어긋난다.
+
+  ```php
+  // ✅ 표시 — UTC 저장값을 KST로 변환
+  echo esc((new \CodeIgniter\I18n\Time($uc['expires_at'], 'UTC'))
+      ->setTimezone('Asia/Seoul')->format('Y년 n월 j일'));
+
+  // ❌ 금지 — UTC 값을 그대로 출력 (9시간 어긋남)
+  echo date('Y년 n월 j일', strtotime($uc['expires_at']));
+  ```
+
+- **관리자 폼 등 사용자 입력(`datetime-local`)은 KST 입력으로 간주**해 저장 전에 UTC로 변환하고, 폼에 다시 채울 때는 UTC → KST로 되돌린다.
+- **날짜 경계가 있는 집계(일별 매출·통계·"오늘")는 KST 기준 하루**로 잡는다. UTC 기준으로 자르면 한국 시각 09:00을 경계로 하루가 갈린다 — KST 날짜 범위를 UTC 구간으로 환산해 `WHERE`에 넣는다.
+- **비교·계산은 UTC끼리** 한다(만료 판정 `expires_at < now()` 등). KST로 변환한 값과 UTC 값을 섞어 비교하지 말 것.
+
+> ⚠️ 현재 코드 상당수(뷰의 `date()`/`strtotime()`, `CouponService` 등)는 전역 `date()`에 의존해 변환 계층이 없다. 시각을 다루는 코드를 새로 쓰거나 손댈 때 위 규칙에 맞게 정리한다.
 
 ### 테마 시스템
 
