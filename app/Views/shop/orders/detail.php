@@ -61,7 +61,14 @@ $cardSummary = $receipt?->cardSummary();
 $showReceipt = $receipt !== null && $receipt->paidAt !== null;
 ?>
 
-<div class="container py-4" style="max-width:680px">
+<div class="container py-4" style="max-width:980px">
+<div class="row g-4">
+
+<div class="col-lg-3 min-w-0">
+    <?= $this->include('components/mypage_sidebar') ?>
+</div>
+
+<div class="col-lg-9 min-w-0">
 
     <!-- 헤더 -->
     <div class="d-flex align-items-center gap-3 mb-4">
@@ -547,6 +554,9 @@ $showReceipt = $receipt !== null && $receipt->paidAt !== null;
     </div>
     <?php endif; ?>
 
+</div>
+
+</div>
 </div>
 
 <?= $this->endSection() ?>
