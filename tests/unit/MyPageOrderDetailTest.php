@@ -69,13 +69,13 @@ final class MyPageOrderDetailTest extends CIUnitTestCase
         return $id;
     }
 
-    private function insertOrder(int $userId, string $orderNumber): int
+    private function insertOrder(int $userId, string $orderNumber, string $status = 'paid'): int
     {
         $db = db_connect();
         $db->table('orders')->insert([
             'user_id'                => $userId,
             'order_number'           => $orderNumber,
-            'status'                 => 'paid',
+            'status'                 => $status,
             'total_product_price'    => 10000,
             'shipping_fee'           => 3000,
             'total_amount'           => 13000,
@@ -215,5 +215,41 @@ final class MyPageOrderDetailTest extends CIUnitTestCase
         $result = $this->controller()->orderDetail($orderNumber);
 
         $this->assertIsNotString($result, '남의 주문 상세가 그대로 렌더됐다');
+    }
+
+    /**
+     * 레거시 pending 주문은 주문번호를 알아도 상세가 열리지 않는다.
+     *
+     * 신규 주문은 order_attempts 를 거치므로 pending 은 레거시 행뿐이고,
+     * 어느 목록 탭에도 노출되지 않으므로 막아도 깨지는 링크가 없다. (이슈 #214)
+     */
+    public function testOrderDetailRedirectsForLegacyPendingOrder(): void
+    {
+        $userId      = $this->insertUser();
+        $orderNumber = 'ORD-' . $this->prefix;
+        $orderId     = $this->insertOrder($userId, $orderNumber, 'pending');
+        $this->insertOrderItem($orderId);
+
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $result = $this->controller()->orderDetail($orderNumber);
+
+        $this->assertIsNotString($result, '레거시 pending 주문 상세가 그대로 렌더됐다');
+    }
+
+    /** 만료 주문은 "취소/환불" 탭에서 클릭할 수 있으므로 상세가 계속 열려야 한다 */
+    public function testOrderDetailRendersExpiredOrder(): void
+    {
+        $userId      = $this->insertUser();
+        $orderNumber = 'ORD-' . $this->prefix;
+        $orderId     = $this->insertOrder($userId, $orderNumber, 'expired');
+        $this->insertOrderItem($orderId);
+
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $result = $this->controller()->orderDetail($orderNumber);
+
+        $this->assertIsString($result, '만료 주문 상세까지 막혀 취소/환불 탭 링크가 깨졌다');
+        $this->assertStringContainsString($orderNumber, $result);
     }
 }

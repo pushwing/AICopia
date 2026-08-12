@@ -85,16 +85,16 @@ final class TossPaymentParamsTest extends CIUnitTestCase
 
     /**
      * 결제 성공 후 돌아올 successUrl 은 다른 PG 어댑터와 동일하게 어댑터가 만든다.
-     * 뷰에서 orderId 를 콜백의 order_id 로 재사용하면, orderId 가 주문번호로 바뀌는
-     * 순간 콜백이 주문을 찾지 못한다(콜백은 DB PK 로 조회한다).
+     * 뷰에서 orderId 를 콜백의 attempt_id 로 재사용하면, orderId 가 주문번호로 바뀌는
+     * 순간 콜백이 주문 시도를 찾지 못한다(콜백은 DB PK 로 조회한다).
      */
-    public function testSuccessUrlPointsToCallbackWithDatabaseOrderId(): void
+    public function testSuccessUrlPointsToCallbackWithAttemptId(): void
     {
         $params = $this->adapter()->buildPaymentParams($this->order());
 
         $this->assertArrayHasKey('successUrl', $params);
         $this->assertStringContainsString('payment/callback/toss', (string) $params['successUrl']);
-        $this->assertStringContainsString('order_id=12', (string) $params['successUrl']);
+        $this->assertStringContainsString('attempt_id=12', (string) $params['successUrl']);
         $this->assertStringStartsWith('http', (string) $params['successUrl'], 'successUrl 은 절대 URL 이어야 합니다.');
     }
 

@@ -38,7 +38,7 @@ $pgLabels = [
 
 $currentStatus      = $order['status'];
 $next               = $nextStatus[$currentStatus] ?? null;
-$canCancel              = in_array($currentStatus, ['pending', 'awaiting_payment', 'paid', 'preparing'], true);
+$canCancel              = in_array($currentStatus, ['awaiting_payment', 'paid', 'preparing'], true);
 $canRefund              = $currentStatus === 'refund_requested';
 $canApproveReturn       = $currentStatus === 'return_requested';
 $canConfirmReturnRefund = $currentStatus === 'return_approved';

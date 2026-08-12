@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Models\OrderAttemptModel;
 use App\Models\OrderModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -29,6 +30,7 @@ final class FreeOrderTest extends CIUnitTestCase
 
     /** @var array<string, list<int>> */
     private array $cleanup = [
+        'order_attempts'    => [],
         'order_status_logs' => [],
         'cart_items'        => [],
         'payments'          => [],
@@ -258,10 +260,13 @@ final class FreeOrderTest extends CIUnitTestCase
     }
 
     /**
-     * 100% 할인 쿠폰 주문의 실제 경로 — createPending 이 만든 0원 주문이 그대로 확정된다.
+     * 100% 할인 쿠폰 주문의 실제 경로 — 시도를 만들고 그대로 무료 확정한다.
      *
      * 앞의 테스트들은 주문 행을 직접 넣어 confirmFree 만 떼어 본다. 여기서는
-     * 쿠폰 확정·payable_amount 산출까지 거치는 실제 생성 경로와 이어 붙여 본다.
+     * 실제 운영 코드(OrderController)가 쓰는 경로 그대로 — order_attempts 로
+     * 쿠폰 확정·payable_amount 산출까지 거친 뒤 convertAttempt() 로 바로
+     * paid 확정한다(이슈 #214). 무료 주문은 pending 을 거치지 않으므로
+     * confirmFree() 는 더 이상 이 경로에 관여하지 않는다.
      */
     public function testHundredPercentCouponOrderIsCreatedAndConfirmed(): void
     {
@@ -286,7 +291,7 @@ final class FreeOrderTest extends CIUnitTestCase
         $couponId = (int) $db->insertID();
         $this->cleanup['coupons'][] = $couponId;
 
-        $orderId = $this->model->createPending(
+        $attemptId = (new OrderAttemptModel())->createAttempt(
             $userId,
             [
                 'receiver_name'  => '테스트 수령인',
@@ -307,20 +312,26 @@ final class FreeOrderTest extends CIUnitTestCase
             $couponId,
             null,
             (int) $product['price'],   // 상품가 전액 할인 → payable_amount = 0
+            0,
+            0,
+            'free',
         );
 
-        $this->assertGreaterThan(0, $orderId, '주문이 생성되지 않았습니다.');
+        $this->assertGreaterThan(0, $attemptId, '주문 시도가 생성되지 않았습니다.');
+        $this->cleanup['order_attempts'][] = $attemptId;
+
+        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertSame(0, (int) $attempt['payable_amount']);
+
+        // 실제 컨트롤러(OrderController)와 동일하게 free provider 로 바로 paid 전환한다.
+        $orderId = $this->model->convertAttempt($attemptId, 'paid', 'free', null, 'free', ['reason' => 'payable_amount = 0']);
+        $this->assertGreaterThan(0, $orderId, '무료 주문이 확정되지 않았습니다.');
         $this->cleanup['orders'][] = $orderId;
-        $this->trackSideEffects($orderId);
-
-        $order = $db->table('orders')->where('id', $orderId)->get()->getRowArray();
-        $this->assertSame(0, (int) $order['payable_amount']);
-
-        $this->assertTrue($this->model->confirmFree($orderId));
         $this->trackSideEffects($orderId);
 
         $confirmed = $db->table('orders')->where('id', $orderId)->get()->getRowArray();
         $this->assertSame('paid', $confirmed['status']);
+        $this->assertSame(0, (int) $confirmed['payable_amount']);
     }
 
     /** 이미 확정된 주문을 다시 확정하려 하면 거부한다. */

@@ -120,6 +120,11 @@ final class PgRefundPendingTest extends CIUnitTestCase
     /**
      * 쿠폰·포인트를 실제로 소진하는 정상 경로로 pending 주문을 만든다.
      *
+     * confirmPaid()/confirmFree() 는 레거시 orders.status='pending' 주문에만 동작한다
+     * (이슈 #214 이후 신규 결제는 order_attempts 를 거쳐 바로 paid/awaiting_payment 로
+     * 전환된다). 구 버전 주문 생성 로직이 하던 쿠폰(코드 경로)·포인트 선점을 이
+     * 헬퍼가 orders 에 직접 재현한다.
+     *
      * @param  array<string, mixed> $product
      * @return array{order_id: int, user_id: int}
      */
@@ -145,29 +150,65 @@ final class PgRefundPendingTest extends CIUnitTestCase
         $couponId = (int) $db->insertID();
         $this->cleanup['coupons'][] = $couponId;
 
-        $orderId = $this->model->createPending(
-            $userId,
-            [
-                'receiver_name'  => '테스트 수령인',
-                'receiver_phone' => '010-0000-0000',
-                'zipcode'        => '12345',
-                'address1'       => '서울시 테스트구',
-            ],
-            [[
-                'product_id'     => $product['id'],
-                'name'           => $product['name'],
-                'price'          => $product['price'],
-                'discount_price' => null,
-                'qty'            => $qty,
-                'shipping_type'  => 'free',
-                'shipping_fee'   => 0,
-                'free_threshold' => 0,
-            ]],
-            $couponId,
-            null,
-            $couponDiscount,
-            self::POINT_USED,
-        );
+        $now          = date('Y-m-d H:i:s');
+        $totalProduct = (int) $product['price'] * $qty;
+        $payable      = max(0, $totalProduct - $couponDiscount - self::POINT_USED);
+
+        $db->table('orders')->insert([
+            'user_id'                => $userId,
+            'order_number'           => 'PRP-' . uniqid(),
+            'status'                 => 'pending',
+            'total_product_price'    => $totalProduct,
+            'shipping_fee'           => 0,
+            'total_amount'           => $totalProduct,
+            'coupon_id'              => $couponId,
+            'coupon_discount_amount' => $couponDiscount,
+            'point_used_amount'      => self::POINT_USED,
+            'point_earned_amount'    => 0,
+            'payable_amount'         => $payable,
+            'receiver_name'          => '테스트 수령인',
+            'receiver_phone'         => '010-0000-0000',
+            'zipcode'                => '12345',
+            'address1'               => '서울시 테스트구',
+            'created_at'             => $now,
+            'updated_at'             => $now,
+        ]);
+        $orderId = (int) $db->insertID();
+
+        $db->table('order_items')->insert([
+            'order_id'      => $orderId,
+            'product_id'    => (int) $product['id'],
+            'product_name'  => $product['name'],
+            'product_price' => (int) $product['price'],
+            'cost_price'    => 0,
+            'qty'           => $qty,
+            'subtotal'      => $totalProduct,
+            'created_at'    => $now,
+        ]);
+
+        // 구 버전 주문 생성 로직의 쿠폰 코드 경로(기존 issued UC 없음)를 재현한다.
+        $db->query('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?', [$couponId]);
+        $db->table('user_coupons')->insert([
+            'user_id'    => $userId,
+            'coupon_id'  => $couponId,
+            'order_id'   => $orderId,
+            'source'     => 'code',
+            'status'     => 'used',
+            'issued_at'  => $now,
+            'used_at'    => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $db->query('UPDATE users SET point_balance = point_balance - ? WHERE id = ?', [self::POINT_USED, $userId]);
+        $db->table('point_logs')->insert([
+            'user_id'    => $userId,
+            'type'       => 'use',
+            'amount'     => -self::POINT_USED,
+            'order_id'   => $orderId,
+            'note'       => '주문 포인트 사용',
+            'created_at' => $now,
+        ]);
 
         $this->assertGreaterThan(0, $orderId, '픽스처 주문 생성 실패');
         $this->cleanup['orders'][] = $orderId;

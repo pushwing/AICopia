@@ -10,6 +10,7 @@ use App\Libraries\GradeService;
 use App\Libraries\ItemPricing;
 use App\Libraries\PG\PGFactory;
 use App\Models\CartModel;
+use App\Models\OrderAttemptModel;
 use App\Models\OrderModel;
 use App\Models\ProductModel;
 use App\Models\ShippingAddressModel;
@@ -18,6 +19,7 @@ use App\Models\UserCouponModel;
 class OrderController extends BaseController
 {
     private readonly OrderModel          $orderModel;
+    private readonly OrderAttemptModel   $attemptModel;
     private readonly CartModel           $cartModel;
     private readonly ProductModel        $productModel;
     private readonly ShippingAddressModel $addressModel;
@@ -26,6 +28,7 @@ class OrderController extends BaseController
     public function __construct()
     {
         $this->orderModel      = new OrderModel();
+        $this->attemptModel    = new OrderAttemptModel();
         $this->cartModel       = new CartModel();
         $this->productModel    = new ProductModel();
         $this->addressModel    = new ShippingAddressModel();
@@ -52,7 +55,13 @@ class OrderController extends BaseController
     /** GET /order — 주문서 */
     public function index(): \CodeIgniter\HTTP\RedirectResponse|string
     {
-        $userId      = (int) session()->get('user_id');
+        $userId = (int) session()->get('user_id');
+
+        // 나이스페이(취소 URL 없음)·브라우저 종료처럼 어떤 콜백도 오지 않는 이탈은
+        // payment-cancel 라우트로 잡을 수 없다. 주문서에 다시 들어왔다는 것 자체가
+        // 이전 시도를 포기했다는 뜻이므로, 쿠폰 잔량을 계산하기 전에 걷어낸다(이슈 #214).
+        $this->attemptModel->failPendingForUser($userId, '주문서 재진입으로 인한 이전 시도 정리');
+
         $selectedIds = $this->selectedCartIds();
         $items       = $this->cartModel->getByUser($userId, $selectedIds);
 
@@ -192,7 +201,8 @@ class OrderController extends BaseController
         $earnRate    = new GradeService()->getEarnRate($userGrade, $settings);
         $pointEarned = $payableAmount > 0 ? (int) floor($payableAmount * $earnRate / 100) : 0;
 
-        $orderId = $this->orderModel->createPending(
+        // 주문은 결제가 확정될 때만 orders 에 남긴다(이슈 #214). 여기서는 시도만 만든다.
+        $attemptId = $this->attemptModel->createAttempt(
             $userId,
             $shippingData,
             $items,
@@ -200,10 +210,11 @@ class OrderController extends BaseController
             $resolvedUserCouponId,
             $couponDiscountAmount,
             $pointUse,
-            $pointEarned
+            $pointEarned,
+            $isFreeOrder ? 'free' : $pgProvider
         );
 
-        if ($orderId === 0) {
+        if ($attemptId === 0) {
             return $this->response->setJSON(['success' => false, 'message' => '주문 생성에 실패했습니다. (포인트 또는 쿠폰 처리 오류)']);
         }
 
@@ -216,19 +227,21 @@ class OrderController extends BaseController
             }
         }
 
-        // 무료 주문 — 결제창 없이 바로 확정한다(재고 차감·장바구니 비우기는 confirmFree 안에서).
+        // 무료 주문 — 결제창 없이 바로 확정한다(재고 차감·장바구니 비우기는 convertAttempt 안에서).
         if ($isFreeOrder) {
-            $order = $this->orderModel->getWithItems($orderId, $userId);
+            $orderId = $this->orderModel->convertAttempt($attemptId, 'paid', 'free', null, 'free', ['reason' => 'payable_amount = 0']);
 
-            if (! $this->orderModel->confirmFree($orderId)) {
-                log_message('error', "무료 주문 확정 실패 (재고 부족): order_id={$orderId}");
+            if ($orderId === 0) {
+                log_message('error', "무료 주문 확정 실패 (재고 부족): attempt_id={$attemptId}");
+
                 return $this->response->setJSON([
                     'success' => false,
-                    // 쿠폰·포인트는 confirmFree() 안에서 복구됐으므로 바로 다시 쓸 수 있다.
+                    // 쿠폰·포인트는 convertAttempt() 안에서 복구됐으므로 바로 다시 쓸 수 있다.
                     'message' => '재고가 부족해 주문을 완료할 수 없습니다. 사용하신 쿠폰·포인트는 복구되었습니다.',
                 ]);
             }
 
+            $order = $this->orderModel->getWithItems($orderId, $userId);
             session()->remove(CartModel::CHECKOUT_SESSION_KEY);
 
             return $this->response->setJSON([
@@ -241,31 +254,17 @@ class OrderController extends BaseController
             ]);
         }
 
-        // 무통장입금
+        // 무통장입금 — 입금 계좌를 주문내역에서 확인해야 하므로 즉시 주문으로 전환한다.
         if ($pgProvider === 'bank_transfer') {
-            $db    = \Config\Database::connect();
-            $now   = date('Y-m-d H:i:s');
+            $orderId = $this->orderModel->convertAttempt($attemptId, 'awaiting_payment', 'bank_transfer', null, '무통장입금', []);
+
+            if ($orderId === 0) {
+                return $this->response->setJSON(['success' => false, 'message' => '주문 생성에 실패했습니다.']);
+            }
+
             $order = $this->orderModel->getWithItems($orderId, $userId);
 
-            $this->orderModel->update($orderId, ['status' => 'awaiting_payment']);
-
-            $db->table('payments')->insert([
-                'order_id'     => $orderId,
-                'pg_provider'  => 'bank_transfer',
-                'pg_tid'       => null,
-                'method'       => '무통장입금',
-                'amount'       => (int) $order['payable_amount'],
-                'status'       => 'pending',
-                'raw_response' => '{}',
-                'created_at'   => $now,
-                'updated_at'   => $now,
-            ]);
-
-            // 주문에 담긴 장바구니 행만 정확히 비운다(같은 상품의 다른 옵션·미선택 항목은 남긴다).
-            $this->cartModel->removeByIds(
-                $userId,
-                array_map(static fn (array $item): int => (int) $item['id'], $items),
-            );
+            // 장바구니 비우기는 convertAttempt() 안에서 처리된다(무통장도 포함).
             session()->remove(CartModel::CHECKOUT_SESSION_KEY);
 
             return $this->response->setJSON([
@@ -278,13 +277,21 @@ class OrderController extends BaseController
             ]);
         }
 
-        $order    = $this->orderModel->getWithItems($orderId, $userId);
+        // PG 결제 — 승인 콜백이 와야 orders 로 전환된다. 여기서는 시도 배열을 넘긴다.
+        $attemptRow = $this->attemptModel->find($attemptId);
+        if ($attemptRow === null) {
+            log_message('critical', "[Order] 방금 만든 주문 시도를 다시 읽지 못함 — attempt_id={$attemptId}");
+
+            return $this->response->setJSON(['success' => false, 'message' => '주문 생성에 실패했습니다.']);
+        }
+
+        $attempt  = $this->attemptModel->withItems($attemptRow);
         $pg       = PGFactory::make($pgProvider);
-        $pgParams = $pg->buildPaymentParams($order);
+        $pgParams = $pg->buildPaymentParams($attempt);
 
         if ($pgProvider === 'kakaopay' && isset($pgParams['tid'])) {
             session()->set('kakaopay_tid', $pgParams['tid']);
-            session()->set('kakaopay_order_number', $order['order_number']);
+            session()->set('kakaopay_order_number', $attempt['order_number']);
         }
         // 승인(confirm) 요청의 orderId 는 결제창에 넘긴 값과 완전히 같아야 한다.
         // 어댑터가 만든 값을 그대로 보관해 두 값이 어긋날 여지를 없앤다.
@@ -294,9 +301,9 @@ class OrderController extends BaseController
         }
 
         return $this->response->setJSON([
-            'success'  => true,
-            'orderId'  => $orderId,
-            'pgParams' => $pgParams,
+            'success'   => true,
+            'attemptId' => $attemptId,
+            'pgParams'  => $pgParams,
         ]);
     }
 
@@ -330,9 +337,32 @@ class OrderController extends BaseController
         return $this->render('shop/order_complete', ['order' => $order]);
     }
 
+    /**
+     * 사용자 소유의 진행 중(pending) 시도 1건. fail()·cancelPayment() 가 공유한다.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function findOwnPendingAttempt(string $orderNumber, int $userId): ?array
+    {
+        return $this->attemptModel
+            ->where('order_number', $orderNumber)
+            ->where('user_id', $userId)
+            ->where('status', 'pending')
+            ->first();
+    }
+
     /** GET /order/fail/:orderNumber */
     public function fail(string $orderNumber): \CodeIgniter\HTTP\RedirectResponse|string
     {
+        $userId = (int) session()->get('user_id');
+
+        // 결제가 확정되지 않은 시도는 즉시 걷어내 쿠폰·포인트를 돌려준다(이슈 #214).
+        // 이미 전환됐으면 markFailed() 가 false 를 돌려주므로 아무 일도 일어나지 않는다.
+        $attempt = $this->findOwnPendingAttempt($orderNumber, $userId);
+        if ($attempt !== null) {
+            $this->attemptModel->markFailed((int) $attempt['id'], '결제 실패 또는 결제창 이탈');
+        }
+
         // 토스는 카카오페이·PAYCO·이니시스·네이버페이와 달리 별도 취소 URL이 없어,
         // 사용자가 결제창을 그냥 닫아도 진짜 승인 실패와 구분 없이 failUrl(이 라우트)로
         // 온다. code 가 취소성 코드면 다른 PG와 동일하게 주문서로 돌려보낸다 — 진짜
@@ -342,11 +372,31 @@ class OrderController extends BaseController
             return redirect()->to('/order');
         }
 
-        $userId  = (int) session()->get('user_id');
         $order   = $this->orderModel->where('order_number', $orderNumber)->where('user_id', $userId)->first();
         $message = session()->getFlashdata('pg_error') ?? '결제에 실패했습니다.';
 
         return $this->render('shop/order_fail', ['order' => $order, 'message' => $message]);
+    }
+
+    /**
+     * GET|POST /order/payment-cancel/:orderNumber
+     *
+     * 카카오페이·PAYCO·이니시스 결제창에서 사용자가 "닫기/취소"를 눌렀을 때 돌아오는
+     * 곳이다. 이건 결제 실패가 아니므로 실패 화면을 보여주지 않는다 — 조용히 시도를
+     * 걷어내고(쿠폰·포인트 복구) 주문서로 돌려보낸다(이슈 #214).
+     */
+    public function cancelPayment(string $orderNumber): \CodeIgniter\HTTP\RedirectResponse
+    {
+        $userId  = (int) session()->get('user_id');
+        $attempt = $this->findOwnPendingAttempt($orderNumber, $userId);
+
+        // 이미 승인 콜백으로 전환됐거나(결제 성공), 소유자가 다르거나, 이미 실패
+        // 처리된 시도면 attempt 가 null 이다 — 아무 일도 하지 않고 그냥 돌려보낸다.
+        if ($attempt !== null) {
+            $this->attemptModel->markFailed((int) $attempt['id'], '사용자 결제창 취소');
+        }
+
+        return redirect()->to('/order');
     }
 
     /** POST /order/cancel */

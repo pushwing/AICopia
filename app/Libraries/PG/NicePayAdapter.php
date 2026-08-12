@@ -39,9 +39,9 @@ class NicePayAdapter implements PGInterface
             'goodsName' => $this->buildOrderName($order),
             'buyerName' => $order['receiver_name'],
             'buyerTel'  => (string) ($order['receiver_phone'] ?? ''),
-            // 인증 완료 후 나이스페이가 POST 로 돌아오는 곳. order_id 가 없으면
-            // PaymentController::callback() 이 주문을 찾지 못해 결제가 끊긴다.
-            'returnUrl' => base_url('payment/callback/nicepay?order_id=' . $order['id']),
+            // 인증 완료 후 나이스페이가 POST 로 돌아오는 곳. attempt_id 가 없으면
+            // PaymentController::callback() 이 주문 시도를 찾지 못해 결제가 끊긴다.
+            'returnUrl' => base_url('payment/callback/nicepay?attempt_id=' . $order['id']),
         ];
     }
 

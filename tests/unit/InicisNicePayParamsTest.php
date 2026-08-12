@@ -47,14 +47,14 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
         $this->assertSame('WON', $params['currency']);
     }
 
-    /** 인증 완료 후 돌아올 returnUrl 이 콜백 라우트를 order_id 와 함께 가리켜야 한다. */
+    /** 인증 완료 후 돌아올 returnUrl 이 콜백 라우트를 attempt_id 와 함께 가리켜야 한다. */
     public function testInicisParamsIncludeReturnUrl(): void
     {
         $params = (new InicisAdapter())->buildPaymentParams($this->order());
 
         $this->assertArrayHasKey('returnUrl', $params);
         $this->assertStringContainsString('payment/callback/inicis', (string) $params['returnUrl']);
-        $this->assertStringContainsString('order_id=4242', (string) $params['returnUrl']);
+        $this->assertStringContainsString('attempt_id=4242', (string) $params['returnUrl']);
         $this->assertStringStartsWith('http', (string) $params['returnUrl'], 'returnUrl 은 절대 URL 이어야 합니다.');
     }
 
@@ -69,7 +69,9 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
 
         $this->assertArrayHasKey('closeUrl', $params);
         $this->assertStringNotContainsString('order/fail', (string) $params['closeUrl']);
-        $this->assertStringEndsWith('/order', rtrim((string) $params['closeUrl'], '/'));
+        // 시도를 걷어내는 전용 라우트(이슈 #214)를 거쳐야 쿠폰·포인트가 복구된다 —
+        // 곧장 /order 로 가면 그 복구가 빠진다.
+        $this->assertStringEndsWith('/order/payment-cancel/ORD20260807XYZ', (string) $params['closeUrl']);
     }
 
     /** signature 는 oid·price·timestamp 를, mKey 는 signKey 를 SHA256 해시한 값이다. */
@@ -109,7 +111,7 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
 
         $this->assertArrayHasKey('returnUrl', $params);
         $this->assertStringContainsString('payment/callback/nicepay', (string) $params['returnUrl']);
-        $this->assertStringContainsString('order_id=4242', (string) $params['returnUrl']);
+        $this->assertStringContainsString('attempt_id=4242', (string) $params['returnUrl']);
         $this->assertStringStartsWith('http', (string) $params['returnUrl'], 'returnUrl 은 절대 URL 이어야 합니다.');
     }
 

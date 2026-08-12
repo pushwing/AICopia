@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Models\OrderAttemptModel;
 use App\Models\OrderModel;
 use App\Models\ProductModel;
 use CodeIgniter\Test\CIUnitTestCase;
@@ -21,10 +22,11 @@ final class SupplierCostTest extends CIUnitTestCase
     protected $refresh = false;
 
     private array $cleanup = [
-        'users'     => [],
-        'suppliers' => [],
-        'products'  => [],
-        'orders'    => [],
+        'users'          => [],
+        'suppliers'      => [],
+        'products'       => [],
+        'orders'         => [],
+        'order_attempts' => [],
     ];
 
     protected function tearDown(): void
@@ -33,8 +35,12 @@ final class SupplierCostTest extends CIUnitTestCase
 
         if ($this->cleanup['orders'] !== []) {
             $db->table('order_status_logs')->whereIn('order_id', $this->cleanup['orders'])->delete();
+            $db->table('payments')->whereIn('order_id', $this->cleanup['orders'])->delete();
             $db->table('order_items')->whereIn('order_id', $this->cleanup['orders'])->delete();
             $db->table('orders')->whereIn('id', $this->cleanup['orders'])->delete();
+        }
+        if ($this->cleanup['order_attempts'] !== []) {
+            $db->table('order_attempts')->whereIn('id', $this->cleanup['order_attempts'])->delete();
         }
         if ($this->cleanup['products'] !== []) {
             $db->table('products')->whereIn('id', $this->cleanup['products'])->delete();
@@ -166,7 +172,7 @@ final class SupplierCostTest extends CIUnitTestCase
         $this->assertContains('cost_price', $columns);
     }
 
-    // ── createPending cost_price 스냅샷 ──────────────────────────────────────
+    // ── 결제 확정 주문의 cost_price 스냅샷 ────────────────────────────────────
 
     private function insertUser(): int
     {
@@ -199,7 +205,48 @@ final class SupplierCostTest extends CIUnitTestCase
         ];
     }
 
-    public function testCreatePending_snapshotsCostPrice(): void
+    /**
+     * 결제 확정된 주문을 만든다.
+     *
+     * 주문 생성은 order_attempts 를 거치도록 바뀌었다(이슈 #214). cost_price
+     * 스냅샷은 OrderAttemptModel::createAttempt() 시점에 찍히고 convertAttempt() 가
+     * order_items 로 그대로 옮기므로, 시도를 만든 뒤 즉시 전환해 검증 대상
+     * order_items 행을 만든다.
+     *
+     * @param array<int, array<string, mixed>> $cartItems
+     */
+    private function createPaidOrder(int $userId, array $cartItems): int
+    {
+        $attemptId = (new OrderAttemptModel())->createAttempt(
+            $userId,
+            $this->shippingData(),
+            $cartItems,
+            null,
+            null,
+            0,
+            0,
+            0,
+            'toss'
+        );
+        if ($attemptId > 0) {
+            $this->cleanup['order_attempts'][] = $attemptId;
+        }
+
+        if ($attemptId === 0) {
+            return 0;
+        }
+
+        $orderId = (new OrderModel())->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', []);
+        if ($orderId > 0) {
+            $this->cleanup['orders'][] = $orderId;
+        }
+
+        $this->assertGreaterThan(0, $orderId, '주문 생성에 실패했습니다');
+
+        return $orderId;
+    }
+
+    public function testCreatePaidOrder_snapshotsCostPrice(): void
     {
         $userId    = $this->insertUser();
         $productId = $this->insertProduct(['cost_price' => 7500, 'price' => 20000]);
@@ -212,14 +259,13 @@ final class SupplierCostTest extends CIUnitTestCase
             'qty'        => 2,
         ]];
 
-        $orderId = (new OrderModel())->createPending($userId, $this->shippingData(), $cartItems);
-        $this->cleanup['orders'][] = $orderId;
+        $orderId = $this->createPaidOrder($userId, $cartItems);
 
         $item = $db->table('order_items')->where('order_id', $orderId)->get()->getRowArray();
         $this->assertSame(7500.0, (float) $item['cost_price']);
     }
 
-    public function testCreatePending_costPriceDefaultsToZeroWhenMissing(): void
+    public function testCreatePaidOrder_costPriceDefaultsToZeroWhenMissing(): void
     {
         $userId    = $this->insertUser();
         // cost_price = 0 (기본값)
@@ -233,8 +279,7 @@ final class SupplierCostTest extends CIUnitTestCase
             'qty'        => 1,
         ]];
 
-        $orderId = (new OrderModel())->createPending($userId, $this->shippingData(), $cartItems);
-        $this->cleanup['orders'][] = $orderId;
+        $orderId = $this->createPaidOrder($userId, $cartItems);
 
         $item = $db->table('order_items')->where('order_id', $orderId)->get()->getRowArray();
         $this->assertSame(0.0, (float) $item['cost_price']);

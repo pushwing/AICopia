@@ -26,9 +26,12 @@ class OrderAnomalyService
     /** 조회 기간 상한(일) — 전체 이력 풀스캔 방지 */
     public const MAX_DAYS = 365;
 
-    /** 탐지 대상 주문 상태 (취소·만료 제외한 유효 주문) */
+    /**
+     * 탐지 대상 주문 상태 (취소·만료 제외한 유효 주문).
+     * 결제 확정 전 주문은 더 이상 orders 에 생기지 않으므로 pending 은 제외한다. (이슈 #214)
+     */
     private const array ACTIVE_STATUSES = [
-        'pending', 'awaiting_payment', 'paid', 'preparing', 'shipped', 'delivered',
+        'awaiting_payment', 'paid', 'preparing', 'shipped', 'delivered',
         'refund_requested', 'return_requested',
     ];
 

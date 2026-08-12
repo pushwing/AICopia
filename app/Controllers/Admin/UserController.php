@@ -294,6 +294,8 @@ class UserController extends BaseController
         $rows = $db->table('orders')
             ->select('id, order_number, status, total_amount, payable_amount, created_at')
             ->where('user_id', $id)
+            // 결제 확정 전 주문은 회원 상세에도 노출하지 않는다. (이슈 #214)
+            ->whereNotIn('status', ['pending', 'expired'])
             ->orderBy('id', 'DESC')
             ->limit(30)
             ->get()->getResultArray();
