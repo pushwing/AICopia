@@ -34,7 +34,10 @@
     </aside>
     <?php endif; ?>
 
-    <main class="flex-grow-1 min-width-0">
+    <?php /* min-w-0 이 빠지면(예전 오타 min-width-0 처럼 style.css 에 없는 이름이면)
+             flex 아이템 기본값 min-width:auto 때문에 본문의 min-content — 줄바꿈되지
+             않는 표·긴 주문번호 등 — 만큼 main 이 늘어나 페이지 전체가 가로로 넘친다. */ ?>
+    <main class="flex-grow-1 min-w-0">
         <?php foreach (['success' => 'success', 'warning' => 'warning', 'error' => 'danger'] as $key => $cls): ?>
             <?php if (session()->has($key)): ?>
             <div class="container mt-3">

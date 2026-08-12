@@ -35,6 +35,9 @@ body {
 }
 
 /* ─── 페이지 콘텐츠 ──────────────────────────────── */
+/* 에디터로 넣은 넓은 표는 본문 폭을 넘길 수 있다 — 페이지를 통째로 가로로
+   넘기지 말고 본문 안에서만 스크롤되게 한다. */
+.page-content, .post-content { overflow-x: auto; }
 .page-content img {
     max-width: 100%;
     height: auto;
