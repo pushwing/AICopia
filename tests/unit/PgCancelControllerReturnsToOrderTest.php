@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Controllers\Front\OrderController;
 use App\Controllers\Front\PaymentController;
+use App\Libraries\PG\PGInterface;
 use App\Models\OrderAttemptModel;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RedirectResponse;
@@ -19,8 +20,13 @@ use CodeIgniter\Test\DatabaseTestTrait;
  * 어댑터가 만드는 전용 "취소 URL"이 없다 — 성공/취소 판정을 컨트롤러가 직접 해야 한다.
  *
  * - 네이버페이: 성공·취소 모두 같은 returnUrl(payment/callback/naverpay)로 오고
- *   resultCode 로만 구분된다. PaymentController::callback() 이 이 값을 안 보면
- *   취소(닫기)가 승인 실패로 오인돼 order/fail 로 간다.
+ *   resultCode·paymentId 로만 구분된다. PaymentController::callback() 은
+ *   "resultCode===Success && paymentId 존재" 두 조건을 모두 만족할 때만 성공으로
+ *   보고, 그 외(대소문자 차이·Cancel류 값·resultCode 없음·paymentId 없음)는 전부
+ *   취소로 처리한다 — paymentId 가 없으면 애초에 승인(/apply) 요청 자체를 보낼 수
+ *   없으므로 취소로 묶어도 잃는 게 없다. 이 판정을 안 하면(과거엔 resultCode===
+ *   'Fail' 정확 일치만 봤다) 결제창을 그냥 닫은 취소가 order/fail(결제 실패 화면)
+ *   로 오인돼 사용자에게 불필요하게 노출됐다.
  * - 토스: 성공은 successUrl, 실패·취소는 모두 failUrl(order/fail)로 오지만
  *   code 로 "사용자가 그냥 닫음"과 "진짜 승인 거절"을 구분할 수 있다.
  *   OrderController::fail() 이 이 code 를 안 보면 취소도 실패 화면으로 뜬다.
@@ -256,6 +262,68 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
         return $controller;
     }
 
+    /**
+     * confirm() 결과를 고정한 가짜 PG 어댑터로 콜백을 실행한다. 성공 판정
+     * 테스트가 실제 네이버페이 서버로 나가지 않도록 makePg() 를 오버라이드한다.
+     *
+     * @param array<string, mixed> $getParams
+     * @param array<string, mixed> $confirmResult
+     */
+    private function paymentControllerWithFakePg(array $getParams, array $confirmResult): PaymentController
+    {
+        $controller = new class ($confirmResult) extends PaymentController {
+            /** @param array<string, mixed> $confirmResult */
+            public function __construct(private readonly array $confirmResult)
+            {
+                parent::__construct();
+            }
+
+            protected function makePg(string $pgProvider): PGInterface
+            {
+                return new class ($this->confirmResult) implements PGInterface {
+                    /** @param array<string, mixed> $confirmResult */
+                    public function __construct(private readonly array $confirmResult)
+                    {
+                    }
+
+                    /**
+                     * @param  array<string, mixed> $order
+                     * @return array<string, mixed>
+                     */
+                    public function buildPaymentParams(array $order): array
+                    {
+                        return [];
+                    }
+
+                    /** @return array<string, mixed> */
+                    public function confirm(string $pgToken, int $expectedAmount): array
+                    {
+                        return $this->confirmResult;
+                    }
+
+                    /** @return array{success: bool, message: string} */
+                    public function cancel(string $pgTid, int $amount, string $reason): array
+                    {
+                        return ['success' => false, 'message' => '미구현'];
+                    }
+
+                    public function getProviderName(): string
+                    {
+                        return 'naverpay';
+                    }
+                };
+            }
+        };
+
+        $controller->initController(
+            $this->requestWithGet('payment/callback/naverpay', $getParams),
+            service('response'),
+            service('logger'),
+        );
+
+        return $controller;
+    }
+
     /** @param array<string, mixed> $getParams */
     private function orderController(array $getParams): OrderController
     {
@@ -267,6 +335,15 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
         );
 
         return $controller;
+    }
+
+    /** 성공 콜백이 실제로 만든 주문을 tearDown() 정리 대상에 등록한다. */
+    private function trackOrdersOf(int $userId): void
+    {
+        $rows = db_connect()->table('orders')->select('id')->where('user_id', $userId)->get()->getResultArray();
+        foreach ($rows as $row) {
+            $this->cleanup['orders'][] = (int) $row['id'];
+        }
     }
 
     // ── 네이버페이: PaymentController::callback() (레거시 order_id) ─────────────
@@ -287,21 +364,88 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
         $this->assertStringEndsWith('/order', rtrim($location, '/'));
     }
 
-    /** paymentId 가 있고 resultCode 가 Fail 이 아니면(=정상 성공 흐름) 취소 분기를 타면 안 된다. */
-    public function testNaverpaySuccessDoesNotShortCircuitToOrderPage(): void
+    /**
+     * resultCode·paymentId 가 아예 없는 콜백(=결제창을 그냥 닫아 파라미터 없이
+     * returnUrl 만 호출된 경우)도 "성공이 아니면 취소"로 판정해 주문서로 돌아가야
+     * 한다. resultCode==='Fail' 정확 일치만 보던 과거 조건은 이 경우를 놓치고
+     * 아래 "결제 정보를 받지 못했습니다" → order/fail 분기로 흘려보냈었다.
+     */
+    public function testNaverpayMissingResultCodeReturnsToOrderPageNotFailPage(): void
     {
         $userId      = $this->insertUser();
         $orderNumber = 'ORD-' . $this->prefix;
         $orderId     = $this->insertPendingOrder($userId, $orderNumber);
         session()->set(['user_id' => $userId, 'user_role' => 'member']);
 
-        // paymentId 없이 넘기면(=서버가 승인 못 함) 취소 분기가 아니라 기존
-        // "결제 정보를 받지 못했습니다" → order/fail 분기를 타야 한다.
         $result = $this->paymentController(['order_id' => $orderId])->callback('naverpay');
 
         $this->assertInstanceOf(RedirectResponse::class, $result);
         $location = (string) $result->header('Location')->getValue();
-        $this->assertStringContainsString('order/fail', $location, 'resultCode 없이도 취소 분기를 타 버렸다');
+        $this->assertStringNotContainsString('order/fail', $location, 'resultCode 없는 취소가 실패 화면으로 갔다');
+        $this->assertStringEndsWith('/order', rtrim($location, '/'));
+    }
+
+    /**
+     * resultCode=Success 여도 paymentId 가 없으면(=승인 요청 자체를 보낼 수 없는
+     * 상태) 취소로 처리해야 한다. paymentId 없이는 애초에 confirm() 을 호출할 수
+     * 없으므로 취소로 묶어도 잃는 게 없다.
+     */
+    public function testNaverpaySuccessResultCodeWithoutPaymentIdReturnsToOrderPageNotFailPage(): void
+    {
+        $userId      = $this->insertUser();
+        $orderNumber = 'ORD-' . $this->prefix;
+        $orderId     = $this->insertPendingOrder($userId, $orderNumber);
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $result = $this->paymentController(['order_id' => $orderId, 'resultCode' => 'Success'])
+            ->callback('naverpay');
+
+        $this->assertInstanceOf(RedirectResponse::class, $result);
+        $location = (string) $result->header('Location')->getValue();
+        $this->assertStringNotContainsString('order/fail', $location, 'paymentId 없는 성공 코드가 실패 화면으로 갔다');
+        $this->assertStringEndsWith('/order', rtrim($location, '/'));
+    }
+
+    /**
+     * resultCode=Success + paymentId 가 모두 있는(=진짜 성공 콜백) 요청은 취소
+     * 분기로 단축되면 안 된다 — 승인(confirm) 절차까지 정상 진행해 주문이
+     * 완료돼야 한다. 이 조건을 잘못 뒤집으면(예: Success 를 취소로 판정) 진짜
+     * 결제 성공이 통째로 깨지므로, 취소 판정 강화의 회귀 방지 핵심이다.
+     */
+    public function testNaverpaySuccessDoesNotShortCircuitToOrderPage(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct(['stock' => 10]);
+
+        $attemptId = $this->createAttempt($userId, $product);
+        $this->assertGreaterThan(0, $attemptId);
+        $payableAmount = (int) $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray()['payable_amount'];
+
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $tid    = 'TID-NP-' . uniqid();
+        $result = $this->paymentControllerWithFakePg(
+            ['attempt_id' => $attemptId, 'resultCode' => 'Success', 'paymentId' => 'PID-' . uniqid()],
+            ['success' => true, 'tid' => $tid, 'method' => 'card', 'amount' => $payableAmount, 'raw' => []],
+        )->callback('naverpay');
+        $this->trackOrdersOf($userId);
+
+        $this->assertInstanceOf(RedirectResponse::class, $result);
+        $location = (string) $result->header('Location')->getValue();
+        $this->assertStringNotContainsString(
+            'order/fail',
+            $location,
+            '성공 콜백이 실패 화면으로 갔다'
+        );
+        $this->assertStringContainsString(
+            'order/complete',
+            $location,
+            '성공 콜백이 취소 분기로 단축돼 승인 절차를 건너뛰었다'
+        );
+
+        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertSame('converted', $attempt['status'], '성공 콜백인데 시도가 주문으로 전환되지 않았다');
     }
 
     // ── 네이버페이: PaymentController::callback() (신규 attempt_id) ─────────────
