@@ -143,4 +143,36 @@ final class DashboardRecentOrdersTest extends CIUnitTestCase
         $this->assertNotNull($result, '결제 완료 주문은 최근 주문 위젯 쿼리에 노출돼야 함');
         $this->assertSame($orderId, (int) $result['id']);
     }
+
+    // ── "오늘 주문 수" 카운트 ─────────────────────────────────────────────────
+    //
+    // 같은 대시보드의 매출 쿼리들은 pending·expired 를 제외하는데 이 카운트만
+    // 조건이 없어, 결제되지 않은 주문까지 오늘 주문 수에 잡혔다. (이슈 #214)
+
+    /** 오늘 만든 주문 중 검증 대상만 세도록 카운트 차이로 확인한다 */
+    private function countTodayOrdersDelta(string $status): int
+    {
+        $orderModel = new OrderModel();
+        $todayStart = date('Y-m-d 00:00:00');
+
+        $before = $orderModel->countTodayOrders($todayStart);
+        $this->insertOrder($this->insertUser(), $status);
+
+        return $orderModel->countTodayOrders($todayStart) - $before;
+    }
+
+    public function testPendingOrderExcludedFromTodayOrderCount(): void
+    {
+        $this->assertSame(0, $this->countTodayOrdersDelta('pending'), 'pending 주문이 오늘 주문 수에 잡혔다');
+    }
+
+    public function testExpiredOrderExcludedFromTodayOrderCount(): void
+    {
+        $this->assertSame(0, $this->countTodayOrdersDelta('expired'), 'expired 주문이 오늘 주문 수에 잡혔다');
+    }
+
+    public function testPaidOrderCountedInTodayOrderCount(): void
+    {
+        $this->assertSame(1, $this->countTodayOrdersDelta('paid'), '결제 완료 주문이 오늘 주문 수에서 빠졌다');
+    }
 }

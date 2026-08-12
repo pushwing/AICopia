@@ -151,6 +151,24 @@ UPDATE order_attempts SET status='failed', failed_at=?, fail_reason=?
 
 **만료 커맨드** — `orders:expire`는 `order_attempts`를 걷어가도록 바꾸되, **기존 `OrderModel::expirePending()` 호출도 당분간 함께 유지한다**(아래 배포 호환 참조). 커맨드 이름·스케줄 설정 키(`schedule_orders_expire_enabled`)는 그대로 둬서 `/admin/schedule` 설정이 깨지지 않게 한다.
 
+## 레거시 주문 상세 경로 — `pending`만 막고 `expired`는 연다
+
+목록에서 감추는 것만으로는 부족하다. 주문번호·주문 id 를 알면 상세·재주문·포인트 내역을 통해 레거시 행에 그대로 도달한다. 여기서 `pending`과 `expired`를 같은 규칙으로 다루면 안 된다.
+
+- **`expired`는 계속 노출된다.** `getByUser()`의 "취소/환불" 탭(`status=cancel`)이 `expired`를 포함하고, 목록의 재주문 버튼도 상태 조건 없이 붙는다. 상세까지 막으면 **목록에서 클릭한 링크가 깨진다.**
+- **`pending`은 어느 목록 탭에도 없다.** "전체" 탭은 `pending`·`expired`를 함께 제외하고, "취소/환불" 탭은 `expired`만 담는다. 신규 주문은 `order_attempts`를 거치므로 여기 남는 건 레거시 행뿐이고, 배포 후 최대 30분(만료 배치 1주기)이면 전부 `expired`로 넘어간다.
+
+따라서 **차단 대상은 `pending` 하나**다.
+
+| 경로 | 조치 |
+|---|---|
+| `OrderModel::getWithItems()` | `status != 'pending'` 조건 추가. 호출부 5곳은 모두 호출 전에 상태를 검증하므로 영향 없다 |
+| `Front\MyPageController::orderDetail()` | `getWithItems()`가 `null`이면 목록으로 리다이렉트. 없으면 뷰가 `null`을 받아 상세 화면이 통째로 깨진다 |
+| `Front\MyPageController::reorder()` | 주문 조회에 `status != 'pending'` 추가 |
+| `PointLogModel::getByUser()` | `orders` LEFT JOIN 조건에 `o.status != 'pending'` 추가. 주문번호 자체가 `null`이 되어 뷰가 링크를 만들지 않는다 |
+| `OrderModel::adminGetWithItems()` | **변경 없음.** 관리자는 레거시 행을 조사할 수 있어야 하고, PR2의 `/admin/order-attempts` 로그 페이지가 이 상세로 이어진다 |
+| `Admin\DashboardController` "오늘 주문 수" | `OrderModel::countTodayOrders()`로 추출하고 `pending`·`expired`를 제외한다. 같은 화면의 매출 쿼리들은 이미 제외하고 있어 이 카운트만 어긋나 있었다(PR1 이전부터) |
+
 ## 배포 호환
 
 배포 순간 결제창이 떠 있던 사용자가 두 곳에서 깨진다. 둘 다 한시적 호환 경로로 처리하고, 다음 릴리스에서 제거한다. 제거 대상임을 코드 주석에 남긴다.

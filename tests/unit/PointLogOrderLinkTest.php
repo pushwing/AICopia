@@ -68,13 +68,13 @@ final class PointLogOrderLinkTest extends CIUnitTestCase
         return $id;
     }
 
-    private function insertOrder(int $userId, string $orderNumber): int
+    private function insertOrder(int $userId, string $orderNumber, string $status = 'paid'): int
     {
         $db = db_connect();
         $db->table('orders')->insert([
             'user_id'                => $userId,
             'order_number'           => $orderNumber,
-            'status'                 => 'paid',
+            'status'                 => $status,
             'total_product_price'    => 10000,
             'shipping_fee'           => 0,
             'total_amount'           => 10000,
@@ -188,5 +188,57 @@ final class PointLogOrderLinkTest extends CIUnitTestCase
         $result = $this->controller()->points();
 
         $this->assertStringContainsString('/mypage/orders/' . $orderNumber, $result, '적립 로그도 주문으로 이어져야 한다');
+    }
+
+    /**
+     * 레거시 pending 주문은 상세를 열 수 없으므로 포인트 내역에서도 주문번호를 노출하지 않는다.
+     *
+     * 노출하면 목록 어디에도 없는 주문번호가 여기서만 새어나오고, 링크를 눌러도
+     * 상세가 열리지 않아 죽은 링크가 된다. (이슈 #214)
+     */
+    public function testGetByUserHidesOrderNumberForLegacyPendingOrder(): void
+    {
+        $userId  = $this->insertUser();
+        $orderId = $this->insertOrder($userId, 'ORD-' . $this->prefix, 'pending');
+        $this->insertPointLog($userId, 'use', -1000, $orderId, '주문 포인트 사용');
+
+        $result = new PointLogModel()->getByUser($userId);
+
+        $this->assertCount(1, $result['items']);
+        $this->assertNull($result['items'][0]['order_number'], '레거시 pending 주문번호가 포인트 내역에 노출됐다');
+    }
+
+    /** 만료 주문은 "취소/환불" 탭에서 상세가 열리므로 포인트 내역 링크도 유지한다 */
+    public function testGetByUserKeepsOrderNumberForExpiredOrder(): void
+    {
+        $userId      = $this->insertUser();
+        $orderNumber = 'ORD-' . $this->prefix;
+        $orderId     = $this->insertOrder($userId, $orderNumber, 'expired');
+        $this->insertPointLog($userId, 'refund', 1000, $orderId, '주문 만료 포인트 환급');
+
+        $result = new PointLogModel()->getByUser($userId);
+
+        $this->assertCount(1, $result['items']);
+        $this->assertSame($orderNumber, $result['items'][0]['order_number'] ?? null, '만료 주문 링크까지 사라졌다');
+    }
+
+    public function testPointsPageShowsNoLinkForLegacyPendingOrder(): void
+    {
+        $userId      = $this->insertUser();
+        $orderNumber = 'ORD-' . $this->prefix;
+        $this->insertPointLog(
+            $userId,
+            'use',
+            -1000,
+            $this->insertOrder($userId, $orderNumber, 'pending'),
+            '주문 포인트 사용'
+        );
+
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $result = $this->controller()->points();
+
+        $this->assertStringContainsString('주문 포인트 사용', $result, '기존 내용(note)이 사라졌다');
+        $this->assertStringNotContainsString('/mypage/orders/' . $orderNumber, $result, '열리지 않는 주문으로 가는 링크가 생겼다');
     }
 }

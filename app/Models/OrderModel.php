@@ -1149,11 +1149,18 @@ class OrderModel extends Model
     /**
      * 주문 상세
      *
+     * 결제가 확정되지 않은 레거시 pending 주문은 목록 어디에도 노출되지 않으므로
+     * 주문번호를 알아도 상세를 열어주지 않는다. 반면 expired 는 "취소/환불" 탭에
+     * 계속 노출되는 것이 설계 결정이라 그대로 열어준다. (이슈 #214)
+     *
      * @return array<string, mixed>|null
      */
     public function getWithItems(int $orderId, int $userId): ?array
     {
-        $order = $this->where('id', $orderId)->where('user_id', $userId)->first();
+        $order = $this->where('id', $orderId)
+            ->where('user_id', $userId)
+            ->where('status !=', 'pending')
+            ->first();
         if (! $order) {
             return null;
         }
@@ -1329,6 +1336,23 @@ class OrderModel extends Model
             ->orderBy('o.id', 'DESC')
             ->limit($limit)
             ->get()->getResultArray();
+    }
+
+    /**
+     * 관리자 대시보드 "오늘 주문 수" 카운트.
+     *
+     * 같은 화면의 매출 집계와 동일하게 결제 확정 전(pending)·만료(expired) 레거시
+     * 주문을 제외한다 — 카운트만 조건이 없으면 매출 0원짜리 주문이 주문 수에 잡혀
+     * 두 지표가 어긋난다. (이슈 #214)
+     *
+     * @param string $since 집계 시작 시각 (`Y-m-d H:i:s`)
+     */
+    public function countTodayOrders(string $since): int
+    {
+        return $this->db->table('orders')
+            ->where('created_at >=', $since)
+            ->whereNotIn('status', ['pending', 'expired'])
+            ->countAllResults();
     }
 
     public function updateTracking(int $orderId, string $company, string $number): bool

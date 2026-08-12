@@ -104,8 +104,7 @@ class DashboardController extends BaseController
         ", [$todayStart, $weekStart, $monthStart])->getRowArray();
 
         // 운영 현황 카운트
-        $todayOrderCount   = $db->table('orders')
-            ->where('created_at >=', $todayStart)->countAllResults();
+        $todayOrderCount   = $orderModel->countTodayOrders($todayStart);
         $pendingOrderCount = $db->table('orders')
             ->whereIn('status', ['awaiting_payment', 'preparing'])->countAllResults();
         $todayUserCount    = $db->table('users')

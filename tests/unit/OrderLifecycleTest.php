@@ -728,6 +728,38 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $this->assertNotContains($orderId, $ids);
     }
 
+    /**
+     * E-10: getWithItems 는 레거시 pending 주문 상세를 열어주지 않는다
+     *
+     * 목록에서 감췄어도 주문번호만 알면 /mypage/orders/{번호} 로 상세가 열렸다.
+     * pending 은 어느 목록 탭에도 노출되지 않으므로 막아도 깨지는 링크가 없다. (이슈 #214)
+     */
+    public function testGetWithItems_returnsNullForLegacyPendingOrder(): void
+    {
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct();
+        $orderId = $this->insertLegacyPendingOrder($userId, $product);
+
+        $this->assertNull($this->model->getWithItems($orderId, $userId));
+    }
+
+    /**
+     * E-11: getWithItems 는 만료 주문 상세는 그대로 열어준다
+     *
+     * expired 는 "취소/환불" 탭(status=cancel)에 계속 노출되는 것이 설계 결정이라
+     * 상세까지 막으면 목록에서 클릭했을 때 깨진다.
+     */
+    public function testGetWithItems_returnsExpiredOrder(): void
+    {
+        $userId  = $this->insertUser();
+        $orderId = $this->insertOrderDirect($userId, 'expired');
+
+        $order = $this->model->getWithItems($orderId, $userId);
+
+        $this->assertNotNull($order);
+        $this->assertSame('expired', $order['status']);
+    }
+
     // ── S: updateStatus ───────────────────────────────────────────────────────
 
     /** S-01: paid → preparing */
