@@ -29,9 +29,17 @@ class UserCouponModel extends Model
                       c.discount_value, c.min_order_amount, c.max_discount_amount, uc.issued_at,
                       c.expires_at')
             ->join('coupons c', 'c.id = uc.coupon_id')
+            ->join('users u', 'u.id = uc.user_id')
             ->where('uc.user_id', $userId)
             ->where('uc.status', 'issued')
             ->where('c.is_active', 1)
+            // 등급 전용 쿠폰은 회원 등급이 대상에 포함될 때만 노출한다.
+            // (CouponService::checkCoupon()의 등급 검증과 동일한 기준 — 목록에는
+            //  떠 있는데 주문 시 거부되는 불일치를 막는다.)
+            ->groupStart()
+                ->where("COALESCE(c.target_grade, '') = ''", null, false)
+                ->orWhere("FIND_IN_SET(COALESCE(u.grade, 'bronze'), REPLACE(c.target_grade, ' ', '')) > 0", null, false)
+            ->groupEnd()
             ->groupStart()
                 ->where('c.expires_at IS NULL', null, false)
                 ->orWhere('c.expires_at >=', $now)

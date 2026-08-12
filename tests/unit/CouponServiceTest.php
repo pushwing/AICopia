@@ -99,7 +99,7 @@ final class CouponServiceTest extends CIUnitTestCase
         return ['id' => $id, 'code' => $resolvedCode];
     }
 
-    private function insertUser(): int
+    private function insertUser(string $grade = 'bronze'): int
     {
         $db  = db_connect();
         $uid = uniqid();
@@ -109,7 +109,7 @@ final class CouponServiceTest extends CIUnitTestCase
             'password'      => password_hash('test', PASSWORD_DEFAULT),
             'nickname'      => 'CsTestUser',
             'role'          => 'member',
-            'grade'         => 'bronze',
+            'grade'         => $grade,
             'is_active'     => 1,
             'point_balance' => 0,
             'created_at'    => date('Y-m-d H:i:s'),
@@ -292,5 +292,83 @@ final class CouponServiceTest extends CIUnitTestCase
 
         $result = $this->service->validateByUserCouponId($userCouponId, $userId, 10000);
         $this->assertFalse($result['valid']);
+    }
+
+    // ── G: 등급 전용 쿠폰 ─────────────────────────────────────────────────────
+
+    /** G-01: 코드 경로 — 등급 불일치 → valid=false */
+    public function testValidate_gradeMismatch_returnsFail(): void
+    {
+        $userId = $this->insertUser('gold');
+        $coupon = $this->insertCoupon(['target_grade' => 'bronze']);
+
+        $result = $this->service->validate($coupon['code'], $userId, 10000);
+
+        $this->assertFalse($result['valid']);
+        $this->assertStringContainsString('등급 전용', $result['message']);
+    }
+
+    /**
+     * G-02: 보유 쿠폰 경로 — 등급 불일치 → valid=false
+     *
+     * validateByUserCouponId() 가 재조립하는 쿠폰 배열에 target_grade 를 빠뜨리면
+     * 등급 검증이 통째로 건너뛰어져 타 등급 회원이 등급 전용 쿠폰을 쓸 수 있다.
+     */
+    public function testValidateByUserCouponId_gradeMismatch_returnsFail(): void
+    {
+        $userId       = $this->insertUser('gold');
+        $coupon       = $this->insertCoupon(['target_grade' => 'bronze']);
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id'], 'issued');
+
+        $result = $this->service->validateByUserCouponId($userCouponId, $userId, 10000);
+
+        $this->assertFalse($result['valid']);
+        $this->assertStringContainsString('등급 전용', $result['message']);
+    }
+
+    /** G-03: 보유 쿠폰 경로 — 등급 일치(브론즈 회원 + 브론즈 전용) → valid=true */
+    public function testValidateByUserCouponId_gradeMatch_returnsValid(): void
+    {
+        $userId       = $this->insertUser('bronze');
+        $coupon       = $this->insertCoupon(['target_grade' => 'bronze']);
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id'], 'issued');
+
+        $result = $this->service->validateByUserCouponId($userCouponId, $userId, 10000);
+
+        $this->assertTrue($result['valid'], $result['message']);
+    }
+
+    /** G-04: 다중 등급(콤마 구분) 중 하나와 일치 → valid=true */
+    public function testValidateByUserCouponId_multiGradeIncludesUser_returnsValid(): void
+    {
+        $userId       = $this->insertUser('silver');
+        $coupon       = $this->insertCoupon(['target_grade' => 'bronze,silver']);
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id'], 'issued');
+
+        $result = $this->service->validateByUserCouponId($userCouponId, $userId, 10000);
+
+        $this->assertTrue($result['valid'], $result['message']);
+    }
+
+    /** G-05: 주문서 보유 쿠폰 목록 — 등급 불일치 쿠폰은 애초에 노출되지 않는다 */
+    public function testGetAvailable_excludesGradeMismatchedCoupon(): void
+    {
+        $userId  = $this->insertUser('gold');
+        $mine    = $this->insertCoupon(['target_grade' => 'gold']);
+        $notMine = $this->insertCoupon(['target_grade' => 'bronze']);
+        $anyone  = $this->insertCoupon(['target_grade' => null]);
+
+        $this->insertUserCoupon($userId, $mine['id'], 'issued');
+        $this->insertUserCoupon($userId, $notMine['id'], 'issued');
+        $this->insertUserCoupon($userId, $anyone['id'], 'issued');
+
+        $couponIds = array_map(
+            intval(...),
+            array_column(new \App\Models\UserCouponModel()->getAvailable($userId, 10000), 'id'),
+        );
+
+        $this->assertContains($mine['id'], $couponIds);
+        $this->assertContains($anyone['id'], $couponIds);
+        $this->assertNotContains($notMine['id'], $couponIds);
     }
 }
