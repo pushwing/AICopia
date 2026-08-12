@@ -91,7 +91,9 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
      */
     public function testInicisCloseUrlReturnsToOrderPageNotFailPage(): void
     {
-        $params = (new InicisAdapter())->buildPaymentParams($this->order());
+        // 키를 주입해 만든 어댑터라야 한다 — 키가 비면 buildPaymentParams() 가
+        // ['pg','error'] 만 돌려주고 끝나서(결제창 먹통 방지 가드) closeUrl 이 없다.
+        $params = $this->inicis()->buildPaymentParams($this->order());
 
         $this->assertArrayHasKey('closeUrl', $params);
         $this->assertStringNotContainsString('order/fail', (string) $params['closeUrl']);
