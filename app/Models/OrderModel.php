@@ -469,7 +469,11 @@ class OrderModel extends Model
         }
 
         // 주문은 cancelled 인데 결제가 paid 로 남은 조합이 곧 "환불 필요" 신호다.
+        // 청구가 있었는데 결제행을 남기지 못하면 환불 추적이 끊기므로, 그 사실을
+        // 반환값에 반영해 호출자가 "환불 목록에 뜬다"고 잘못 안내하지 않게 한다.
+        $chargeRecorded = $charge === null;
         if ($charge !== null && $charge['pg_tid'] !== '') {
+            $chargeRecorded = true;
             $this->db->table('payments')->ignore(true)->insert([
                 'order_id'     => $orderId,
                 'pg_provider'  => $charge['pg_provider'],
@@ -512,7 +516,7 @@ class OrderModel extends Model
         // 새어나가지 않도록 항상 리셋한다.
         $this->db->resetTransStatus();
 
-        return $committed;
+        return $committed && $chargeRecorded;
     }
 
     /**
