@@ -15,16 +15,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
 
     <h4 class="fw-bold mb-4">장바구니</h4>
 
-    <?php if (session()->getFlashdata('error')): ?>
-    <div class="alert alert-warning py-2 small">
-        <i class="bi bi-exclamation-triangle me-1"></i><?= esc(session()->getFlashdata('error')) ?>
-    </div>
-    <?php endif; ?>
-    <?php if (session()->getFlashdata('success')): ?>
-    <div class="alert alert-success py-2 small">
-        <i class="bi bi-check-circle me-1"></i><?= esc(session()->getFlashdata('success')) ?>
-    </div>
-    <?php endif; ?>
+    <?php /* 플래시 메시지는 레이아웃 상단에서 한 번만 출력한다. */ ?>
 
     <?php if (empty($items)): ?>
 

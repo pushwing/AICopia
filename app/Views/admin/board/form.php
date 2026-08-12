@@ -5,9 +5,7 @@
 <div class="card" style="max-width:600px">
     <div class="card-header bg-white"><strong><?= $board ? '게시판 수정' : '게시판 추가' ?></strong></div>
     <div class="card-body">
-        <?php if (session()->has('errors')): ?>
-            <div class="alert alert-danger"><?php foreach (session('errors') as $e): ?><div><?= esc($e) ?></div><?php endforeach; ?></div>
-        <?php endif; ?>
+        <?php /* 검증 오류는 레이아웃 상단에서 한 번만 출력한다. */ ?>
         <form method="post" action="<?= $board ? "/admin/boards/{$board['id']}/edit" : '/admin/boards/create' ?>">
             <?= csrf_field() ?>
             <div class="mb-3">

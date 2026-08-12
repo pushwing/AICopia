@@ -35,11 +35,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
 
     <h4 class="fw-bold mb-4">주문서</h4>
 
-    <?php if (session()->getFlashdata('error')): ?>
-    <div class="alert alert-warning py-2 small">
-        <i class="bi bi-exclamation-triangle me-1"></i><?= esc(session()->getFlashdata('error')) ?>
-    </div>
-    <?php endif; ?>
+    <?php /* 플래시 메시지는 레이아웃 상단에서 한 번만 출력한다. */ ?>
 
     <form id="checkoutForm" novalidate>
         <?= csrf_field() ?>

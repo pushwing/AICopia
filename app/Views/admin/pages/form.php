@@ -4,9 +4,7 @@
 
 <div class="card border-0 shadow-sm" style="max-width:800px">
     <div class="card-body p-4">
-        <?php if (session()->has('errors')): ?>
-            <div class="alert alert-danger"><?php foreach (session('errors') as $e): ?><div><?= esc($e) ?></div><?php endforeach; ?></div>
-        <?php endif; ?>
+        <?php /* 검증 오류는 레이아웃 상단에서 한 번만 출력한다. */ ?>
 
         <form method="post" action="<?= $page ? "/admin/pages/{$page['id']}/edit" : '/admin/pages/create' ?>">
             <?= csrf_field() ?>
