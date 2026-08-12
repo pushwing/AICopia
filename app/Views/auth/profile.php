@@ -10,6 +10,15 @@ $providerLabel = match($user['social_provider'] ?? null) {
     default  => null,
 };
 $grade = $user['grade'] ?? 'bronze';
+
+// 소셜 로그인 계정은 비밀번호가 없어 '비밀번호 변경' 탭을 제공하지 않는다.
+// 그러면 탭이 '기본 정보' 하나만 남는데, 탭 하나짜리 탭 바는 아무 정보도 주지
+// 못한 채 카드와 떨어진 빈 상자처럼 보이므로 탭 바 자체를 그리지 않는다.
+$canChangePassword = empty($user['social_provider']);
+
+// 소셜 계정이 /auth/profile?tab=password 로 직접 들어와도 쓸 수 없는 폼 대신
+// 기본 정보를 보여준다(POST 는 AuthController::profileUpdate() 에서 이미 차단).
+$showPasswordTab = $canChangePassword && $activeTab === 'password';
 ?>
 
 <div class="container py-4" style="max-width:640px">
@@ -20,18 +29,18 @@ $grade = $user['grade'] ?? 'bronze';
         </span>
     </div>
 
+    <?php if ($canChangePassword): ?>
     <ul class="nav nav-tabs mb-4">
         <li class="nav-item">
-            <a class="nav-link <?= $activeTab !== 'password' ? 'active' : '' ?>" href="/auth/profile">기본 정보</a>
+            <a class="nav-link <?= $showPasswordTab ? '' : 'active' ?>" href="/auth/profile">기본 정보</a>
         </li>
-        <?php if (! $user['social_provider']): ?>
         <li class="nav-item">
-            <a class="nav-link <?= $activeTab === 'password' ? 'active' : '' ?>" href="/auth/profile?tab=password">비밀번호 변경</a>
+            <a class="nav-link <?= $showPasswordTab ? 'active' : '' ?>" href="/auth/profile?tab=password">비밀번호 변경</a>
         </li>
-        <?php endif; ?>
     </ul>
+    <?php endif; ?>
 
-    <?php if ($activeTab !== 'password'): ?>
+    <?php if (! $showPasswordTab): ?>
     <!-- ── 기본 정보 탭 ── -->
     <div class="card">
         <div class="card-body">
