@@ -35,6 +35,12 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
 
     <h4 class="fw-bold mb-4">주문서</h4>
 
+    <?php if (session()->getFlashdata('error')): ?>
+    <div class="alert alert-warning py-2 small">
+        <i class="bi bi-exclamation-triangle me-1"></i><?= esc(session()->getFlashdata('error')) ?>
+    </div>
+    <?php endif; ?>
+
     <form id="checkoutForm" novalidate>
         <?= csrf_field() ?>
 

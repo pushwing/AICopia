@@ -96,6 +96,18 @@ class PaymentController extends BaseController
                     $this->attemptModel->markFailed($attemptId, "네이버페이 결제 취소 (resultCode: {$reason})");
                 }
 
+                // resultMessage 는 네이버페이가 함께 보내는 사유 텍스트다. 사용자가
+                // 결제창을 그냥 닫은 경우엔 비어 있으므로, 그런 경우까지 경고
+                // 알림을 띄우면 안 된다(취소 화면 자체를 없애려던 목적과 어긋난다) —
+                // 값이 있을 때(=진짜 승인 실패, 예: 카드 한도 초과)만 플래시로 안내한다.
+                $resultMessage = trim(
+                    (string) ($this->request->getGet('resultMessage') ?? $this->request->getPost('resultMessage') ?? '')
+                );
+
+                if ($resultMessage !== '') {
+                    return redirect()->to('/order')->with('error', "결제가 완료되지 않았습니다. ({$resultMessage})");
+                }
+
                 return redirect()->to('/order');
             }
         }

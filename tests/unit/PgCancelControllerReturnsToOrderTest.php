@@ -448,6 +448,55 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
         $this->assertSame('converted', $attempt['status'], '성공 콜백인데 시도가 주문으로 전환되지 않았다');
     }
 
+    /**
+     * resultMessage 가 함께 온 진짜 승인 실패(예: 카드 한도 초과)는 /order 로
+     * 돌아가되 사유를 error 플래시에 담아 사용자에게 안내해야 한다.
+     */
+    public function testNaverpayFailureWithResultMessageSetsErrorFlash(): void
+    {
+        $userId      = $this->insertUser();
+        $orderNumber = 'ORD-' . $this->prefix;
+        $orderId     = $this->insertPendingOrder($userId, $orderNumber);
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $result = $this->paymentController([
+            'order_id'      => $orderId,
+            'resultCode'    => 'Fail',
+            'resultMessage' => '카드 한도 초과',
+        ])->callback('naverpay');
+
+        $this->assertInstanceOf(RedirectResponse::class, $result);
+        $location = (string) $result->header('Location')->getValue();
+        $this->assertStringNotContainsString('order/fail', $location, '취소가 실패 화면으로 갔다');
+        $this->assertStringEndsWith('/order', rtrim($location, '/'));
+
+        $error = session()->getFlashdata('error');
+        $this->assertNotEmpty($error, '승인 실패 사유가 error 플래시에 담기지 않았다');
+        $this->assertStringContainsString('카드 한도 초과', (string) $error);
+    }
+
+    /**
+     * 사용자가 결제창을 그냥 닫아 resultMessage 가 없는 취소는 /order 로 돌아가되
+     * error 플래시를 설정하면 안 된다 — "취소 화면을 없애달라"던 원래 요구와
+     * 어긋난다.
+     */
+    public function testNaverpayCancelWithoutResultMessageDoesNotSetErrorFlash(): void
+    {
+        $userId      = $this->insertUser();
+        $orderNumber = 'ORD-' . $this->prefix;
+        $orderId     = $this->insertPendingOrder($userId, $orderNumber);
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $result = $this->paymentController(['order_id' => $orderId])->callback('naverpay');
+
+        $this->assertInstanceOf(RedirectResponse::class, $result);
+        $location = (string) $result->header('Location')->getValue();
+        $this->assertStringNotContainsString('order/fail', $location, '취소가 실패 화면으로 갔다');
+        $this->assertStringEndsWith('/order', rtrim($location, '/'));
+
+        $this->assertEmpty(session()->getFlashdata('error'), '사유 없는 취소인데 error 플래시가 설정됐다');
+    }
+
     // ── 네이버페이: PaymentController::callback() (신규 attempt_id) ─────────────
 
     /**
