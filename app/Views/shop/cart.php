@@ -56,7 +56,10 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                  data-price="<?= (int) $item['display_price'] ?>"
                  <?php if ($isAddon): ?>data-parent-product-id="<?= (int) $item['parent_product_id'] ?>"<?php endif; ?>>
                 <div class="card-body py-3">
-                    <div class="d-flex align-items-start gap-3">
+                    <?php /* 좁은 화면에서는 수량·삭제 묶음(고정폭)이 자리를 다 차지해
+                             상품명 칸이 한 글자 폭까지 눌린다 — 줄바꿈을 허용하고
+                             상품 정보에 최소 폭을 줘서 공간이 부족하면 아래로 내린다. */ ?>
+                    <div class="d-flex align-items-start gap-3 flex-wrap">
 
                         <!-- 체크박스 -->
                         <div class="pt-1 flex-shrink-0">
@@ -82,7 +85,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                         </a>
 
                         <!-- 상품 정보 -->
-                        <div class="flex-grow-1 min-w-0">
+                        <div class="flex-grow-1" style="min-width:140px">
                             <a href="/shop/<?= esc($item['slug']) ?>"
                                class="text-decoration-none text-dark fw-semibold text-clamp-2 mb-1">
                                 <?= esc($item['name']) ?>
@@ -119,7 +122,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                         </div>
 
                         <!-- 수량 + 삭제 -->
-                        <div class="d-flex flex-column align-items-end gap-2 flex-shrink-0">
+                        <div class="d-flex flex-column align-items-end gap-2 flex-shrink-0 ms-auto">
                             <?php if (! $isSoldOut): ?>
                             <div class="d-flex align-items-center gap-1">
                                 <div class="input-group input-group-sm" style="width:108px">

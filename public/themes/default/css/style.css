@@ -35,6 +35,9 @@ body {
 }
 
 /* ─── 페이지 콘텐츠 ──────────────────────────────── */
+/* 에디터로 넣은 넓은 표는 본문 폭을 넘길 수 있다 — 페이지를 통째로 가로로
+   넘기지 말고 본문 안에서만 스크롤되게 한다. */
+.page-content, .post-content { overflow-x: auto; }
 .page-content img {
     max-width: 100%;
     height: auto;
@@ -191,4 +194,35 @@ footer a:hover {
     -webkit-box-orient: vertical;
     overflow: hidden;
     overflow-wrap: anywhere;
+}
+
+/* ─── 마이페이지 좌측 메뉴 ─────────────────────────────
+   데스크톱은 좌측 고정(sticky) 세로 메뉴, 모바일(<992px)은 본문 위 3열 격자로
+   접어 세로 공간을 덜 잡아먹게 한다.
+   ⚠️ 모바일에서 가로 스크롤 탭(nowrap + overflow-x)으로 만들면 안 된다 —
+   레이아웃의 <main> 이 min-width:auto 인 flex 아이템이라, 줄바꿈 없는 메뉴의
+   전체 너비가 페이지 최소 너비가 되어 화면 전체가 가로로 넘친다. */
+.mypage-sidebar .list-group-item { gap: .5rem; }
+
+@media (min-width: 992px) {
+    .mypage-sidebar { position: sticky; top: 1rem; }
+}
+@media (max-width: 991.98px) {
+    .mypage-sidebar .card-header { display: none; }
+    .mypage-sidebar .list-group {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+    }
+    /* 3열이라 칸이 좁다 — 아이콘을 위, 글자를 아래로 쌓아 '배송지 관리' 같은
+       두 어절 라벨이 어정쩡하게 접히지 않게 한다. */
+    .mypage-sidebar .list-group-item {
+        flex-direction: column;
+        justify-content: center;
+        gap: .25rem;
+        padding: .6rem .25rem;
+        font-size: .8rem;
+        text-align: center;
+        border-right: 1px solid var(--bs-border-color, rgba(0, 0, 0, .125));
+    }
+    .mypage-sidebar .list-group-item:nth-child(3n) { border-right: 0; }
 }
