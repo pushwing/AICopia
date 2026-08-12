@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Libraries\PG\InicisAdapter;
 use App\Libraries\PG\NicePayAdapter;
+use CodeIgniter\Config\Factories;
 use CodeIgniter\Test\CIUnitTestCase;
+use Config\PG;
 
 /**
  * 이니시스·나이스페이 결제창 파라미터 검증.
@@ -16,6 +18,30 @@ use CodeIgniter\Test\CIUnitTestCase;
  */
 final class InicisNicePayParamsTest extends CIUnitTestCase
 {
+    protected function tearDown(): void
+    {
+        Factories::reset('config');
+        parent::tearDown();
+    }
+
+    /**
+     * 로컬 .env 값에 결과가 좌우되지 않도록 키를 주입한 어댑터를 만든다.
+     * 기본값은 이니시스가 공개한 웹표준 테스트 MID·signKey 다.
+     */
+    private function inicis(
+        string $merchantId = 'INIpayTest',
+        string $signKey = 'SU5JTElURV9UUklQTEVERVNfS0VZU1RS',
+        ?bool $testMode = null
+    ): InicisAdapter {
+        $config                    = new PG();
+        $config->inicisMerchantId  = $merchantId;
+        $config->inicisSignKey     = $signKey;
+        $config->inicisTestMode    = $testMode;
+        Factories::injectMock('config', 'PG', $config);
+
+        return new InicisAdapter();
+    }
+
     /** @return array<string, mixed> */
     private function order(): array
     {
@@ -36,7 +62,7 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
     /** INIStdPay 는 version·currency·gopaymethod·acceptmethod 가 없으면 결제창을 띄우지 않는다. */
     public function testInicisParamsIncludeStdPayRequiredFields(): void
     {
-        $params = (new InicisAdapter())->buildPaymentParams($this->order());
+        $params = $this->inicis()->buildPaymentParams($this->order());
 
         foreach (['version', 'currency', 'gopaymethod', 'acceptmethod'] as $key) {
             $this->assertArrayHasKey($key, $params, "이니시스 필수 파라미터 {$key} 가 없습니다.");
@@ -50,7 +76,7 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
     /** 인증 완료 후 돌아올 returnUrl 이 콜백 라우트를 attempt_id 와 함께 가리켜야 한다. */
     public function testInicisParamsIncludeReturnUrl(): void
     {
-        $params = (new InicisAdapter())->buildPaymentParams($this->order());
+        $params = $this->inicis()->buildPaymentParams($this->order());
 
         $this->assertArrayHasKey('returnUrl', $params);
         $this->assertStringContainsString('payment/callback/inicis', (string) $params['returnUrl']);
@@ -65,7 +91,9 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
      */
     public function testInicisCloseUrlReturnsToOrderPageNotFailPage(): void
     {
-        $params = (new InicisAdapter())->buildPaymentParams($this->order());
+        // 키를 주입해 만든 어댑터라야 한다 — 키가 비면 buildPaymentParams() 가
+        // ['pg','error'] 만 돌려주고 끝나서(결제창 먹통 방지 가드) closeUrl 이 없다.
+        $params = $this->inicis()->buildPaymentParams($this->order());
 
         $this->assertArrayHasKey('closeUrl', $params);
         $this->assertStringNotContainsString('order/fail', (string) $params['closeUrl']);
@@ -77,7 +105,7 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
     /** signature 는 oid·price·timestamp 를, mKey 는 signKey 를 SHA256 해시한 값이다. */
     public function testInicisSignatureMatchesManualFormula(): void
     {
-        $params = (new InicisAdapter())->buildPaymentParams($this->order());
+        $params = $this->inicis()->buildPaymentParams($this->order());
 
         $expected = hash('sha256', sprintf(
             'oid=%s&price=%s&timestamp=%s',
@@ -93,10 +121,94 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
     /** 구매자 연락처는 결제창 입력 편의를 위해 함께 넘긴다. */
     public function testInicisParamsIncludeBuyerContact(): void
     {
-        $params = (new InicisAdapter())->buildPaymentParams($this->order());
+        $params = $this->inicis()->buildPaymentParams($this->order());
 
         $this->assertArrayHasKey('buyertel', $params);
         $this->assertSame('01012345678', $params['buyertel']);
+    }
+
+    /**
+     * MID 가 비면 결제창을 열어선 안 된다.
+     *
+     * 빈 mid 로 stdpay.inicis.com/payMain/pay 를 호출하면 이니시스가 결제창 대신
+     * resultCode=V022("필수 파라미터가 누락되었습니다") 안내 페이지를 오버레이 iframe 안에
+     * 그려 넣는다. 그 페이지는 부모를 closeUrl 로 보내지 않으므로 INIStdPay 가 씌운
+     * 전체화면 오버레이가 영영 걷히지 않아 주문서가 먹통이 된다.
+     * → 어댑터가 error 를 담아 돌려주고 뷰가 pay() 호출 자체를 막는다.
+     */
+    public function testInicisReturnsErrorWhenMerchantIdMissing(): void
+    {
+        $params = $this->inicis(merchantId: '')->buildPaymentParams($this->order());
+
+        $this->assertSame('inicis', $params['pg'], '뷰 분기용 pg 키는 유지해야 합니다.');
+        $this->assertArrayHasKey('error', $params);
+        $this->assertStringContainsString('INICIS_MERCHANT_ID', (string) $params['error']);
+        $this->assertArrayNotHasKey('mid', $params, '키가 없으면 결제 파라미터를 만들지 않는다.');
+    }
+
+    /** signKey 가 없으면 mKey·signature 를 만들 수 없어 결제창이 인증에 실패한다. */
+    public function testInicisReturnsErrorWhenSignKeyMissing(): void
+    {
+        $params = $this->inicis(signKey: '')->buildPaymentParams($this->order());
+
+        $this->assertSame('inicis', $params['pg']);
+        $this->assertArrayHasKey('error', $params);
+        $this->assertStringContainsString('INICIS_SIGN_KEY', (string) $params['error']);
+    }
+
+    /** 키가 정상이면 error 없이 결제 파라미터가 온전히 나와야 한다. */
+    public function testInicisHasNoErrorWhenKeysConfigured(): void
+    {
+        $params = $this->inicis()->buildPaymentParams($this->order());
+
+        $this->assertArrayNotHasKey('error', $params);
+        $this->assertSame('INIpayTest', $params['mid']);
+    }
+
+    // ─── 테스트/운영 도메인 분기 ──────────────────────────────────────────────
+
+    /**
+     * 테스트 MID 는 운영 결제창(stdpay)이 받아주지 않는다 — 이니시스는 테스트용
+     * 결제창·API 를 stg 도메인으로 따로 운영한다. 어댑터가 SDK URL 을 함께
+     * 내려주고, 뷰는 하드코딩 대신 그 값을 쓴다.
+     */
+    public function testInicisUsesStagingEndpointsForPublicTestMid(): void
+    {
+        $adapter = $this->inicis(merchantId: 'INIpayTest');
+        $params  = $adapter->buildPaymentParams($this->order());
+
+        $this->assertSame('https://stgstdpay.inicis.com/stdjs/INIStdPay.js', $params['sdkUrl']);
+        $this->assertSame(
+            'https://stginiapi.inicis.com/api/v1',
+            $this->getPrivateProperty($adapter, 'apiBase'),
+            '승인·취소 API 도 같은 환경을 봐야 한다.'
+        );
+    }
+
+    /** 상점 MID(테스트 MID 가 아님)면 운영 도메인을 쓴다. */
+    public function testInicisUsesLiveEndpointsForMerchantMid(): void
+    {
+        $adapter = $this->inicis(merchantId: 'aicopia01');
+        $params  = $adapter->buildPaymentParams($this->order());
+
+        $this->assertSame('https://stdpay.inicis.com/stdjs/INIStdPay.js', $params['sdkUrl']);
+        $this->assertSame('https://iniapi.inicis.com/api/v1', $this->getPrivateProperty($adapter, 'apiBase'));
+    }
+
+    /** 상점별 테스트 MID 도 있으므로 INICIS_TEST_MODE 로 명시 지정할 수 있어야 한다. */
+    public function testInicisTestModeCanBeForcedForMerchantMid(): void
+    {
+        $params = $this->inicis(merchantId: 'aicopia01', testMode: true)->buildPaymentParams($this->order());
+
+        $this->assertSame('https://stgstdpay.inicis.com/stdjs/INIStdPay.js', $params['sdkUrl']);
+    }
+
+    /** 반대 방향 — 테스트 MID 라도 운영으로 강제 지정하면 운영 도메인을 쓴다. */
+    public function testInicisLiveModeCanBeForcedForTestMid(): void
+    {
+        $params = $this->inicis(merchantId: 'INIpayTest', testMode: false)->buildPaymentParams($this->order());
+
+        $this->assertSame('https://stdpay.inicis.com/stdjs/INIStdPay.js', $params['sdkUrl']);
     }
 
     // ─── 나이스페이 ───────────────────────────────────────────────────────────
@@ -120,7 +232,7 @@ final class InicisNicePayParamsTest extends CIUnitTestCase
     /** 뷰의 launchPG 가 분기에 쓰는 pg 키는 두 어댑터 모두 유지해야 한다. */
     public function testBothAdaptersKeepPgDiscriminator(): void
     {
-        $this->assertSame('inicis', (new InicisAdapter())->buildPaymentParams($this->order())['pg']);
+        $this->assertSame('inicis', $this->inicis()->buildPaymentParams($this->order())['pg']);
         $this->assertSame('nicepay', (new NicePayAdapter())->buildPaymentParams($this->order())['pg']);
     }
 }
