@@ -12,7 +12,7 @@ use CodeIgniter\Test\DatabaseTestTrait;
 /**
  * 쿠폰을 적용해 /order/create 를 호출하는 종단(end-to-end) 회귀 테스트.
  *
- * CouponService::validate()/validateByUserCouponId() 가 MySQLi 가 문자열로
+ * CouponService::validateByUserCouponId() 가 MySQLi 가 문자열로
  * 돌려주는 coupon['id'] 를 그대로 넘기면, OrderController::create() 가 이를
  * OrderAttemptModel::createAttempt(?int $couponId) 에 넘기는 순간
  * declare(strict_types=1) 때문에 TypeError(500)가 난다. 모델 단위 테스트는
@@ -216,29 +216,32 @@ final class OrderCreateWithCouponTest extends CIUnitTestCase
     // ── 테스트 ────────────────────────────────────────────────────────────────
 
     /**
-     * 쿠폰 코드(coupon_code)를 적용해 주문하면 500(TypeError)이 아니라 정상
-     * 응답을 받아야 한다. 이슈: CouponService 가 MySQLi 문자열 id 를 그대로
-     * 돌려주면 OrderAttemptModel::createAttempt(?int $couponId) 호출에서
-     * TypeError 가 발생해 500 이 났었다.
+     * 쿠폰 코드(coupon_code)는 더 이상 서버가 받지 않는다 — 발급받지도 않은
+     * 쿠폰을 코드만 알면 쓸 수 있던 우회 경로였다(이슈 #219). 주문서에서
+     * 입력란을 없애도 POST 위조로 넘어올 수 있으므로 서버가 무시해야 한다.
      */
-    public function testCreateOrderWithCouponCodeSucceeds(): void
+    public function testCreateOrderIgnoresCouponCodeForUnissuedCoupon(): void
     {
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
         $this->insertCartItem($userId, $product);
-        $coupon = $this->insertCoupon();
+        $coupon = $this->insertCoupon();   // 이 회원에게 발급하지 않는다
 
         session()->set(['user_id' => $userId, 'user_role' => 'member']);
         session()->set(CartModel::CHECKOUT_SESSION_KEY, []);
 
         $result = $this->callCreate(['coupon_code' => $coupon['code']]);
 
-        $this->assertTrue($result['success'] ?? false, '쿠폰 코드 적용 주문이 실패했다: ' . json_encode($result));
+        $this->assertTrue($result['success'] ?? false, '주문 자체는 성공해야 한다: ' . json_encode($result));
 
         $orderId = (int) $result['orderId'];
         $order   = db_connect()->table('orders')->where('id', $orderId)->get()->getRowArray();
-        $this->assertSame($coupon['id'], (int) $order['coupon_id']);
-        $this->assertSame(3000, (int) $order['coupon_discount_amount']);
+        $this->assertNull($order['coupon_id'], '미보유 쿠폰이 코드만으로 적용되면 안 된다');
+        $this->assertSame(0, (int) $order['coupon_discount_amount']);
+
+        $used = db_connect()->table('user_coupons')
+            ->where('user_id', $userId)->where('coupon_id', $coupon['id'])->countAllResults();
+        $this->assertSame(0, $used, '코드 경로로 user_coupons 행이 생겨서는 안 된다');
     }
 
     /**

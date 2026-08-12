@@ -1070,6 +1070,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $userId2 = $this->insertUser();
         $product = $this->insertProduct();
         $coupon  = $this->insertCoupon(['total_qty' => 1, 'used_count' => 0]);
+        $ucId2   = $this->insertUserCoupon($userId2, $coupon['id'], 'issued');
 
         // 첫 번째 주문 시도에서 쿠폰 사용 → used_count=1
         $attemptId = $this->trackAttempt((new OrderAttemptModel())->createAttempt(
@@ -1083,8 +1084,8 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $this->assertGreaterThan(0, $attemptId);
         $this->trackCodeCoupon($userId1, $coupon['id']);
 
-        // used_count가 total_qty에 도달했으므로 두 번째 사용자 validate 실패
-        $result = $this->couponService->validate($coupon['code'], $userId2, 10000);
+        // used_count가 total_qty에 도달했으므로, 쿠폰을 보유한 두 번째 사용자도 검증 실패
+        $result = $this->couponService->validateByUserCouponId($ucId2, $userId2, 10000);
         $this->assertFalse($result['valid']);
     }
 }
