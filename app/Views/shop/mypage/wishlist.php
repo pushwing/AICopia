@@ -2,7 +2,7 @@
 
 <?= $this->section('content') ?>
 
-<div class="container py-4" style="max-width:1200px">
+<div class="container py-4" style="max-width:1100px">
 <div class="row g-4">
 
 <div class="col-lg-3 min-w-0">
