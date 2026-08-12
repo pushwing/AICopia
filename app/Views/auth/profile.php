@@ -21,7 +21,7 @@ $canChangePassword = empty($user['social_provider']);
 $showPasswordTab = $canChangePassword && $activeTab === 'password';
 ?>
 
-<div class="container py-4" style="max-width:940px">
+<div class="container py-4" style="max-width:1100px">
 <div class="row g-4">
 
 <div class="col-lg-3 min-w-0">

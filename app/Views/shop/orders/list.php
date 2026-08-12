@@ -19,7 +19,7 @@ $statusBadge = [
 ];
 ?>
 
-<div class="container py-4" style="max-width:1160px">
+<div class="container py-4" style="max-width:1100px">
 <div class="row g-4">
 
 <div class="col-lg-3 min-w-0">
