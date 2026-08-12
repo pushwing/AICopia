@@ -205,14 +205,21 @@ final class CouponServiceTest extends CIUnitTestCase
         $this->assertFalse($result['valid']);
     }
 
-    /** V-03: starts_at=내일 → valid=false */
+    /** V-03: starts_at=내일 → valid=false, 메시지에 시작 시각 노출 */
     public function testValidate_startDateFuture_returnsFail(): void
     {
-        $userId = $this->insertUser();
-        $coupon = $this->insertCoupon(['starts_at' => date('Y-m-d H:i:s', strtotime('+1 day'))]);
+        $userId   = $this->insertUser();
+        $startsAt = date('Y-m-d H:i:s', strtotime('+1 day'));
+        $coupon   = $this->insertCoupon(['starts_at' => $startsAt]);
 
         $result = $this->service->validate($coupon['code'], $userId, 10000);
+
         $this->assertFalse($result['valid']);
+        $this->assertStringContainsString(
+            date('Y-m-d H:i', strtotime($startsAt)),
+            $result['message'],
+            '시작 시각을 알려주지 않으면 "발급받았는데 왜 못 쓰냐"는 오해로 이어진다',
+        );
     }
 
     /** V-04: expires_at=어제 → valid=false */
