@@ -98,6 +98,13 @@ class CouponService
      */
     private function checkCoupon(array $coupon, int $userId, int $orderAmount, ?int $userCouponId): array
     {
+        // MySQLi 는 정수 컬럼도 문자열로 반환한다. validate()/validateByUserCouponId()
+        // 두 경로 모두 여기서 합류하므로, 이 시점에 한 번만 정규화하면 두 경로 전부
+        // 안전해진다(정규화 없이 문자열이 그대로 나가면, strict_types 호출부인
+        // OrderController::create() → OrderAttemptModel::createAttempt(?int $couponId)
+        // 에서 TypeError 로 500 이 난다).
+        $coupon = $this->normalizeCoupon($coupon);
+
         if (! $coupon['is_active']) {
             return $this->fail('비활성화된 쿠폰입니다.');
         }
@@ -153,10 +160,49 @@ class CouponService
         return [
             'valid'          => true,
             'coupon'         => $coupon,
-            'user_coupon_id' => $userCouponId,
+            // $userCouponId 는 파라미터 타입이 이미 ?int 라 PHP 레벨에서 보장되지만,
+            // 호출부(OrderController)가 strict_types 상태에서 그대로 넘기므로
+            // 계약을 명시적으로 지키는 의미로 한 번 더 정규화한다. null 은 null 유지.
+            'user_coupon_id' => $userCouponId !== null ? (int) $userCouponId : null,
             'discount'       => $discount,
             'message'        => '',
         ];
+    }
+
+    /**
+     * DB 에서 읽은 쿠폰 배열의 숫자 필드를 정규화한다.
+     *
+     * MySQLi 드라이버는 정수 컬럼도 문자열로 반환한다. 이 클래스의 반환 타입
+     * docblock 은 coupon['id'] 등을 int 로 선언하고 있고, 호출부가
+     * declare(strict_types=1) 상태에서 그 값을 ?int 파라미터에 그대로 넘기므로
+     * (예: OrderController::create() → OrderAttemptModel::createAttempt()),
+     * 캐스팅 없이 문자열이 새어나가면 TypeError 로 500 이 난다.
+     *
+     * total_qty 는 "무제한"을 의미하는 null 을 반드시 보존해야 한다 — 0 으로
+     * 캐스팅하면 "수량 무제한"이 "소진됨"으로 둔갑해 쿠폰이 전부 막힌다.
+     *
+     * @param  array<string, mixed> $coupon
+     * @return array<string, mixed>
+     */
+    private function normalizeCoupon(array $coupon): array
+    {
+        $coupon['id']                  = (int) $coupon['id'];
+        $coupon['discount_value']      = (int) $coupon['discount_value'];
+        $coupon['min_order_amount']    = (int) $coupon['min_order_amount'];
+        $coupon['max_discount_amount'] = (int) $coupon['max_discount_amount'];
+        $coupon['used_count']          = (int) $coupon['used_count'];
+        $coupon['total_qty']           = $coupon['total_qty'] !== null ? (int) $coupon['total_qty'] : null;
+
+        // validateByUserCouponId() 가 재조립하는 배열에는 per_user_limit 이 없다
+        // (checkCoupon() 이 그 경로에서 이 필드를 참조하지 않기 때문) — 있을 때만 캐스팅.
+        if (array_key_exists('per_user_limit', $coupon) && $coupon['per_user_limit'] !== null) {
+            $coupon['per_user_limit'] = (int) $coupon['per_user_limit'];
+        }
+        if (array_key_exists('is_active', $coupon)) {
+            $coupon['is_active'] = (int) $coupon['is_active'];
+        }
+
+        return $coupon;
     }
 
     /** @return array{valid: bool, coupon: null, user_coupon_id: null, discount: int, message: string} */

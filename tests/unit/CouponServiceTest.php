@@ -277,6 +277,60 @@ final class CouponServiceTest extends CIUnitTestCase
         $this->assertSame(3000, $result['discount']);
     }
 
+    /**
+     * V-11: validate() 가 돌려주는 coupon['id']·user_coupon_id 는 int 여야 한다.
+     *
+     * MySQLi 드라이버는 정수 컬럼도 문자열로 반환한다. OrderController::create() 가
+     * 이 값을 그대로 OrderAttemptModel::createAttempt(?int $couponId) 에 넘기는데,
+     * 컨트롤러가 declare(strict_types=1) 라 문자열이 새어나가면 TypeError(500)로
+     * 이어진다 — 정규화가 깨지면 이 테스트가 먼저 잡아야 한다.
+     */
+    public function testValidate_couponIdIsInt(): void
+    {
+        $userId = $this->insertUser();
+        $coupon = $this->insertCoupon();
+
+        $result = $this->service->validate($coupon['code'], $userId, 10000);
+
+        $this->assertTrue($result['valid'], $result['message']);
+        $this->assertIsInt($result['coupon']['id'], 'coupon[id]는 int여야 한다(MySQLi가 문자열로 반환하는 것을 정규화해야 함)');
+        $this->assertNull($result['user_coupon_id'], 'code 경로는 user_coupon_id가 null이어야 한다');
+    }
+
+    /**
+     * V-12: validateByUserCouponId() 가 돌려주는 coupon['id']·user_coupon_id 도
+     * int 여야 한다 — 재조립 경로(uc 배열에서 coupon 배열을 직접 만드는 쪽)도
+     * 동일하게 정규화돼야 한다.
+     */
+    public function testValidateByUserCouponId_couponIdAndUserCouponIdAreInt(): void
+    {
+        $userId       = $this->insertUser();
+        $coupon       = $this->insertCoupon();
+        $userCouponId = $this->insertUserCoupon($userId, $coupon['id'], 'issued');
+
+        $result = $this->service->validateByUserCouponId($userCouponId, $userId, 10000);
+
+        $this->assertTrue($result['valid'], $result['message']);
+        $this->assertIsInt($result['coupon']['id'], 'coupon[id]는 int여야 한다(MySQLi가 문자열로 반환하는 것을 정규화해야 함)');
+        $this->assertIsInt($result['user_coupon_id'], 'user_coupon_id는 int여야 한다');
+        $this->assertSame($userCouponId, $result['user_coupon_id']);
+    }
+
+    /**
+     * V-13: total_qty=null(무제한)은 정규화 후에도 null 로 보존돼야 한다.
+     * 0으로 캐스팅되면 "무제한"이 "소진됨"으로 둔갑해 쿠폰이 전부 막힌다.
+     */
+    public function testValidate_unlimitedQuantityCoupon_totalQtyStaysNull(): void
+    {
+        $userId = $this->insertUser();
+        $coupon = $this->insertCoupon(['total_qty' => null, 'used_count' => 0]);
+
+        $result = $this->service->validate($coupon['code'], $userId, 10000);
+
+        $this->assertTrue($result['valid'], $result['message']);
+        $this->assertNull($result['coupon']['total_qty'], 'total_qty=null(무제한)이 0으로 둔갑하면 안 된다');
+    }
+
     // ── V: validateByUserCouponId ─────────────────────────────────────────────
 
     /** V-09: user_coupon_id 경로 — issued 상태 → valid=true */
