@@ -802,4 +802,60 @@ final class OrderAttemptModelTest extends CIUnitTestCase
         $this->assertSame('issued', $uc['status'], 'user_coupons 가 used 로 남으면 사용자가 쿠폰을 다시 쓸 수 없다');
         $this->assertNull($uc['order_attempt_id']);
     }
+
+    /**
+     * A-22: failPendingForUser() — 해당 회원의 pending 시도를 모두 걷어내고
+     * 쿠폰·포인트를 복구한다. 다른 회원의 pending 시도는 건드리지 않는다.
+     * (이슈 #214 — 나이스페이·브라우저 종료 안전망)
+     */
+    public function testFailPendingForUser_restoresOwnAttemptsOnlyNotOtherUsers(): void
+    {
+        $db        = db_connect();
+        $userId    = $this->insertUser(5000);
+        $otherUser = $this->insertUser(5000);
+        $product   = $this->insertProduct();
+
+        $mine  = $this->createAttempt($userId, $product, 1, null, null, 0, 2000);
+        $other = $this->createAttempt($otherUser, $product, 1, null, null, 0, 3000);
+
+        $count = $this->model->failPendingForUser($userId, '주문서 재진입');
+
+        $this->assertSame(1, $count, '내 pending 시도 1건만 걷어내야 한다');
+
+        $mineAttempt = $db->table('order_attempts')->where('id', $mine)->get()->getRowArray();
+        $this->assertSame('failed', $mineAttempt['status']);
+        $this->assertSame(5000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance'], '내 포인트는 복구돼야 한다');
+
+        $otherAttempt = $db->table('order_attempts')->where('id', $other)->get()->getRowArray();
+        $this->assertSame('pending', $otherAttempt['status'], '다른 회원의 pending 시도는 건드리면 안 된다');
+        $this->assertSame(2000, (int) $db->table('users')->where('id', $otherUser)->get()->getRowArray()['point_balance'], '다른 회원의 포인트는 그대로 선점 상태여야 한다');
+    }
+
+    /** A-23: failPendingForUser() — 이미 converted 된 시도는 건드리지 않는다. */
+    public function testFailPendingForUser_doesNotTouchAlreadyConvertedAttempt(): void
+    {
+        $db        = db_connect();
+        $userId    = $this->insertUser(5000);
+        $product   = $this->insertProduct();
+        $attemptId = $this->createAttempt($userId, $product, 1, null, null, 0, 2000);
+
+        $this->model->claimForConversion($attemptId);
+
+        $count = $this->model->failPendingForUser($userId, '주문서 재진입');
+
+        $this->assertSame(0, $count, '이미 전환된 시도는 걷어낼 대상이 아니다');
+        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertSame('converted', $attempt['status'], 'converted 상태가 유지되어야 한다');
+        $this->assertSame(3000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance'], '전환된 시도의 포인트는 환급되면 안 된다');
+    }
+
+    /** A-24: failPendingForUser() — pending 시도가 없으면 0을 반환하고 아무 것도 바꾸지 않는다. */
+    public function testFailPendingForUser_noPendingAttempts_returnsZero(): void
+    {
+        $userId = $this->insertUser();
+
+        $count = $this->model->failPendingForUser($userId, '주문서 재진입');
+
+        $this->assertSame(0, $count);
+    }
 }

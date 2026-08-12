@@ -56,10 +56,12 @@ class InicisAdapter implements PGInterface
             // 인증 완료 후 이니시스가 POST 로 돌아오는 곳. attempt_id 가 없으면
             // PaymentController::callback() 이 주문 시도를 찾지 못해 결제가 끊긴다.
             'returnUrl' => base_url('payment/callback/inicis?attempt_id=' . $order['id']),
-            // 사용자가 결제창을 그냥 닫은 것은 실패가 아니다 — order/fail(결제 실패 화면)로
-            // 보내지 않고 주문서로 돌려보낸다. 장바구니는 결제 확정 전까지 비워지지 않으므로
-            // (OrderController::create() 참고) 주문서를 그대로 다시 보여줄 수 있다.
-            'closeUrl'  => base_url('order'),
+            // 사용자가 결제창을 그냥 닫은 것은 실패가 아니다 — order/fail(결제 실패
+            // 화면)로 보내지 않고, 실패 화면 없이 시도를 걷어낸(쿠폰·포인트 복구) 뒤
+            // 주문서로 돌려보낸다(OrderController::cancelPayment(), 이슈 #214).
+            // 장바구니는 결제 확정 전까지 비워지지 않으므로(OrderController::create()
+            // 참고) 주문서를 그대로 다시 보여줄 수 있다.
+            'closeUrl'  => base_url('order/payment-cancel/' . $order['order_number']),
         ];
     }
 

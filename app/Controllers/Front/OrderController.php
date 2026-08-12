@@ -55,7 +55,13 @@ class OrderController extends BaseController
     /** GET /order — 주문서 */
     public function index(): \CodeIgniter\HTTP\RedirectResponse|string
     {
-        $userId      = (int) session()->get('user_id');
+        $userId = (int) session()->get('user_id');
+
+        // 나이스페이(취소 URL 없음)·브라우저 종료처럼 어떤 콜백도 오지 않는 이탈은
+        // payment-cancel 라우트로 잡을 수 없다. 주문서에 다시 들어왔다는 것 자체가
+        // 이전 시도를 포기했다는 뜻이므로, 쿠폰 잔량을 계산하기 전에 걷어낸다(이슈 #214).
+        $this->attemptModel->failPendingForUser($userId, '주문서 재진입으로 인한 이전 시도 정리');
+
         $selectedIds = $this->selectedCartIds();
         $items       = $this->cartModel->getByUser($userId, $selectedIds);
 
@@ -331,6 +337,20 @@ class OrderController extends BaseController
         return $this->render('shop/order_complete', ['order' => $order]);
     }
 
+    /**
+     * 사용자 소유의 진행 중(pending) 시도 1건. fail()·cancelPayment() 가 공유한다.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function findOwnPendingAttempt(string $orderNumber, int $userId): ?array
+    {
+        return $this->attemptModel
+            ->where('order_number', $orderNumber)
+            ->where('user_id', $userId)
+            ->where('status', 'pending')
+            ->first();
+    }
+
     /** GET /order/fail/:orderNumber */
     public function fail(string $orderNumber): \CodeIgniter\HTTP\RedirectResponse|string
     {
@@ -338,11 +358,7 @@ class OrderController extends BaseController
 
         // 결제가 확정되지 않은 시도는 즉시 걷어내 쿠폰·포인트를 돌려준다(이슈 #214).
         // 이미 전환됐으면 markFailed() 가 false 를 돌려주므로 아무 일도 일어나지 않는다.
-        $attempt = $this->attemptModel
-            ->where('order_number', $orderNumber)
-            ->where('user_id', $userId)
-            ->where('status', 'pending')
-            ->first();
+        $attempt = $this->findOwnPendingAttempt($orderNumber, $userId);
         if ($attempt !== null) {
             $this->attemptModel->markFailed((int) $attempt['id'], '결제 실패 또는 결제창 이탈');
         }
@@ -360,6 +376,27 @@ class OrderController extends BaseController
         $message = session()->getFlashdata('pg_error') ?? '결제에 실패했습니다.';
 
         return $this->render('shop/order_fail', ['order' => $order, 'message' => $message]);
+    }
+
+    /**
+     * GET|POST /order/payment-cancel/:orderNumber
+     *
+     * 카카오페이·PAYCO·이니시스 결제창에서 사용자가 "닫기/취소"를 눌렀을 때 돌아오는
+     * 곳이다. 이건 결제 실패가 아니므로 실패 화면을 보여주지 않는다 — 조용히 시도를
+     * 걷어내고(쿠폰·포인트 복구) 주문서로 돌려보낸다(이슈 #214).
+     */
+    public function cancelPayment(string $orderNumber): \CodeIgniter\HTTP\RedirectResponse
+    {
+        $userId  = (int) session()->get('user_id');
+        $attempt = $this->findOwnPendingAttempt($orderNumber, $userId);
+
+        // 이미 승인 콜백으로 전환됐거나(결제 성공), 소유자가 다르거나, 이미 실패
+        // 처리된 시도면 attempt 가 null 이다 — 아무 일도 하지 않고 그냥 돌려보낸다.
+        if ($attempt !== null) {
+            $this->attemptModel->markFailed((int) $attempt['id'], '사용자 결제창 취소');
+        }
+
+        return redirect()->to('/order');
     }
 
     /** POST /order/cancel */

@@ -335,6 +335,35 @@ class OrderAttemptModel extends Model
     }
 
     /**
+     * 해당 회원의 진행 중 시도를 모두 실패 처리하고 쿠폰·포인트를 되돌린다.
+     *
+     * 나이스페이처럼 취소 URL 이 없거나 사용자가 브라우저를 그냥 닫으면 어떤 콜백도
+     * 오지 않아 선점이 남는다. 주문서에 다시 들어온다는 건 그 시도를 포기했다는
+     * 뜻이므로 이 시점에 걷어낸다. (이슈 #214)
+     *
+     * @return int 실제로 걷어낸 건수
+     */
+    public function failPendingForUser(int $userId, string $reason): int
+    {
+        $rows = $this->db->table('order_attempts')
+            ->select('id')
+            ->where('user_id', $userId)
+            ->where('status', 'pending')
+            ->get()->getResultArray();
+
+        $count = 0;
+        foreach ($rows as $row) {
+            // markFailed() 가 상태 전이(조건부 UPDATE)와 복구를 원자적으로 처리한다 —
+            // 여기서 복구 로직을 새로 쓰지 않는다.
+            if ($this->markFailed((int) $row['id'], $reason)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * N분 이상 지난 pending 시도를 만료 처리한다.
      *
      * 결제 실패 콜백이 오지 않은 경우의 안전망이다. 정상 이탈은 markFailed() 가
