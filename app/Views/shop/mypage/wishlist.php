@@ -2,12 +2,16 @@
 
 <?= $this->section('content') ?>
 
-<div class="container py-4" style="max-width:900px">
+<div class="container py-4" style="max-width:1200px">
+<div class="row g-4">
+
+<div class="col-lg-3 min-w-0">
+    <?= $this->include('components/mypage_sidebar') ?>
+</div>
+
+<div class="col-lg-9 min-w-0">
 
     <div class="d-flex align-items-center gap-3 mb-4">
-        <a href="/mypage/orders" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-chevron-left"></i>
-        </a>
         <h5 class="fw-bold mb-0">찜한 상품 <span class="text-muted fs-6 fw-normal">(<?= number_format($total) ?>)</span></h5>
     </div>
 
@@ -95,6 +99,9 @@
     <hr class="my-4">
     <?= view('shop/components/recommend', ['recommended' => $recommended]) ?>
     <?php endif; ?>
+</div>
+
+</div>
 </div>
 
 <?= $this->endSection() ?>

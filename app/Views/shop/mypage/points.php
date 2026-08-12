@@ -2,12 +2,16 @@
 
 <?= $this->section('content') ?>
 
-<div class="container py-4" style="max-width:720px">
+<div class="container py-4" style="max-width:1020px">
+<div class="row g-4">
+
+<div class="col-lg-3 min-w-0">
+    <?= $this->include('components/mypage_sidebar') ?>
+</div>
+
+<div class="col-lg-9 min-w-0">
 
     <div class="d-flex align-items-center gap-3 mb-4">
-        <a href="/mypage/orders" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-chevron-left"></i>
-        </a>
         <h5 class="fw-bold mb-0">포인트 내역</h5>
         <div class="ms-auto">
             <span class="fw-bold fs-5 text-primary"><?= number_format($pointBalance) ?>P</span>
@@ -80,6 +84,9 @@
     <?php endif; ?>
     <?php endif; ?>
 
+</div>
+
+</div>
 </div>
 
 <?= $this->endSection() ?>

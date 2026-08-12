@@ -21,7 +21,14 @@ $canChangePassword = empty($user['social_provider']);
 $showPasswordTab = $canChangePassword && $activeTab === 'password';
 ?>
 
-<div class="container py-4" style="max-width:640px">
+<div class="container py-4" style="max-width:940px">
+<div class="row g-4">
+
+<div class="col-lg-3 min-w-0">
+    <?= $this->include('components/mypage_sidebar') ?>
+</div>
+
+<div class="col-lg-9 min-w-0">
     <div class="d-flex align-items-center gap-3 mb-4">
         <h5 class="fw-bold mb-0"><i class="bi bi-person-circle me-2"></i>내 정보 수정</h5>
         <span class="badge <?= GradeService::BADGE_CLASSES[$grade] ?> fs-6">
@@ -137,6 +144,9 @@ $showPasswordTab = $canChangePassword && $activeTab === 'password';
         </div>
     </div>
     <?php endif; ?>
+</div>
+
+</div>
 </div>
 
 <?= $this->endSection() ?>

@@ -19,21 +19,17 @@ $statusBadge = [
 ];
 ?>
 
-<div class="container py-4" style="max-width:860px">
+<div class="container py-4" style="max-width:1160px">
+<div class="row g-4">
+
+<div class="col-lg-3 min-w-0">
+    <?= $this->include('components/mypage_sidebar') ?>
+</div>
+
+<div class="col-lg-9 min-w-0">
 
     <div class="d-flex align-items-center justify-content-between mb-4">
         <h4 class="fw-bold mb-0">주문 내역</h4>
-        <div class="d-flex gap-2">
-            <a href="/mypage/coupons" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-ticket-perforated me-1"></i>쿠폰
-            </a>
-            <a href="/mypage/points" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-star me-1"></i>포인트
-            </a>
-            <a href="/mypage/addresses" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-geo-alt me-1"></i>배송지
-            </a>
-        </div>
     </div>
 
     <!-- ─── 검색창 ──────────────────────────────────────────────────────────── -->
@@ -99,11 +95,11 @@ $statusBadge = [
         ?>
         <div class="card">
             <div class="card-header bg-white d-flex align-items-center justify-content-between py-2">
-                <div class="small">
+                <div class="small min-w-0">
                     <span class="text-muted me-2"><?= date('Y년 n월 j일', strtotime($order['created_at'])) ?></span>
                     <span class="fw-semibold"><?= esc($order['order_number']) ?></span>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
                     <span class="badge bg-<?= $badgeColor ?>"><?= $badgeLabel ?></span>
                     <a href="/mypage/orders/<?= esc($order['order_number']) ?>"
                        class="btn btn-sm btn-outline-secondary">상세</a>
@@ -171,6 +167,9 @@ $statusBadge = [
 
     <?php endif; ?>
 
+</div>
+
+</div>
 </div>
 
 <?= $this->endSection() ?>
