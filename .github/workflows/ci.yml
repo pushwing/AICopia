@@ -103,6 +103,13 @@ jobs:
       # 마이그레이션이 prefix 없는 raw DDL(`ALTER TABLE users ...`)을 쓰므로 DBPrefix는 빈 값이어야 한다.
       # default·tests 두 그룹을 동일 MySQL DB로 맞춰
       # `php spark migrate`(default)가 테이블을 만들고 테스트(tests)가 그대로 읽게 한다.
+      #
+      # ⚠️ database.*.DBDriver 를 여기에 쓰면 안 된다.
+      # BaseConfig 가 registerProperties() 뒤에 initEnvValue() 를 실행하므로 .env 의
+      # DBDriver 가 Config/Registrar.php 의 커스텀 드라이버 등록을 덮어쓴다. 그러면
+      # App\Database\MySQLiTimezone\Connection 이 적용되지 않아 커넥션 세션 타임존이
+      # SYSTEM 으로 남고, ConvertDatetimeColumnsToTimestamp 마이그레이션이 가드에
+      # 걸려 중단되며 DatabaseTimezoneTest 가 실패한다. 드라이버는 Registrar 가 정한다.
       - name: Configure .env (test DB)
         run: |
           cp vendor/codeigniter4/framework/env .env
@@ -113,14 +120,12 @@ jobs:
             echo "database.default.database = aicopia_test"
             echo "database.default.username = root"
             echo "database.default.password ="
-            echo "database.default.DBDriver = MySQLi"
             echo "database.default.DBPrefix ="
             echo "database.default.port = ${CI_MYSQL_PORT}"
             echo "database.tests.hostname = 127.0.0.1"
             echo "database.tests.database = aicopia_test"
             echo "database.tests.username = root"
             echo "database.tests.password ="
-            echo "database.tests.DBDriver = MySQLi"
             echo "database.tests.DBPrefix ="
             echo "database.tests.port = ${CI_MYSQL_PORT}"
           } >> .env
