@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Models\OrderAttemptModel;
 use App\Models\OrderModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -27,7 +28,7 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
     private OrderModel $model;
 
     /** @var array<string, array<int, int>> */
-    private array $cleanup = ['order_items' => [], 'orders' => [], 'products' => [], 'users' => []];
+    private array $cleanup = ['order_attempts' => [], 'order_items' => [], 'orders' => [], 'products' => [], 'users' => []];
 
     protected function setUp(): void
     {
@@ -38,12 +39,12 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
     protected function tearDown(): void
     {
         $db = db_connect();
-        foreach (['order_items', 'orders', 'products', 'users'] as $table) {
+        foreach (['order_attempts', 'order_items', 'orders', 'products', 'users'] as $table) {
             if ($this->cleanup[$table] !== []) {
                 $db->table($table)->whereIn('id', $this->cleanup[$table])->delete();
             }
         }
-        $this->cleanup = ['order_items' => [], 'orders' => [], 'products' => [], 'users' => []];
+        $this->cleanup = ['order_attempts' => [], 'order_items' => [], 'orders' => [], 'products' => [], 'users' => []];
         parent::tearDown();
     }
 
@@ -141,6 +142,45 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
         return $orderId;
     }
 
+    /**
+     * 결제 확정된 주문을 만든다.
+     *
+     * 주문 생성은 order_attempts 를 거치도록 바뀌었다(이슈 #214). 이 파일은
+     * 가격 계산(옵션 추가금)이 orders/order_items 에 그대로 반영되는지 보므로,
+     * 시도를 만든 뒤 즉시 결제 확정까지 진행해 검증 대상 행을 만든다.
+     *
+     * @param array<int, array<string, mixed>> $items
+     */
+    private function createPaidOrder(int $userId, array $items): int
+    {
+        $attemptId = (new OrderAttemptModel())->createAttempt(
+            $userId,
+            $this->shippingData(),
+            $items,
+            null,
+            null,
+            0,
+            0,
+            0,
+            'toss'
+        );
+        if ($attemptId > 0) {
+            $this->cleanup['order_attempts'][] = $attemptId;
+        }
+
+        if ($attemptId === 0) {
+            return 0;
+        }
+
+        $orderId = $this->trackOrder(
+            $this->model->convertAttempt($attemptId, 'paid', 'toss', 'TID-' . uniqid(), 'card', [])->orderId
+        );
+
+        $this->assertGreaterThan(0, $orderId, '주문 생성에 실패했습니다');
+
+        return $orderId;
+    }
+
     /** @return array<string, mixed> */
     private function order(int $orderId): array
     {
@@ -162,11 +202,7 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $product = $this->insertProduct(100000);
 
-        $orderId = $this->trackOrder($this->model->createPending(
-            $userId,
-            $this->shippingData(),
-            [$this->cartItem($product, 50000)],
-        ));
+        $orderId = $this->createPaidOrder($userId, [$this->cartItem($product, 50000)]);
 
         $order = $this->order($orderId);
         $this->assertSame(150000, (int) $order['total_product_price'], '옵션 추가금이 주문 총액에서 빠졌다');
@@ -179,11 +215,7 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $product = $this->insertProduct(100000);
 
-        $orderId = $this->trackOrder($this->model->createPending(
-            $userId,
-            $this->shippingData(),
-            [$this->cartItem($product, -30000)],
-        ));
+        $orderId = $this->createPaidOrder($userId, [$this->cartItem($product, -30000)]);
 
         $order = $this->order($orderId);
         $this->assertSame(70000, (int) $order['payable_amount'], '음수 추가금이 청구 금액에 반영되지 않았다');
@@ -194,11 +226,7 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $product = $this->insertProduct(10000);
 
-        $orderId = $this->trackOrder($this->model->createPending(
-            $userId,
-            $this->shippingData(),
-            [$this->cartItem($product, 5000, 3)],
-        ));
+        $orderId = $this->createPaidOrder($userId, [$this->cartItem($product, 5000, 3)]);
 
         // (10000 + 5000) * 3
         $this->assertSame(45000, (int) $this->order($orderId)['payable_amount']);
@@ -212,11 +240,7 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
         $a      = $this->insertProduct(100000);
         $b      = $this->insertProduct(20000);
 
-        $orderId = $this->trackOrder($this->model->createPending(
-            $userId,
-            $this->shippingData(),
-            [$this->cartItem($a, 50000), $this->cartItem($b, 0, 2), $this->cartItem($b)],
-        ));
+        $orderId = $this->createPaidOrder($userId, [$this->cartItem($a, 50000), $this->cartItem($b, 0, 2), $this->cartItem($b)]);
 
         $order = $this->order($orderId);
         $this->assertSame(
@@ -231,11 +255,7 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $product = $this->insertProduct(100000);
 
-        $orderId = $this->trackOrder($this->model->createPending(
-            $userId,
-            $this->shippingData(),
-            [$this->cartItem($product, 50000)],
-        ));
+        $orderId = $this->createPaidOrder($userId, [$this->cartItem($product, 50000)]);
 
         $row = db_connect()->table('order_items')->where('order_id', $orderId)->get()->getRowArray();
         $this->assertSame(150000, (int) $row['product_price']);
@@ -249,11 +269,7 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $product = $this->insertProduct(100000);
 
-        $orderId = $this->trackOrder($this->model->createPending(
-            $userId,
-            $this->shippingData(),
-            [$this->cartItem($product)],
-        ));
+        $orderId = $this->createPaidOrder($userId, [$this->cartItem($product)]);
 
         $order = $this->order($orderId);
         $this->assertSame(100000, (int) $order['total_product_price']);
@@ -268,11 +284,7 @@ final class SkuPriceDiffChargeTest extends CIUnitTestCase
         $item                   = $this->cartItem($product, 5000);
         $item['discount_price'] = 80000;
 
-        $orderId = $this->trackOrder($this->model->createPending(
-            $userId,
-            $this->shippingData(),
-            [$item],
-        ));
+        $orderId = $this->createPaidOrder($userId, [$item]);
 
         // 80000 (할인가) + 5000 (옵션)
         $this->assertSame(85000, (int) $this->order($orderId)['payable_amount']);

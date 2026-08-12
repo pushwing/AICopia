@@ -101,6 +101,12 @@ class MyPageController extends BaseController
         // MySQLi 는 조회 결과를 문자열로 돌려주므로 int 파라미터에 넘기기 전에 형변환한다.
         $order = $this->orderModel->getWithItems((int) $row['id'], $userId);
 
+        // getWithItems() 는 결제 확정 전 레거시 pending 주문을 걸러내 null 을 돌려준다.
+        // 그대로 뷰에 넘기면 상세 화면이 통째로 깨지므로 여기서 목록으로 돌려보낸다. (이슈 #214)
+        if ($order === null) {
+            return redirect()->to('/mypage/orders')->with('error', '주문을 찾을 수 없습니다.');
+        }
+
         $returnReasonCodes = \App\Models\OrderModel::RETURN_REASON_CODES;
         $rCode             = $order['return_reason_code'] ?? null;
         $returnReasonPayer = $rCode ? ($returnReasonCodes[$rCode]['payer'] ?? null) : null;
@@ -353,7 +359,14 @@ class MyPageController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => '잘못된 요청입니다.']);
         }
 
-        $order = $this->orderModel->where('id', $orderId)->where('user_id', $userId)->first();
+        // 레거시 pending 주문은 목록에 노출되지 않아 재주문 버튼도 없다 — id 를 직접
+        // 넘겨 담는 경로만 남아 있으므로 조회 단계에서 제외한다. 만료(expired) 주문은
+        // "취소/환불" 탭에 재주문 버튼과 함께 노출되므로 계속 허용한다. (이슈 #214)
+        $order = $this->orderModel
+            ->where('id', $orderId)
+            ->where('user_id', $userId)
+            ->where('status !=', 'pending')
+            ->first();
         if (! $order) {
             return $this->response->setJSON(['success' => false, 'message' => '주문을 찾을 수 없습니다.']);
         }

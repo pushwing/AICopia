@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Libraries\GradeService;
-use App\Libraries\ItemPricing;
+use App\Libraries\Order\ConversionFailure;
+use App\Libraries\Order\ConversionResult;
 use CodeIgniter\Model;
 
 class OrderModel extends Model
@@ -49,7 +50,8 @@ class OrderModel extends Model
      * 실결제 금액이 주문 가능한 값인지 검증한다.
      *
      * payable_amount 가 0 인 주문(100% 할인 쿠폰·포인트 전액 사용)은 PG 를 거치지
-     * 않고 즉시 확정하는 무료 주문 경로로 가므로 통과시킨다(→ confirmFree()).
+     * 않고 즉시 확정하는 무료 주문 경로로 가므로 통과시킨다(→ OrderController 에서
+     * convertAttempt(..., 'paid', 'free', ...) 로 확정).
      * 최소 결제 금액은 실제로 결제가 일어나는 1원 이상일 때만 따진다.
      *
      * @return string|null 거부 사유. 통과하면 null.
@@ -66,198 +68,6 @@ class OrderModel extends Model
         }
 
         return null;
-    }
-
-    /**
-     * 조건부 UPDATE 를 실행하고 실제로 반영됐는지 돌려준다.
-     *
-     * 검증과 소비 사이에 상태가 바뀌는 경쟁 상태를 막기 위한 "조건을 WHERE 에 걸고
-     * 반영 행 수를 확인한다" 패턴의 공통 구현이다. affectedRows() 를 이 한 곳에서만
-     * 읽어, 호출부마다 독립적인 판정을 얻는다.
-     *
-     * @param array<int, mixed> $bindings
-     */
-    private function runGuardedUpdate(string $sql, array $bindings): bool
-    {
-        $this->db->query($sql, $bindings);
-
-        return $this->db->affectedRows() > 0;
-    }
-
-    /**
-     * 결제 대기 주문 생성 — 쿠폰 확정 + 포인트 차감까지 트랜잭션 내 처리
-     */
-    /**
-     * @param array<string, mixed>          $shippingData
-     * @param array<int, array<string, mixed>> $cartItems
-     */
-    public function createPending(
-        int $userId,
-        array $shippingData,
-        array $cartItems,
-        ?int $couponId = null,
-        ?int $userCouponId = null,
-        int $couponDiscountAmount = 0,
-        int $pointUsed = 0,
-        int $pointEarned = 0
-    ): int {
-        // 옵션 추가금까지 포함한 실제 단가로 합산한다 — order_items 와 같은 계산이어야
-        // total_product_price 와 SUM(order_items.subtotal) 이 어긋나지 않는다. (이슈 #124)
-        $totalProduct = ItemPricing::totalProductPrice($cartItems);
-
-        $shippingFee   = $this->calculateShippingFee($cartItems, $totalProduct);
-        $totalAmount   = $totalProduct + $shippingFee;
-        $payableAmount = max(0, $totalAmount - $couponDiscountAmount - $pointUsed);
-        $orderNumber   = $this->generateOrderNumber();
-        $now           = date('Y-m-d H:i:s');
-
-        $this->db->transStart();
-
-        $orderId = (int) $this->insert([
-            'user_id'                => $userId,
-            'order_number'           => $orderNumber,
-            'status'                 => 'pending',
-            'total_product_price'    => $totalProduct,
-            'shipping_fee'           => $shippingFee,
-            'total_amount'           => $totalAmount,
-            'coupon_id'              => $couponId,
-            'coupon_discount_amount' => $couponDiscountAmount,
-            'point_used_amount'      => $pointUsed,
-            'point_earned_amount'    => $pointEarned,
-            'payable_amount'         => $payableAmount,
-            'receiver_name'          => $shippingData['receiver_name'],
-            'receiver_phone'         => $shippingData['receiver_phone'],
-            'zipcode'                => $shippingData['zipcode'],
-            'address1'               => $shippingData['address1'],
-            'address2'               => $shippingData['address2'] ?? null,
-            'delivery_memo'          => $shippingData['delivery_memo'] ?? null,
-        ], true);
-
-        $productIds = array_column($cartItems, 'product_id');
-        $costMap    = [];
-        if ($productIds !== []) {
-            $rows = $this->db->table('products')
-                ->select('id, cost_price')
-                ->whereIn('id', $productIds)
-                ->get()->getResultArray();
-            foreach ($rows as $row) {
-                $costMap[(int) $row['id']] = (float) $row['cost_price'];
-            }
-        }
-
-        $items = [];
-        foreach ($cartItems as $item) {
-            $price = ItemPricing::unitPrice($item);
-            $qty   = (int) $item['qty'];
-            $items[]   = [
-                'order_id'         => $orderId,
-                'product_id'       => (int) $item['product_id'],
-                'sku_id'           => isset($item['sku_id']) && $item['sku_id'] ? (int) $item['sku_id'] : null,
-                'parent_product_id' => isset($item['parent_product_id']) && $item['parent_product_id'] ? (int) $item['parent_product_id'] : null,
-                'sku_option_label' => ($item['sku_label'] ?? '') ?: null,
-                'product_name'     => $item['name'],
-                'product_price'    => $price,
-                'cost_price'       => $costMap[(int) $item['product_id']] ?? 0,
-                'qty'              => $qty,
-                'subtotal'         => $price * $qty,
-                'created_at'       => $now,
-            ];
-        }
-        $this->db->table('order_items')->insertBatch($items);
-
-        // 주문 총액과 라인 합계는 정의상 같아야 한다. 어긋나면 청구액과 기록이
-        // 따로 노는 상태이므로 주문을 만들지 않는다. (이슈 #124)
-        if (array_sum(array_column($items, 'subtotal')) !== $totalProduct) {
-            $this->db->transRollback();
-            log_message('critical', "[Order] 금액 정합성 불일치 — order_number={$orderNumber}");
-
-            return 0;
-        }
-
-        // 쿠폰 확정 (free_shipping은 couponDiscountAmount=배송비이므로 couponId 존재 여부로만 판단)
-        //
-        // 검증은 트랜잭션 밖에서 끝났으므로, 그 사이 쿠폰이 소진됐을 수 있다.
-        // 아래 포인트 차감과 동일하게 조건부 UPDATE + affectedRows 검사로 확정한다. (이슈 #123)
-        if ($couponId) {
-            // 이 UPDATE 가 coupons 행 잠금을 잡아 동일 쿠폰에 대한 동시 요청을 직렬화한다.
-            $couponClaimed = $this->runGuardedUpdate(
-                'UPDATE coupons SET used_count = used_count + 1
-                 WHERE id = ? AND (total_qty IS NULL OR used_count < total_qty)',
-                [$couponId]
-            );
-            if (! $couponClaimed) {
-                $this->db->transRollback();
-                return 0;
-            }
-
-            if ($userCouponId) {
-                $consumed = $this->runGuardedUpdate(
-                    'UPDATE user_coupons SET status = ?, order_id = ?, used_at = ?, updated_at = ?
-                     WHERE id = ? AND user_id = ? AND status = ?',
-                    ['used', $orderId, $now, $now, $userCouponId, $userId, 'issued']
-                );
-                if (! $consumed) {
-                    $this->db->transRollback();
-                    return 0;
-                }
-            } else {
-                // 코드 입력 — issued 상태 쿠폰이 있으면 사용 처리, 없으면 신규 INSERT
-                $existingUC = $this->db->table('user_coupons')
-                    ->where('user_id', $userId)
-                    ->where('coupon_id', $couponId)
-                    ->where('status', 'issued')
-                    ->get()->getRowArray();
-
-                if ($existingUC) {
-                    $consumed = $this->runGuardedUpdate(
-                        'UPDATE user_coupons SET status = ?, order_id = ?, used_at = ?, updated_at = ?
-                         WHERE id = ? AND status = ?',
-                        ['used', $orderId, $now, $now, $existingUC['id'], 'issued']
-                    );
-                    if (! $consumed) {
-                        $this->db->transRollback();
-                        return 0;
-                    }
-                } else {
-                    $this->db->table('user_coupons')->insert([
-                        'user_id'    => $userId,
-                        'coupon_id'  => $couponId,
-                        'order_id'   => $orderId,
-                        'source'     => 'code',
-                        'status'     => 'used',
-                        'issued_at'  => $now,
-                        'used_at'    => $now,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-                }
-            }
-        }
-
-        // 포인트 차감 (FOR UPDATE + 조건부 UPDATE)
-        if ($pointUsed > 0) {
-            $this->db->query('SELECT point_balance FROM users WHERE id = ? FOR UPDATE', [$userId]);
-            $affected = $this->db->query(
-                'UPDATE users SET point_balance = point_balance - ? WHERE id = ? AND point_balance >= ?',
-                [$pointUsed, $userId, $pointUsed]
-            );
-            if ($this->db->affectedRows() === 0) {
-                $this->db->transRollback();
-                return 0;
-            }
-            $this->db->table('point_logs')->insert([
-                'user_id'    => $userId,
-                'type'       => 'use',
-                'amount'     => -$pointUsed,
-                'order_id'   => $orderId,
-                'note'       => '주문 포인트 사용',
-                'created_at' => $now,
-            ]);
-        }
-
-        $this->db->transComplete();
-
-        return $this->db->transStatus() ? $orderId : 0;
     }
 
     /**
@@ -325,10 +135,388 @@ class OrderModel extends Model
      * 100% 할인 쿠폰이나 포인트 전액 사용으로 payable_amount 가 0 이 되면
      * 결제창에 요청할 금액이 없다. 재고 차감·장바구니 비우기·상태 로그는
      * PG 결제와 동일해야 하므로 confirmPaid() 를 그대로 태운다.
+     *
+     * 프로덕션 호출자 없음 — 신규 무료 주문은 OrderController 가
+     * convertAttempt(..., 'paid', 'free', ...) 로 바로 확정한다(이슈 #214).
+     * 이 메서드는 레거시 orders.status='pending' 무료 주문 확정용으로만 남아
+     * 있다. 제거 여부는 별도 판단(이슈 #214).
      */
     public function confirmFree(int $orderId): bool
     {
         return $this->confirmPaid($orderId, 'free', null, 'free', ['reason' => 'payable_amount = 0']);
+    }
+
+    /**
+     * 주문 시도를 실제 주문으로 전환한다.
+     *
+     * orders 에는 결제가 확정된 주문만 남긴다(이슈 #214). 이 메서드가 그 유일한
+     * 진입점이며, OrderAttemptModel::claimForConversion() 의 조건부 UPDATE 로
+     * 원자적 클레임을 먼저 잡아 중복 콜백을 막는다.
+     *
+     * 재고 차감이 실패하면 전환 트랜잭션을 롤백한 뒤, 이미 일어난 PG 청구를
+     * 추적할 수 있도록 취소 상태의 주문 + 결제행을 남긴다(→ findRefundPending()).
+     * 주문 자체를 만들지 않으면 payments.order_id 를 채울 수 없어 환불 대상이
+     * 관리자 화면에서 사라진다.
+     *
+     * 실패는 원인별로 구분해 돌려준다 — 보상 주문이 남는 실패(재고 부족 등)와
+     * 아무 행도 남지 않는 실패(fail-closed 거부 등)는 로그·안내가 달라야 한다.
+     *
+     * @param string               $targetStatus 'paid'(무료·PG 승인) 또는 'awaiting_payment'(무통장)
+     * @param array<string, mixed> $rawResponse
+     */
+    public function convertAttempt(
+        int $attemptId,
+        string $targetStatus,
+        string $pgProvider,
+        ?string $pgTid,
+        string $method,
+        array $rawResponse
+    ): ConversionResult {
+        $attemptModel = new OrderAttemptModel();
+        $now          = date('Y-m-d H:i:s');
+
+        // 클레임을 전환 트랜잭션 **안**에서 잡는다.
+        //
+        // 밖에서 잡으면(= 먼저 커밋되면) 이후 전환이 예기치 않게 죽었을 때 시도가
+        // converted 인 채로 남고, expireStale() 은 pending 만 훑으므로 선점된
+        // 쿠폰·포인트가 영구히 묶인다 — 이슈 #214 가 없애려던 유령 레코드가
+        // order_attempts 에서 재발하는 꼴이다.
+        //
+        // 안에서 잡으면 롤백 시 pending 으로 되돌아가 만료 스윕이 정상 회수한다.
+        // 조건부 UPDATE 가 행 잠금을 잡으므로 동시 콜백은 커밋될 때까지 대기했다가
+        // status='converted' 를 보고 거부된다 — 멱등성은 그대로다.
+        $this->db->transStart();
+
+        $attempt = $attemptModel->claimForConversion($attemptId);
+        if ($attempt === null) {
+            // 이미 failed/converted 로 확정된 시도다. 여기서 보상 주문을 만들면
+            // 이미 걷어간 주체의 처리와 겹치므로 아무 행도 남기지 않는다 —
+            // 청구가 있었다면 호출자의 critical 로그가 유일한 단서다.
+            $this->db->transRollback();
+
+            return ConversionResult::failed(ConversionFailure::AlreadyFinalized);
+        }
+
+        // 청구 흔적을 보상 주문에 남길 때 쓰는 페이로드. PG 거래가 없는
+        // 무료·무통장 전환은 null 이라 결제행을 만들지 않는다.
+        $charge = $pgTid === null ? null : [
+            'pg_provider' => $pgProvider,
+            'pg_tid'      => $pgTid,
+            'method'      => $method,
+            'amount'      => (int) $attempt['payable_amount'],
+            'raw'         => $rawResponse,
+        ];
+
+        $items = $attempt['items'];
+
+        // 스냅샷이 비었으면 라인 0건짜리 주문이 결제 완료 상태로 만들어진다.
+        // 전환 자체를 실패시켜 보상 경로(환불 추적)로 넘긴다.
+        if ($items === []) {
+            $this->db->transRollback();
+            log_message('critical', "[Order] 주문 시도 스냅샷이 비어 전환 불가 — attempt_id={$attemptId}");
+
+            return $this->failWithCompensation($attempt, ConversionFailure::CorruptSnapshot, $charge);
+        }
+
+        $orderId = (int) $this->insert([
+            'user_id'                => (int) $attempt['user_id'],
+            'order_number'           => $attempt['order_number'],
+            'status'                 => $targetStatus,
+            'total_product_price'    => (int) $attempt['total_product_price'],
+            'shipping_fee'           => (int) $attempt['shipping_fee'],
+            'total_amount'           => (int) $attempt['total_amount'],
+            'coupon_id'              => $attempt['coupon_id'],
+            'coupon_discount_amount' => (int) $attempt['coupon_discount_amount'],
+            'point_used_amount'      => (int) $attempt['point_used_amount'],
+            'point_earned_amount'    => (int) $attempt['point_earned_amount'],
+            'payable_amount'         => (int) $attempt['payable_amount'],
+            'receiver_name'          => $attempt['receiver_name'],
+            'receiver_phone'         => $attempt['receiver_phone'],
+            'zipcode'                => $attempt['zipcode'],
+            'address1'               => $attempt['address1'],
+            'address2'               => $attempt['address2'],
+            'delivery_memo'          => $attempt['delivery_memo'],
+            'paid_at'                => $targetStatus === 'paid' ? $now : null,
+        ], true);
+
+        // order_number 는 attempt 채번 시점에 orders·order_attempts 양쪽을 확인했지만,
+        // 그 사이 다른 주문이 같은 번호를 차지했을 가능성이 남는다. INSERT 실패를
+        // 그냥 넘기면 order_id 0 으로 하위 INSERT 가 이어져 고아 행이 생긴다.
+        //
+        // DBDebug=true 지만 트랜잭션 **안**에서는 CI4 가 예외를 삼키고 insert() 가
+        // false 를 돌려주며 transStatus() 가 false 가 된다(실측 확인). 따라서
+        // try/catch 는 불필요하고 — PHPStan 이 catch.neverThrown 으로 거부한다 —
+        // 아래 `=== 0` 가드가 그대로 동작한다. 트랜잭션 밖에서는 예외가 난다.
+        if ($orderId === 0) {
+            $this->db->transRollback();
+            log_message('critical', "[Order] 주문 INSERT 실패 (주문번호 충돌 의심) — attempt_id={$attemptId}, order_number={$attempt['order_number']}");
+
+            return $this->failWithCompensation($attempt, ConversionFailure::OrderNumberConflict, $charge);
+        }
+
+        $rows = [];
+        foreach ($items as $item) {
+            $rows[] = array_merge($item, ['order_id' => $orderId, 'created_at' => $now]);
+        }
+        $this->db->table('order_items')->insertBatch($rows);
+
+        // 무통장은 입금이 확인되는 시점(confirmBankTransfer)에 재고를 뺀다.
+        if ($targetStatus === 'paid') {
+            foreach ($rows as $item) {
+                if (! $this->deductItemStock($item)) {
+                    $this->db->transRollback();
+
+                    return $this->failWithCompensation($attempt, ConversionFailure::OutOfStock, $charge);
+                }
+            }
+        }
+
+        $paymentOk = $this->db->table('payments')->insert([
+            'order_id'     => $orderId,
+            'pg_provider'  => $pgProvider,
+            'pg_tid'       => $pgTid,
+            'method'       => $method,
+            'amount'       => (int) $attempt['payable_amount'],
+            'status'       => $targetStatus === 'paid' ? 'paid' : 'pending',
+            'raw_response' => json_encode($rawResponse, JSON_UNESCAPED_UNICODE),
+            'paid_at'      => $targetStatus === 'paid' ? $now : null,
+            'created_at'   => $now,
+            'updated_at'   => $now,
+        ]);
+
+        // pg_tid UNIQUE 위반 등 INSERT 실패 시 명시적 롤백
+        //
+        // 이 시점에 이미 PG 승인은 끝난 상태다. 롤백되면 시도는 pending 으로
+        // 돌아가 30분 뒤 expireStale() 이 "미결제"로 오인해 쿠폰·포인트를 회수하는데,
+        // 여기서는 compensateFailedConversion() 을 부르지 않으므로(재고 차감과 달리
+        // 이 실패는 사실상 발생 불가능한 pg_tid 충돌에 가까워 별도 청구 추적 흐름을
+        // 새로 만들기보다 즉시 눈에 띄게 로깅해 수동 대응을 유도한다) 최소한 로그로
+        // attempt_id·pg_tid·금액을 남긴다.
+        if (! $paymentOk || $this->db->affectedRows() === 0) {
+            $this->db->transRollback();
+            $this->db->resetTransStatus();
+            log_message(
+                'critical',
+                "[Order] 결제 INSERT 실패(pg_tid 충돌 의심) — attempt_id={$attemptId}, pg_tid=" . ($pgTid ?? 'null') . ", amount={$attempt['payable_amount']}"
+            );
+
+            return ConversionResult::failed(ConversionFailure::PaymentConflict);
+        }
+
+        // 선점해 둔 쿠폰·포인트를 실제 주문에 연결한다. attempt 참조는 추적용으로 남긴다.
+        $this->db->table('user_coupons')->where('order_attempt_id', $attemptId)->update(['order_id' => $orderId]);
+        $this->db->table('point_logs')->where('order_attempt_id', $attemptId)->update(['order_id' => $orderId]);
+
+        // 주문에 담긴 장바구니 행만 정확히 비운다(같은 상품의 다른 옵션은 남긴다).
+        foreach ($rows as $item) {
+            $builder = $this->db->table('cart_items')
+                ->where('user_id', (int) $attempt['user_id'])
+                ->where('product_id', (int) $item['product_id']);
+            if ($item['sku_id']) {
+                $builder->where('sku_id', (int) $item['sku_id']);
+            } else {
+                $builder->where('sku_id IS NULL', null, false);
+            }
+            $builder->delete();
+        }
+
+        $this->writeStatusLog($orderId, '', $targetStatus, match (true) {
+            $pgProvider === 'free'          => '무료 주문 자동 확정 (쿠폰·포인트로 전액 차감)',
+            $pgProvider === 'bank_transfer' => '무통장입금 주문 접수',
+            default                         => 'PG 결제 확인 (' . $pgProvider . ')',
+        });
+
+        $this->db->transComplete();
+
+        if (! $this->db->transStatus()) {
+            // PG 승인은 이미 끝났는데 커밋이 실패하면 아무 흔적도 남지 않는다 —
+            // 최소한 로그로는 추적 가능하게 남긴다.
+            log_message(
+                'critical',
+                "[Order] 전환 트랜잭션 커밋 실패 — attempt_id={$attemptId}, order_id={$orderId}, pg_tid=" . ($pgTid ?? 'null')
+            );
+
+            return ConversionResult::failed(ConversionFailure::CommitFailed);
+        }
+
+        $attemptModel->linkOrder($attemptId, $orderId);
+
+        return ConversionResult::success($orderId);
+    }
+
+    /**
+     * 이미 일어난 청구를 추적 가능한 형태로 남기고 실패 결과를 만든다.
+     *
+     * 보상 자체가 실패(보상 주문 INSERT 실패 등)하면 환불 추적이 끊기므로,
+     * 그 사실을 결과의 compensated 로 정직하게 돌려준다 — 호출자가 "환불 목록에
+     * 뜬다"고 잘못 안내하지 않도록.
+     *
+     * @param array<string, mixed>                                                                                   $attempt
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null $charge
+     */
+    private function failWithCompensation(array $attempt, ConversionFailure $failure, ?array $charge): ConversionResult
+    {
+        return ConversionResult::failed(
+            $failure,
+            $this->compensateFailedConversion($attempt, $failure->note(), $charge)
+        );
+    }
+
+    /**
+     * 전환 이전 단계에서 확정된 실패를 보상한다 — 컨트롤러용 진입점.
+     *
+     * PG 승인은 끝났지만 convertAttempt() 를 시작하지 않은 경우(금액 2차 검증
+     * 실패 등)에 쓴다. 이 경로도 보상 주문 + paid 결제행을 남겨야 관리자
+     * "환불 필요" 목록에서 청구를 추적할 수 있다.
+     *
+     * 최외곽 트랜잭션 전제 — 호출부에서 트랜잭션으로 감싸지 않는다.
+     *
+     * @param array<string, mixed>                                                                                   $attempt pending 상태의 시도(withItems() 적용)
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null $charge
+     */
+    public function compensateChargedAttempt(array $attempt, ConversionFailure $failure, ?array $charge = null): ConversionResult
+    {
+        return $this->failWithCompensation($attempt, $failure, $charge);
+    }
+
+    /**
+     * 전환 실패 보상 — 이미 일어난 청구를 추적 가능한 형태로 남긴다.
+     *
+     * 클레임(claimForConversion)이 전환 트랜잭션 안에서 잡히므로, 재고 부족 등으로
+     * 그 트랜잭션이 롤백되면 시도는 pending 으로 되돌아간다. 이 메서드가 시작되는
+     * 시점과 실제로 상태를 확정하는 시점 사이에 markFailed()/expireStale() 이 같은
+     * 시도를 먼저 걷어갈 수 있으므로, **조건부 UPDATE 를 맨 먼저** 실행해 그
+     * 결과(claimed)에 따라 복구 여부를 가른다 — 그래야 양쪽이 동시에 쿠폰·포인트를
+     * 복구하는 이중 환급을 막을 수 있다(이슈 #214 회귀).
+     *
+     * 단, 청구 흔적(취소 주문 + paid 결제행)은 경합에서 지더라도 반드시 남겨야
+     * 환불 추적(findRefundPending)이 끊기지 않는다 — 그래서 주문·결제행 생성은
+     * claimed 여부와 무관하게 항상 수행한다.
+     *
+     * 조건부 UPDATE 를 맨 앞에서 실행하므로 order_attempts 행 잠금도 가장 먼저
+     * 잡힌다 — convertAttempt() 의 잠금 순서(order_attempts → orders)와 같아져,
+     * 반대 순서로 잠그면 생길 수 있던 데드락 가능성도 함께 없앤다.
+     *
+     * 실패한 트랜잭션이 롤백된 뒤 호출해야 하며, 자체 트랜잭션으로 처리한다.
+     *
+     * @param array<string, mixed>                                                                                   $attempt
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>}|null $charge
+     *
+     * @return bool 보상 주문이 실제로 남아 환불 추적이 가능한지
+     */
+    private function compensateFailedConversion(array $attempt, string $note, ?array $charge = null): bool
+    {
+        // 직전 롤백으로 트랜잭션 상태가 false 로 남아 있으면 이 트랜잭션도 롤백된다.
+        $this->db->resetTransStatus();
+        $this->db->transStart();
+
+        $now = date('Y-m-d H:i:s');
+
+        // 상태 전이를 조건부 UPDATE 로 가장 먼저 확정한다(convertAttempt() 의
+        // claimForConversion() 과 동일하게 order_attempts 잠금을 orders 보다
+        // 먼저 잡는다). 롤백으로 pending 이 된 시도를 만료 스윕·markFailed 가
+        // 먼저 걷어갔다면 쿠폰·포인트는 이미 복구된 것이므로 여기서 또
+        // 되돌리면 이중 환급이 된다 — 그 판정을 $claimed 로 가른다.
+        $this->db->query(
+            'UPDATE order_attempts SET status = ?, failed_at = ?, fail_reason = ?, updated_at = ?
+             WHERE id = ? AND status = ?',
+            ['failed', $now, $note, $now, $attempt['id'], 'pending']
+        );
+        $claimed = $this->db->affectedRows() > 0;
+
+        // 청구 흔적(취소 주문 + order_items + paid 결제행)은 $claimed 와 무관하게
+        // 항상 남겨야 환불 추적(findRefundPending)이 끊기지 않는다. 게이트는
+        // 아래 restoreCoupon()/restorePoints() 호출에만 건다.
+        $orderId = (int) $this->insert([
+            'user_id'                => (int) $attempt['user_id'],
+            'order_number'           => $attempt['order_number'],
+            'status'                 => 'cancelled',
+            'total_product_price'    => (int) $attempt['total_product_price'],
+            'shipping_fee'           => (int) $attempt['shipping_fee'],
+            'total_amount'           => (int) $attempt['total_amount'],
+            'coupon_id'              => $attempt['coupon_id'],
+            'coupon_discount_amount' => (int) $attempt['coupon_discount_amount'],
+            'point_used_amount'      => (int) $attempt['point_used_amount'],
+            'point_earned_amount'    => (int) $attempt['point_earned_amount'],
+            'payable_amount'         => (int) $attempt['payable_amount'],
+            'receiver_name'          => $attempt['receiver_name'],
+            'receiver_phone'         => $attempt['receiver_phone'],
+            'zipcode'                => $attempt['zipcode'],
+            'address1'               => $attempt['address1'],
+            'address2'               => $attempt['address2'],
+            'delivery_memo'          => $attempt['delivery_memo'],
+            'cancelled_at'           => $now,
+        ], true);
+
+        // 보상 주문 자체가 만들어지지 않으면 하위 INSERT 를 이어갈 이유가 없다.
+        // 트랜잭션 전체가 롤백되므로 위에서 확정한 조건부 UPDATE 도 함께
+        // 되돌아가 시도는 원래 상태로 복구된다 — 다음 expireStale()/markFailed()
+        // 스윕이 정상적으로 걷어간다.
+        if ($orderId === 0) {
+            $this->db->transRollback();
+            $this->db->resetTransStatus();
+            log_message('critical', "[Order] 보상 주문 생성 실패 — attempt_id={$attempt['id']}, order_number={$attempt['order_number']}");
+
+            return false;
+        }
+
+        $rows = [];
+        foreach ($attempt['items'] as $item) {
+            $rows[] = array_merge($item, ['order_id' => $orderId, 'created_at' => $now]);
+        }
+        if ($rows !== []) {
+            $this->db->table('order_items')->insertBatch($rows);
+        }
+
+        // 주문은 cancelled 인데 결제가 paid 로 남은 조합이 곧 "환불 필요" 신호다.
+        // 청구가 있었는데 결제행을 남기지 못하면 환불 추적이 끊기므로, 그 사실을
+        // 반환값에 반영해 호출자가 "환불 목록에 뜬다"고 잘못 안내하지 않게 한다.
+        $chargeRecorded = $charge === null;
+        if ($charge !== null && $charge['pg_tid'] !== '') {
+            $chargeRecorded = true;
+            $this->db->table('payments')->ignore(true)->insert([
+                'order_id'     => $orderId,
+                'pg_provider'  => $charge['pg_provider'],
+                'pg_tid'       => $charge['pg_tid'],
+                'method'       => $charge['method'],
+                'amount'       => (int) $charge['amount'],
+                'status'       => 'paid',
+                'raw_response' => json_encode($charge['raw'], JSON_UNESCAPED_UNICODE),
+                'paid_at'      => $now,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ]);
+        }
+
+        // 선점은 order_attempt_id 에 걸려 있으므로 두 키를 함께 넘긴다.
+        // PHP 의 + 연산자는 왼쪽 배열의 키를 우선하므로 id 는 새 주문 id 로 덮인다.
+        $restoreTarget = ['id' => $orderId, 'order_attempt_id' => $attempt['id']] + $attempt;
+        if ($claimed) {
+            $this->restoreCoupon($restoreTarget);
+            $this->restorePoints($restoreTarget, 'stock');
+        }
+
+        // order_id 연결은 이번 호출이 claim 에서 졌더라도 항상 수행한다 — 방금
+        // 만든 보상 주문을 시도에서 추적할 수 있어야 한다.
+        $this->db->table('order_attempts')->where('id', $attempt['id'])->update([
+            'order_id'   => $orderId,
+            'updated_at' => $now,
+        ]);
+
+        $this->writeStatusLog($orderId, '', 'cancelled', $note);
+
+        $this->db->transComplete();
+
+        $committed = $this->db->transStatus();
+        if (! $committed) {
+            log_message('critical', "[Order] 보상 트랜잭션 커밋 실패 — attempt_id={$attempt['id']}, order_id={$orderId}");
+        }
+
+        // 이 트랜잭션의 성공·실패 여부가 다음 호출(같은 요청 내 다른 트랜잭션)에
+        // 새어나가지 않도록 항상 리셋한다.
+        $this->db->resetTransStatus();
+
+        return $committed && $chargeRecorded;
     }
 
     /**
@@ -1000,11 +1188,18 @@ class OrderModel extends Model
     /**
      * 주문 상세
      *
+     * 결제가 확정되지 않은 레거시 pending 주문은 목록 어디에도 노출되지 않으므로
+     * 주문번호를 알아도 상세를 열어주지 않는다. 반면 expired 는 "취소/환불" 탭에
+     * 계속 노출되는 것이 설계 결정이라 그대로 열어준다. (이슈 #214)
+     *
      * @return array<string, mixed>|null
      */
     public function getWithItems(int $orderId, int $userId): ?array
     {
-        $order = $this->where('id', $orderId)->where('user_id', $userId)->first();
+        $order = $this->where('id', $orderId)
+            ->where('user_id', $userId)
+            ->where('status !=', 'pending')
+            ->first();
         if (! $order) {
             return null;
         }
@@ -1065,6 +1260,11 @@ class OrderModel extends Model
             } else {
                 $builder->where('status', $status);
             }
+        } else {
+            // "전체" 탭 기본 조회에서는 결제가 확정되지 않은 주문을 제외한다.
+            // 신규 주문은 order_attempts 에 쌓이므로 여기 걸리는 건 레거시 행뿐이다.
+            // 만료 주문은 "취소/환불" 탭(status=cancel)에서 계속 확인 가능하다. (이슈 #214)
+            $builder->whereNotIn('status', ['pending', 'expired']);
         }
 
         $total  = (clone $builder)->countAllResults();
@@ -1109,6 +1309,10 @@ class OrderModel extends Model
 
         if ($status !== '') {
             $builder->where('o.status', $status);
+        } else {
+            // 결제 확정 전 주문은 관리자 주문 목록에도 노출하지 않는다.
+            // 레거시 행은 /admin/order-attempts 로그 페이지에서 조회한다. (이슈 #214)
+            $builder->whereNotIn('o.status', ['pending', 'expired']);
         }
 
         $total  = (clone $builder)->countAllResults(false);
@@ -1151,6 +1355,43 @@ class OrderModel extends Model
             ->get()->getResultArray();
 
         return $order;
+    }
+
+    /**
+     * 관리자 대시보드 "최근 주문" 위젯용 조회.
+     *
+     * 결제 확정 전(pending) 시도와 레거시 만료(expired) 주문은 orders 테이블에
+     * 보존만 되고 화면에는 노출하지 않는다(이슈 #214) — 행 자체를 삭제하지 않으므로
+     * 여기서 조회 시점에 걸러낸다.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getRecentForDashboard(int $limit = 5): array
+    {
+        return $this->db->table('orders o')
+            ->select('o.id, o.order_number, o.status, o.total_amount, o.created_at, u.nickname AS user_nickname')
+            ->join('users u', 'u.id = o.user_id', 'left')
+            ->whereNotIn('o.status', ['pending', 'expired'])
+            ->orderBy('o.id', 'DESC')
+            ->limit($limit)
+            ->get()->getResultArray();
+    }
+
+    /**
+     * 관리자 대시보드 "오늘 주문 수" 카운트.
+     *
+     * 같은 화면의 매출 집계와 동일하게 결제 확정 전(pending)·만료(expired) 레거시
+     * 주문을 제외한다 — 카운트만 조건이 없으면 매출 0원짜리 주문이 주문 수에 잡혀
+     * 두 지표가 어긋난다. (이슈 #214)
+     *
+     * @param string $since 집계 시작 시각 (`Y-m-d H:i:s`)
+     */
+    public function countTodayOrders(string $since): int
+    {
+        return $this->db->table('orders')
+            ->where('created_at >=', $since)
+            ->whereNotIn('status', ['pending', 'expired'])
+            ->countAllResults();
     }
 
     public function updateTracking(int $orderId, string $company, string $number): bool
@@ -1202,7 +1443,7 @@ class OrderModel extends Model
     /**
      * 확정 실패 보상 — 소진한 쿠폰·포인트를 되돌리고 주문을 취소로 확정한다.
      *
-     * createPending() 은 주문 생성 시점에 쿠폰을 소진하고 포인트를 차감하는데,
+     * 레거시 pending 주문은 생성 시점에 쿠폰을 소진하고 포인트를 차감하는데,
      * 확정 트랜잭션이 롤백돼도 그건 되돌아가지 않는다. pending 주문은 30분 뒤
      * expirePending() 이 걷어가지만 awaiting_payment(무통장)는 그 대상이 아니라
      * 영구히 묶였다 — 그래서 실패한 자리에서 바로 되돌린다.
@@ -1324,13 +1565,6 @@ class OrderModel extends Model
         ]);
     }
 
-    private function generateOrderNumber(): string
-    {
-        $prefix = 'ORD-' . date('Ymd') . '-';
-        $seq    = str_pad((string) random_int(10000, 99999), 5, '0', STR_PAD_LEFT);
-        return $prefix . $seq;
-    }
-
     /** @param array<int, array<string, mixed>> $items */
     public function calculateShippingFee(array $items, int $totalProduct): int
     {
@@ -1366,7 +1600,12 @@ class OrderModel extends Model
      */
     private function restoreCoupon(array $order): void
     {
-        if (! $order['coupon_id'] || (int) $order['coupon_discount_amount'] === 0) {
+        // 선점은 coupon_id 유무만으로 일어나고 할인 금액과는 무관하다 —
+        // 무료배송 쿠폰을 배송비 0원 주문에 쓰면 할인액이 0이 될 수 있는데,
+        // 여기서 금액 조건을 추가로 걸면 그런 케이스만 복구가 누락돼
+        // coupons.used_count 가 부풀고 user_coupons 가 'used' 로 영구히
+        // 묶인다. 복구 조건은 반드시 선점 조건과 대칭이어야 한다.
+        if (! $order['coupon_id']) {
             return;
         }
 
@@ -1375,11 +1614,20 @@ class OrderModel extends Model
             [$order['coupon_id']]
         );
 
-        $uc = $this->db->table('user_coupons')
+        $builder = $this->db->table('user_coupons')
             ->where('coupon_id', $order['coupon_id'])
-            ->where('order_id', $order['id'])
-            ->where('status', 'used')
-            ->get()->getRowArray();
+            ->where('status', 'used');
+
+        // 전환 전 선점분은 주문이 아니라 시도를 가리킨다. (이슈 #214)
+        // attempt 참조가 넘어온 경우에만 그 조건을 쓴다 — null 을 그대로 OR 로
+        // 걸면 "order_attempt_id IS NULL" 이 되어 다른 주문의 쿠폰까지 잡는다.
+        if (! empty($order['order_attempt_id'])) {
+            $builder->where('order_attempt_id', (int) $order['order_attempt_id']);
+        } else {
+            $builder->where('order_id', $order['id']);
+        }
+
+        $uc = $builder->get()->getRowArray();
 
         if (! $uc) {
             return;
@@ -1389,10 +1637,11 @@ class OrderModel extends Model
             $this->db->table('user_coupons')->where('id', $uc['id'])->delete();
         } else {
             $this->db->table('user_coupons')->where('id', $uc['id'])->update([
-                'status'     => 'issued',
-                'order_id'   => null,
-                'used_at'    => null,
-                'updated_at' => date('Y-m-d H:i:s'),
+                'status'           => 'issued',
+                'order_id'         => null,
+                'order_attempt_id' => null,
+                'used_at'          => null,
+                'updated_at'       => date('Y-m-d H:i:s'),
             ]);
         }
     }

@@ -68,7 +68,7 @@ class DashboardController extends BaseController
         $postModel    = new PostModel();
         $userModel    = new UserModel();
         $inquiryModel = new InquiryModel();
-        new OrderModel();
+        $orderModel   = new OrderModel();
         $productModel = new ProductModel();
 
         $db = \Config\Database::connect();
@@ -77,12 +77,9 @@ class DashboardController extends BaseController
         $todayStats = $accessLogModel->getTodayStats();
         $monthPv    = $accessLogModel->where('created_at >=', date('Y-m-01') . ' 00:00:00')->countAllResults();
 
-        $recentOrders = $db->table('orders o')
-            ->select('o.id, o.order_number, o.status, o.total_amount, o.created_at, u.nickname AS user_nickname')
-            ->join('users u', 'u.id = o.user_id', 'left')
-            ->orderBy('o.id', 'DESC')
-            ->limit(5)
-            ->get()->getResultArray();
+        // 결제 확정 전(pending) 시도와 레거시 만료(expired) 주문은 orders 테이블에 보존만 되고
+        // 화면에는 노출하지 않는다(이슈 #214). 최근 주문 위젯도 동일 정책을 따른다.
+        $recentOrders = $orderModel->getRecentForDashboard(5);
 
         $lowStockProducts = $productModel
             ->select('id, name, stock, status')
@@ -107,8 +104,7 @@ class DashboardController extends BaseController
         ", [$todayStart, $weekStart, $monthStart])->getRowArray();
 
         // 운영 현황 카운트
-        $todayOrderCount   = $db->table('orders')
-            ->where('created_at >=', $todayStart)->countAllResults();
+        $todayOrderCount   = $orderModel->countTodayOrders($todayStart);
         $pendingOrderCount = $db->table('orders')
             ->whereIn('status', ['awaiting_payment', 'preparing'])->countAllResults();
         $todayUserCount    = $db->table('users')

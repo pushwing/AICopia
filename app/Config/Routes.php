@@ -298,6 +298,10 @@ $routes->group('order', ['filter' => 'auth:member'], function ($routes) {
     $routes->get('complete/(:segment)', 'Front\OrderController::complete/$1');
     $routes->get('fail/(:segment)', 'Front\OrderController::fail/$1');
     $routes->get('bank_transfer/(:segment)', 'Front\OrderController::bankTransfer/$1');
+    // 카카오페이·PAYCO·이니시스 결제창의 "닫기/취소" 콜백 전용(이슈 #214) — 실제
+    // 주문 취소(POST order/cancel)와는 다른 동작이라 이름을 겹치지 않게 뒀다.
+    // PG 마다 결제창을 닫을 때 GET/POST 중 어느 쪽으로 돌아올지 달라 둘 다 받는다.
+    $routes->match(['get', 'post'], 'payment-cancel/(:segment)', 'Front\OrderController::cancelPayment/$1');
 });
 
 // ─── 쿠폰 (로그인 필요) ──────────────────────────────────────────────────────

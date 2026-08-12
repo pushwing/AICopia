@@ -50,7 +50,7 @@ class NaverPayAdapter implements PGInterface
             'totalPayAmount' => $payable,
             'taxScopeAmount' => $payable,
             'taxExScopeAmount' => 0,
-            'returnUrl'   => base_url('payment/callback/naverpay?order_id=' . $order['id']),
+            'returnUrl'   => base_url('payment/callback/naverpay?attempt_id=' . $order['id']),
         ];
     }
 

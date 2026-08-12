@@ -40,7 +40,9 @@ final class PgCancelReturnsToOrderTest extends CIUnitTestCase
 
         $this->assertArrayHasKey('cancelUrl', $params);
         $this->assertStringNotContainsString('order/fail', (string) $params['cancelUrl']);
-        $this->assertStringEndsWith('/order', rtrim((string) $params['cancelUrl'], '/'));
+        // 실패 화면으로 가지 않을 뿐 아니라, 시도를 걷어내는 전용 라우트(이슈 #214)를
+        // 거쳐야 쿠폰·포인트가 복구된다 — 곧장 /order 로 가면 그 복구가 빠진다.
+        $this->assertStringEndsWith('/order/payment-cancel/ORD20260807XYZ', (string) $params['cancelUrl']);
     }
 
     /**
@@ -57,7 +59,7 @@ final class PgCancelReturnsToOrderTest extends CIUnitTestCase
 
         $this->assertArrayHasKey('cancel_url', $payload);
         $this->assertStringNotContainsString('order/fail', (string) $payload['cancel_url']);
-        $this->assertStringEndsWith('/order', rtrim((string) $payload['cancel_url'], '/'));
+        $this->assertStringEndsWith('/order/payment-cancel/ORD20260807XYZ', (string) $payload['cancel_url']);
     }
 
     /** 카드 승인 거절 등 진짜 결제 실패(fail_url)는 여전히 결제 실패 화면으로 안내해야 한다. */

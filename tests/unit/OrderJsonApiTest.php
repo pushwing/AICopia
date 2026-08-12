@@ -88,7 +88,10 @@ final class OrderJsonApiTest extends CIUnitTestCase
         $data = array_merge([
             'user_id'              => $userId,
             'order_number'         => 'ORD-OJT-' . $uid,
-            'status'               => 'pending',
+            // json() 은 레거시 pending/expired 행을 제외하므로(이슈 #214), 기본값은
+            // 목록에 노출되는 정상 상태인 'paid' 로 둔다. pending/expired 자체를
+            // 검증하는 테스트는 status 를 명시적으로 override 한다.
+            'status'               => 'paid',
             'total_product_price'  => 10000,
             'shipping_fee'         => 0,
             'total_amount'         => 10000,
@@ -119,6 +122,8 @@ final class OrderJsonApiTest extends CIUnitTestCase
                       (SELECT COUNT(*) FROM order_memos WHERE order_id = o.id) AS memo_count')
             ->join('users u', 'u.id = o.user_id', 'left')
             ->join('payments lp', 'lp.id = (SELECT MAX(id) FROM payments WHERE order_id = o.id)', 'left')
+            // 결제 확정 전 레거시 pending/expired 행은 목록에서 감춘다. (이슈 #214)
+            ->whereNotIn('o.status', ['pending', 'expired'])
             ->orderBy('o.id', 'DESC');
 
         if ($whereIn !== []) {
@@ -158,16 +163,48 @@ final class OrderJsonApiTest extends CIUnitTestCase
         }
     }
 
-    // ── status_label 매핑 ─────────────────────────────────────────────────────
+    // ── 레거시 pending/expired 제외 (이슈 #214) ─────────────────────────────────
+    //
+    // 관리자 주문 목록 화면(/admin/orders/json)은 결제가 확정되지 않은 레거시
+    // pending/expired 행을 더 이상 보여주지 않는다 — 행 자체는 point_logs·
+    // user_coupons 가 order_id 를 참조 중이라 삭제하지 않고 목록에서만 감춘다.
+    // (예전엔 이 자리에서 pending 주문의 status_label('결제 대기')이 정상 노출되는
+    //  것을 검증했지만, 그 전제 자체가 이번 수정으로 뒤집혔다.)
 
-    public function testStatusLabelPending(): void
+    public function testPendingOrderExcludedFromJson(): void
     {
         $uid  = $this->insertUser();
         $id   = $this->insertOrder($uid, ['status' => 'pending']);
         $rows = $this->fetchJsonData([$id]);
 
-        $this->assertSame('결제 대기', $rows[0]['status_label']);
+        $this->assertSame([], $rows, '레거시 pending 주문은 json() 응답에 포함되면 안 된다');
     }
+
+    public function testExpiredOrderExcludedFromJson(): void
+    {
+        $uid  = $this->insertUser();
+        $id   = $this->insertOrder($uid, ['status' => 'expired']);
+        $rows = $this->fetchJsonData([$id]);
+
+        $this->assertSame([], $rows, '레거시 expired 주문은 json() 응답에 포함되면 안 된다');
+    }
+
+    public function testOnlyPaidOrderVisibleAmongPendingAndExpired(): void
+    {
+        $uid       = $this->insertUser();
+        $pendingId = $this->insertOrder($uid, ['status' => 'pending']);
+        $expiredId = $this->insertOrder($uid, ['status' => 'expired']);
+        $paidId    = $this->insertOrder($uid, ['status' => 'paid']);
+
+        $rows = $this->fetchJsonData([$pendingId, $expiredId, $paidId]);
+        $ids  = array_map('intval', array_column($rows, 'id'));
+
+        $this->assertContains($paidId, $ids);
+        $this->assertNotContains($pendingId, $ids);
+        $this->assertNotContains($expiredId, $ids);
+    }
+
+    // ── status_label 매핑 ─────────────────────────────────────────────────────
 
     public function testStatusLabelPaid(): void
     {

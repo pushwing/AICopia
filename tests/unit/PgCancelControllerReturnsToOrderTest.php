@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use App\Controllers\Front\OrderController;
 use App\Controllers\Front\PaymentController;
+use App\Models\OrderAttemptModel;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\SiteURI;
@@ -24,6 +25,10 @@ use CodeIgniter\Test\DatabaseTestTrait;
  *   code 로 "사용자가 그냥 닫음"과 "진짜 승인 거절"을 구분할 수 있다.
  *   OrderController::fail() 이 이 code 를 안 보면 취소도 실패 화면으로 뜬다.
  *
+ * 아래 attempt_id 기반 테스트들은 이슈 #214(PaymentController 를 attempt_id 로
+ * 전환)에서 새로 추가된 네이버페이 취소 시 markFailed() 호출과, findPendingForUser()
+ * 의 소유권 검증을 검증한다. 레거시 order_id 경로는 위 테스트들이 계속 담당한다.
+ *
  * @internal
  */
 final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
@@ -36,13 +41,22 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
 
     private string $prefix;
 
+    private OrderAttemptModel $attemptModel;
+
     /** @var array<string, array<int, int>> */
-    private array $cleanup = ['orders' => [], 'users' => []];
+    private array $cleanup = [
+        'orders'         => [],
+        'users'          => [],
+        'order_attempts' => [],
+        'products'       => [],
+        'coupons'        => [],
+    ];
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->prefix = 'PCC' . substr(uniqid(), -6);
+        $this->prefix       = 'PCC' . substr(uniqid(), -6);
+        $this->attemptModel = new OrderAttemptModel();
         session()->destroy();
     }
 
@@ -54,7 +68,19 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
                 $db->table($table)->whereIn('id', $this->cleanup[$table])->delete();
             }
         }
-        $this->cleanup = ['orders' => [], 'users' => []];
+        if ($this->cleanup['order_attempts'] !== []) {
+            $db->table('point_logs')->whereIn('order_attempt_id', $this->cleanup['order_attempts'])->delete();
+            $db->table('user_coupons')->whereIn('order_attempt_id', $this->cleanup['order_attempts'])->delete();
+            $db->table('order_attempts')->whereIn('id', $this->cleanup['order_attempts'])->delete();
+        }
+        if ($this->cleanup['coupons'] !== []) {
+            $db->table('user_coupons')->whereIn('coupon_id', $this->cleanup['coupons'])->delete();
+            $db->table('coupons')->whereIn('id', $this->cleanup['coupons'])->delete();
+        }
+        if ($this->cleanup['products'] !== []) {
+            $db->table('products')->whereIn('id', $this->cleanup['products'])->delete();
+        }
+        $this->cleanup = array_fill_keys(array_keys($this->cleanup), []);
 
         session()->destroy();
         parent::tearDown();
@@ -66,11 +92,12 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
     {
         $db = db_connect();
         $db->table('users')->insert([
-            'username'   => $this->prefix,
-            'email'      => $this->prefix . '@example.test',
+            'username'   => $this->prefix . substr(uniqid(), -4),
+            'email'      => $this->prefix . substr(uniqid(), -4) . '@example.test',
             'password'   => password_hash('pw', PASSWORD_DEFAULT),
             'nickname'   => $this->prefix,
             'role'       => 'member',
+            'point_balance' => 0,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
@@ -105,6 +132,98 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
         ]);
         $id                        = (int) $db->insertID();
         $this->cleanup['orders'][] = $id;
+
+        return $id;
+    }
+
+    /** @param array<string, mixed> $extra @return array<string, mixed> */
+    private function insertProduct(array $extra = []): array
+    {
+        $db   = db_connect();
+        $data = array_merge([
+            'name'           => 'PCCProd_' . uniqid(),
+            'slug'           => 'pcc-prod-' . uniqid(),
+            'price'          => 10000,
+            'cost_price'     => 0,
+            'stock'          => 10,
+            'status'         => 'on_sale',
+            'shipping_type'  => 'free',
+            'shipping_fee'   => 0,
+            'free_threshold' => 0,
+            'created_at'     => date('Y-m-d H:i:s'),
+            'updated_at'     => date('Y-m-d H:i:s'),
+        ], $extra);
+        $db->table('products')->insert($data);
+        $id                          = (int) $db->insertID();
+        $this->cleanup['products'][] = $id;
+
+        return array_merge(['id' => $id], $data);
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function insertCoupon(array $overrides = []): int
+    {
+        $db   = db_connect();
+        $data = array_merge([
+            'code'                => 'PCC' . uniqid(),
+            'name'                => 'PCC쿠폰',
+            'type'                => 'fixed',
+            'discount_value'      => 1000,
+            'min_order_amount'    => 0,
+            'max_discount_amount' => 0,
+            'total_qty'           => 10,
+            'used_count'          => 5,
+            'is_active'           => 1,
+            'created_at'          => date('Y-m-d H:i:s'),
+            'updated_at'          => date('Y-m-d H:i:s'),
+        ], $overrides);
+        $db->table('coupons')->insert($data);
+        $id                         = (int) $db->insertID();
+        $this->cleanup['coupons'][] = $id;
+
+        return $id;
+    }
+
+    /**
+     * @param array<string, mixed> $product
+     */
+    private function createAttempt(
+        int $userId,
+        array $product,
+        ?int $couponId = null,
+        int $couponDiscountAmount = 0,
+        int $pointUsed = 0
+    ): int {
+        $id = $this->attemptModel->createAttempt(
+            $userId,
+            [
+                'receiver_name'  => '테스트',
+                'receiver_phone' => '010-0000-0000',
+                'zipcode'        => '12345',
+                'address1'       => '서울시 테스트구',
+                'address2'       => null,
+                'delivery_memo'  => null,
+            ],
+            [[
+                'product_id'     => $product['id'],
+                'name'           => $product['name'],
+                'price'          => $product['price'],
+                'discount_price' => null,
+                'qty'            => 1,
+                'shipping_type'  => $product['shipping_type'],
+                'shipping_fee'   => $product['shipping_fee'],
+                'free_threshold' => $product['free_threshold'],
+            ]],
+            $couponId,
+            null,
+            $couponDiscountAmount,
+            $pointUsed,
+            0,
+            'naverpay'
+        );
+        if ($id > 0) {
+            $this->cleanup['order_attempts'][] = $id;
+        }
 
         return $id;
     }
@@ -150,7 +269,7 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
         return $controller;
     }
 
-    // ── 네이버페이: PaymentController::callback() ───────────────────────────────
+    // ── 네이버페이: PaymentController::callback() (레거시 order_id) ─────────────
 
     public function testNaverpayCancelReturnsToOrderPageNotFailPage(): void
     {
@@ -183,6 +302,87 @@ final class PgCancelControllerReturnsToOrderTest extends CIUnitTestCase
         $this->assertInstanceOf(RedirectResponse::class, $result);
         $location = (string) $result->header('Location')->getValue();
         $this->assertStringContainsString('order/fail', $location, 'resultCode 없이도 취소 분기를 타 버렸다');
+    }
+
+    // ── 네이버페이: PaymentController::callback() (신규 attempt_id) ─────────────
+
+    /**
+     * attempt_id + resultCode=Fail 콜백은 시도를 failed 로 확정하고 선점해 둔
+     * 쿠폰·포인트를 복구한 뒤 /order 로 돌려보내야 한다(order/fail 이 아니다).
+     */
+    public function testNaverpayCancelWithAttemptIdMarksFailedAndRestoresCouponAndPoints(): void
+    {
+        $db      = db_connect();
+        $userId  = $this->insertUser();
+        $product = $this->insertProduct(['stock' => 10]);
+        $couponId = $this->insertCoupon(['used_count' => 5, 'total_qty' => 10]);
+
+        $db->table('users')->where('id', $userId)->update(['point_balance' => 5000]);
+
+        $attemptId = $this->createAttempt($userId, $product, $couponId, 1000, 2000);
+        $this->assertGreaterThan(0, $attemptId, '시도 생성(쿠폰·포인트 선점)은 성공해야 한다');
+
+        // 선점 직후 상태 확인 — 이후 복구가 실제로 되돌리는지 대조하기 위한 기준선.
+        $this->assertSame(3000, (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance']);
+        $this->assertSame(6, (int) $db->table('coupons')->where('id', $couponId)->get()->getRowArray()['used_count']);
+
+        session()->set(['user_id' => $userId, 'user_role' => 'member']);
+
+        $result = $this->paymentController(['attempt_id' => $attemptId, 'resultCode' => 'Fail'])
+            ->callback('naverpay');
+
+        $this->assertInstanceOf(RedirectResponse::class, $result);
+        $location = (string) $result->header('Location')->getValue();
+        $this->assertStringNotContainsString('order/fail', $location, '취소가 실패 화면으로 갔다');
+        $this->assertStringEndsWith('/order', rtrim($location, '/'));
+
+        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertSame('failed', $attempt['status'], '취소된 시도는 failed 로 확정돼야 한다');
+
+        $this->assertSame(
+            5000,
+            (int) $db->table('users')->where('id', $userId)->get()->getRowArray()['point_balance'],
+            '선점했던 포인트가 복구돼야 한다'
+        );
+        $this->assertSame(
+            5,
+            (int) $db->table('coupons')->where('id', $couponId)->get()->getRowArray()['used_count'],
+            '선점했던 쿠폰이 복구돼야 한다'
+        );
+
+        // 취소된 시도는 주문으로 전환되지 않는다.
+        $this->assertSame(0, $db->table('orders')->where('user_id', $userId)->countAllResults());
+    }
+
+    /**
+     * 남의 attempt_id 로 콜백을 호출하면 findPendingForUser() 가 소유권 불일치로
+     * null 을 돌려주고, 전환(주문 생성)이 전혀 일어나지 않은 채 홈으로 튕겨야 한다.
+     */
+    public function testCallbackWithAnotherUsersAttemptIdRejectsOwnershipAndCreatesNoOrder(): void
+    {
+        $db      = db_connect();
+        $ownerId = $this->insertUser();
+        $callerId = $this->insertUser();
+        $product = $this->insertProduct(['stock' => 10]);
+
+        $attemptId = $this->createAttempt($ownerId, $product);
+        $this->assertGreaterThan(0, $attemptId);
+
+        // 시도의 진짜 소유자가 아니라 다른 로그인 사용자로 콜백을 호출한다.
+        session()->set(['user_id' => $callerId, 'user_role' => 'member']);
+
+        $result = $this->paymentController(['attempt_id' => $attemptId])->callback('naverpay');
+
+        $this->assertInstanceOf(RedirectResponse::class, $result);
+        $location = (string) $result->header('Location')->getValue();
+        $this->assertStringNotContainsString('order/fail', $location, '소유권 거부가 실패 화면으로 갔다');
+        $this->assertStringNotContainsString('/order/complete', $location, '소유권 거부인데 주문이 완료 처리됐다');
+
+        // 시도는 여전히 pending 이고, 어떤 사용자에게도 주문이 생기지 않아야 한다.
+        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertSame('pending', $attempt['status'], '소유권이 없는 콜백이 시도 상태를 바꾸면 안 된다');
+        $this->assertSame(0, $db->table('orders')->where('user_id', $ownerId)->countAllResults());
+        $this->assertSame(0, $db->table('orders')->where('user_id', $callerId)->countAllResults());
     }
 
     // ── 토스: OrderController::fail() ────────────────────────────────────────

@@ -4,20 +4,24 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Models\OrderModel;
+use App\Models\OrderAttemptModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 
 /**
- * OrderModel::createPending() 쿠폰 소비 원자성 검증 (이슈 #123)
+ * OrderAttemptModel::createAttempt() 쿠폰 소비 원자성 검증 (이슈 #123)
  *
  * 쿠폰 검증은 트랜잭션 밖(컨트롤러)에서 일어나고 소비는 트랜잭션 안에서 일어난다.
- * 그 사이에 쿠폰 상태가 바뀌었으면 주문 생성 자체가 실패해야 한다 —
+ * 그 사이에 쿠폰 상태가 바뀌었으면 시도 생성 자체가 실패해야 한다 —
  * `UPDATE ... WHERE status = 'issued'` 의 결과를 버리면, 이미 소진된 쿠폰으로도
- * 할인된 payable_amount 를 가진 주문이 그대로 만들어진다.
+ * 할인된 payable_amount 를 가진 시도가 그대로 만들어진다.
  *
  * 바로 아래 포인트 차감이 FOR UPDATE + 조건부 UPDATE + affectedRows 검사로
  * 올바르게 구현돼 있으므로, 쿠폰도 같은 패턴을 따라야 한다.
+ *
+ * 쿠폰 선점은 이슈 #214 로 주문 생성 시점(구 버전 주문 생성 로직)에서 주문 시도
+ * 생성 시점(createAttempt)으로 옮겨졌다 — orders 에는 결제가 확정된 주문만 남기 때문이다.
+ * 이 파일의 케이스는 그 시점 이동에 맞춰 order_attempts 기준으로 검증한다.
  */
 final class CouponDoubleSpendTest extends CIUnitTestCase
 {
@@ -27,35 +31,34 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
     protected $migrate = false;
     protected $refresh = false;
 
-    private OrderModel $model;
+    private OrderAttemptModel $model;
 
     /** @var array<string, array<int, int>> */
     private array $cleanup = [
-        'order_items'  => [],
-        'orders'       => [],
-        'user_coupons' => [],
-        'coupons'      => [],
-        'products'     => [],
-        'users'        => [],
+        'order_attempts' => [],
+        'user_coupons'   => [],
+        'coupons'        => [],
+        'products'       => [],
+        'users'          => [],
     ];
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->model = new OrderModel();
+        $this->model = new OrderAttemptModel();
     }
 
     protected function tearDown(): void
     {
         $db = db_connect();
-        foreach (['order_items', 'orders', 'user_coupons', 'coupons', 'products', 'users'] as $table) {
+        foreach (['order_attempts', 'user_coupons', 'coupons', 'products', 'users'] as $table) {
             if ($this->cleanup[$table] !== []) {
                 $db->table($table)->whereIn('id', $this->cleanup[$table])->delete();
             }
         }
         $this->cleanup = [
-            'order_items'  => [], 'orders' => [], 'user_coupons' => [],
-            'coupons'      => [], 'products' => [], 'users' => [],
+            'order_attempts' => [], 'user_coupons' => [],
+            'coupons'        => [], 'products' => [], 'users' => [],
         ];
         parent::tearDown();
     }
@@ -176,24 +179,18 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
         ];
     }
 
-    private function trackOrder(int $orderId): int
+    private function trackAttempt(int $attemptId): int
     {
-        if ($orderId > 0) {
-            $this->cleanup['orders'][] = $orderId;
-            $db  = db_connect();
-            $ids = array_column(
-                $db->table('order_items')->select('id')->where('order_id', $orderId)->get()->getResultArray(),
-                'id',
-            );
-            $this->cleanup['order_items'] = array_merge($this->cleanup['order_items'], $ids);
+        if ($attemptId > 0) {
+            $this->cleanup['order_attempts'][] = $attemptId;
         }
 
-        return $orderId;
+        return $attemptId;
     }
 
-    private function orderCount(int $userId): int
+    private function attemptCount(int $userId): int
     {
-        return db_connect()->table('orders')->where('user_id', $userId)->countAllResults();
+        return db_connect()->table('order_attempts')->where('user_id', $userId)->countAllResults();
     }
 
     // ── 차단되어야 하는 경우 ──────────────────────────────────────────────────
@@ -206,7 +203,7 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
         // 동시 요청 중 먼저 도착한 쪽이 이미 소진한 상태
         $userCouponId = $this->insertUserCoupon($userId, $couponId, 'used');
 
-        $orderId = $this->trackOrder($this->model->createPending(
+        $attemptId = $this->trackAttempt($this->model->createAttempt(
             $userId,
             $this->shippingData(),
             [$this->cartItem($product)],
@@ -215,8 +212,8 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
             5000,
         ));
 
-        $this->assertSame(0, $orderId, '이미 사용한 쿠폰으로 주문이 생성됐다');
-        $this->assertSame(0, $this->orderCount($userId), '롤백되지 않고 주문 행이 남았다');
+        $this->assertSame(0, $attemptId, '이미 사용한 쿠폰으로 주문 시도가 생성됐다');
+        $this->assertSame(0, $this->attemptCount($userId), '롤백되지 않고 시도 행이 남았다');
     }
 
     public function testUserCouponBelongingToAnotherUserIsRejected(): void
@@ -228,7 +225,7 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
         // 쿠폰은 남의 것 — UPDATE 의 user_id 조건에 걸려 0행이 되어야 한다
         $userCouponId = $this->insertUserCoupon($otherUser, $couponId, 'issued');
 
-        $orderId = $this->trackOrder($this->model->createPending(
+        $attemptId = $this->trackAttempt($this->model->createAttempt(
             $userId,
             $this->shippingData(),
             [$this->cartItem($product)],
@@ -237,8 +234,8 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
             5000,
         ));
 
-        $this->assertSame(0, $orderId, '남의 쿠폰으로 주문이 생성됐다');
-        $this->assertSame(0, $this->orderCount($userId));
+        $this->assertSame(0, $attemptId, '남의 쿠폰으로 주문 시도가 생성됐다');
+        $this->assertSame(0, $this->attemptCount($userId));
     }
 
     public function testCouponExhaustedByTotalQtyIsRejected(): void
@@ -249,7 +246,7 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
         $couponId     = $this->insertCoupon(['total_qty' => 1, 'used_count' => 1]);
         $userCouponId = $this->insertUserCoupon($userId, $couponId, 'issued');
 
-        $orderId = $this->trackOrder($this->model->createPending(
+        $attemptId = $this->trackAttempt($this->model->createAttempt(
             $userId,
             $this->shippingData(),
             [$this->cartItem($product)],
@@ -258,8 +255,8 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
             5000,
         ));
 
-        $this->assertSame(0, $orderId, '수량이 소진된 쿠폰으로 주문이 생성됐다');
-        $this->assertSame(0, $this->orderCount($userId));
+        $this->assertSame(0, $attemptId, '수량이 소진된 쿠폰으로 주문 시도가 생성됐다');
+        $this->assertSame(0, $this->attemptCount($userId));
     }
 
     // ── 허용되어야 하는 경우 (회귀 방지) ──────────────────────────────────────
@@ -271,7 +268,7 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
         $couponId     = $this->insertCoupon();
         $userCouponId = $this->insertUserCoupon($userId, $couponId, 'issued');
 
-        $orderId = $this->trackOrder($this->model->createPending(
+        $attemptId = $this->trackAttempt($this->model->createAttempt(
             $userId,
             $this->shippingData(),
             [$this->cartItem($product)],
@@ -280,18 +277,19 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
             5000,
         ));
 
-        $this->assertGreaterThan(0, $orderId, '정상 쿠폰으로 주문이 생성되지 않았다');
+        $this->assertGreaterThan(0, $attemptId, '정상 쿠폰으로 주문 시도가 생성되지 않았다');
 
         $db = db_connect();
         $uc = $db->table('user_coupons')->where('id', $userCouponId)->get()->getRowArray();
         $this->assertSame('used', $uc['status']);
-        $this->assertSame($orderId, (int) $uc['order_id']);
+        $this->assertSame($attemptId, (int) $uc['order_attempt_id']);
+        $this->assertNull($uc['order_id'], '전환 전이므로 order_id 는 아직 비어 있어야 한다');
 
         $coupon = $db->table('coupons')->where('id', $couponId)->get()->getRowArray();
         $this->assertSame(1, (int) $coupon['used_count'], 'used_count 가 정확히 1 증가하지 않았다');
 
-        $order = $db->table('orders')->where('id', $orderId)->get()->getRowArray();
-        $this->assertSame(15000, (int) $order['payable_amount'], '20000 - 5000 할인이 반영되지 않았다');
+        $attempt = $db->table('order_attempts')->where('id', $attemptId)->get()->getRowArray();
+        $this->assertSame(15000, (int) $attempt['payable_amount'], '20000 - 5000 할인이 반영되지 않았다');
     }
 
     public function testCouponWithRemainingQuantityIsAccepted(): void
@@ -301,7 +299,7 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
         $couponId     = $this->insertCoupon(['total_qty' => 2, 'used_count' => 1]);
         $userCouponId = $this->insertUserCoupon($userId, $couponId, 'issued');
 
-        $orderId = $this->trackOrder($this->model->createPending(
+        $attemptId = $this->trackAttempt($this->model->createAttempt(
             $userId,
             $this->shippingData(),
             [$this->cartItem($product)],
@@ -310,7 +308,7 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
             5000,
         ));
 
-        $this->assertGreaterThan(0, $orderId, '재고가 남은 쿠폰인데 주문이 막혔다');
+        $this->assertGreaterThan(0, $attemptId, '재고가 남은 쿠폰인데 주문 시도가 막혔다');
         $coupon = db_connect()->table('coupons')->where('id', $couponId)->get()->getRowArray();
         $this->assertSame(2, (int) $coupon['used_count']);
     }
@@ -320,12 +318,12 @@ final class CouponDoubleSpendTest extends CIUnitTestCase
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
 
-        $orderId = $this->trackOrder($this->model->createPending(
+        $attemptId = $this->trackAttempt($this->model->createAttempt(
             $userId,
             $this->shippingData(),
             [$this->cartItem($product)],
         ));
 
-        $this->assertGreaterThan(0, $orderId, '쿠폰 없는 주문이 막혔다');
+        $this->assertGreaterThan(0, $attemptId, '쿠폰 없는 주문 시도가 막혔다');
     }
 }
