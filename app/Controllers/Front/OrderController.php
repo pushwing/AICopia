@@ -223,19 +223,21 @@ class OrderController extends BaseController
 
         // 무료 주문 — 결제창 없이 바로 확정한다(재고 차감·장바구니 비우기는 convertAttempt 안에서).
         if ($isFreeOrder) {
-            $orderId = $this->orderModel->convertAttempt($attemptId, 'paid', 'free', null, 'free', ['reason' => 'payable_amount = 0']);
+            $result = $this->orderModel->convertAttempt($attemptId, 'paid', 'free', null, 'free', ['reason' => 'payable_amount = 0']);
 
-            if ($orderId === 0) {
-                log_message('error', "무료 주문 확정 실패 (재고 부족): attempt_id={$attemptId}");
+            if (! $result->succeeded()) {
+                // 무료 주문은 PG 청구가 없어 환불 대상이 아니다 — 실패 원인만
+                // 정확히 남기고, 안내는 원인별 문구를 그대로 쓴다.
+                log_message('error', "무료 주문 확정 실패 — attempt_id={$attemptId}, reason={$result->failure?->value}");
 
                 return $this->response->setJSON([
                     'success' => false,
-                    // 쿠폰·포인트는 convertAttempt() 안에서 복구됐으므로 바로 다시 쓸 수 있다.
-                    'message' => '재고가 부족해 주문을 완료할 수 없습니다. 사용하신 쿠폰·포인트는 복구되었습니다.',
+                    'message' => $result->failure?->userMessage(charged: false) ?? '주문 생성에 실패했습니다.',
                 ]);
             }
 
-            $order = $this->orderModel->getWithItems($orderId, $userId);
+            $orderId = $result->orderId;
+            $order   = $this->orderModel->getWithItems($orderId, $userId);
             session()->remove(CartModel::CHECKOUT_SESSION_KEY);
 
             return $this->response->setJSON([
@@ -250,13 +252,20 @@ class OrderController extends BaseController
 
         // 무통장입금 — 입금 계좌를 주문내역에서 확인해야 하므로 즉시 주문으로 전환한다.
         if ($pgProvider === 'bank_transfer') {
-            $orderId = $this->orderModel->convertAttempt($attemptId, 'awaiting_payment', 'bank_transfer', null, '무통장입금', []);
+            $result = $this->orderModel->convertAttempt($attemptId, 'awaiting_payment', 'bank_transfer', null, '무통장입금', []);
 
-            if ($orderId === 0) {
-                return $this->response->setJSON(['success' => false, 'message' => '주문 생성에 실패했습니다.']);
+            if (! $result->succeeded()) {
+                // 무통장은 아직 입금 전이라 환불 대상이 아니다 — 원인만 남긴다.
+                log_message('error', "무통장 주문 생성 실패 — attempt_id={$attemptId}, reason={$result->failure?->value}");
+
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => $result->failure?->userMessage(charged: false) ?? '주문 생성에 실패했습니다.',
+                ]);
             }
 
-            $order = $this->orderModel->getWithItems($orderId, $userId);
+            $orderId = $result->orderId;
+            $order   = $this->orderModel->getWithItems($orderId, $userId);
 
             // 장바구니 비우기는 convertAttempt() 안에서 처리된다(무통장도 포함).
             session()->remove(CartModel::CHECKOUT_SESSION_KEY);

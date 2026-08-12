@@ -324,7 +324,7 @@ final class FreeOrderTest extends CIUnitTestCase
         $this->assertSame(0, (int) $attempt['payable_amount']);
 
         // 실제 컨트롤러(OrderController)와 동일하게 free provider 로 바로 paid 전환한다.
-        $orderId = $this->model->convertAttempt($attemptId, 'paid', 'free', null, 'free', ['reason' => 'payable_amount = 0']);
+        $orderId = $this->model->convertAttempt($attemptId, 'paid', 'free', null, 'free', ['reason' => 'payable_amount = 0'])->orderId;
         $this->assertGreaterThan(0, $orderId, '무료 주문이 확정되지 않았습니다.');
         $this->cleanup['orders'][] = $orderId;
         $this->trackSideEffects($orderId);
