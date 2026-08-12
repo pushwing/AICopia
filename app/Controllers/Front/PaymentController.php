@@ -6,7 +6,10 @@ namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
 use App\Libraries\FrameBridge;
+use App\Libraries\Order\ConversionFailure;
+use App\Libraries\Order\ConversionResult;
 use App\Libraries\PG\PGFactory;
+use App\Libraries\PG\PGInterface;
 use App\Models\OrderAttemptModel;
 use App\Models\OrderModel;
 
@@ -94,7 +97,7 @@ class PaymentController extends BaseController
             return redirect()->to('/order/fail/' . $snapshot['order_number']);
         }
 
-        $pg     = PGFactory::make($pgProvider);
+        $pg     = $this->makePg($pgProvider);
         $result = $pg->confirm($pgToken, (int) $snapshot['payable_amount']);
 
         if (! $result['success']) {
@@ -103,6 +106,16 @@ class PaymentController extends BaseController
             return redirect()->to('/order/fail/' . $snapshot['order_number']);
         }
 
+        // 승인은 성공했으므로 이 시점부터 청구는 이미 살아 있다. 아래 실패 경로는
+        // 모두 그 청구를 추적 가능한 형태로 남겨야 한다.
+        $charge = [
+            'pg_provider' => $pgProvider,
+            'pg_tid'      => (string) $result['tid'],
+            'method'      => (string) $result['method'],
+            'amount'      => (int) $result['amount'],
+            'raw'         => $result['raw'],
+        ];
+
         // 금액 2차 검증 (어댑터 내부에서도 검증하지만 여기서 한 번 더)
         if ((int) $result['amount'] !== (int) $snapshot['payable_amount']) {
             log_message(
@@ -110,48 +123,111 @@ class PaymentController extends BaseController
                 "결제 금액 불일치: attempt_id={$attemptId}, order_id={$legacyOrderId}, "
                 . "expected={$snapshot['payable_amount']}, got={$result['amount']}"
             );
-            session()->setFlashdata('pg_error', '결제 금액이 일치하지 않습니다.');
 
-            return redirect()->to('/order/fail/' . $snapshot['order_number']);
+            // 시도 기반 주문은 보상 주문(취소 + paid 결제행)을 남겨 관리자
+            // "환불 필요" 목록에서 이 청구를 추적할 수 있게 한다. 이 처리가
+            // 없으면 orders·payments 어디에도 흔적이 남지 않아 환불 대상이
+            // 화면에서 사라진다(레거시 order_id 경로는 주문이 이미 있어 해당 없음).
+            // TODO(#214): 레거시 order_id 분기 제거 시 이 조건도 함께 정리한다.
+            $mismatch = $attemptId > 0
+                ? $this->orderModel->compensateChargedAttempt($snapshot, ConversionFailure::AmountMismatch, $charge)
+                : ConversionResult::failed(ConversionFailure::AmountMismatch);
+
+            return $this->failWithCharge($mismatch, $snapshot, $pgProvider, $attemptId, $legacyOrderId, $charge);
         }
 
         // 재고 차감 + 주문 생성 (트랜잭션)
         // TODO(#214): 레거시 order_id 분기 — 다음 릴리스에서 else 절(confirmPaid 호출)을 제거한다.
-        $confirmed = $attemptId > 0
-            ? $this->orderModel->convertAttempt($attemptId, 'paid', $pgProvider, $result['tid'], $result['method'], $result['raw']) > 0
-            : $this->orderModel->confirmPaid($legacyOrderId, $pgProvider, $result['tid'], $result['method'], $result['raw']);
+        $conversion = $attemptId > 0
+            ? $this->orderModel->convertAttempt($attemptId, 'paid', $pgProvider, $result['tid'], $result['method'], $result['raw'])
+            : $this->confirmLegacyOrder($legacyOrderId, $pgProvider, $result);
 
-        if (! $confirmed) {
-            // convertAttempt() 이 0을 반환하는 원인은 두 가지이고 컨트롤러는 이를
-            // 구분하지 못한다 — 메시지·로그 모두 원인을 단정하지 않는다.
-            //   1) 재고 부족: compensateFailedConversion() 이 취소 주문 + paid 결제행을
-            //      남긴다. 쿠폰·포인트는 그 안에서 이미 복구됐고, 이 주문은 관리자
-            //      화면의 "환불 필요"(findRefundPending)에 자동으로 뜨며 관리자가
-            //      PgCancellationService 의 환불 버튼으로 PG 취소를 요청할 수 있다.
-            //   2) fail-closed 거부: 이미 failed/converted 로 확정된 시도에 승인이
-            //      늦게 도착한 경우다. 그 확정 시점(markFailed 등)에 쿠폰·포인트는
-            //      이미 복구됐지만, 이 경로는 아무 행도 남기지 않아 "환불 필요"
-            //      목록에 뜨지 않는다 — 아래 critical 로그가 유일한 단서다.
-            // PG 승인(청구) 자체는 이 시점에 이미 끝난 상태이고, PG 승인 취소를
-            // 자동으로 요청하는 기능(TODO(#113))은 두 경우 모두 아직 구현돼 있지
-            // 않다 — 실제로 환불이 나가기 전까지 "자동 환불"이라고 안내해선 안 된다.
-            session()->setFlashdata(
-                'pg_error',
-                '결제 확정에 실패했습니다(재고 부족 또는 중복·지연 콜백). 사용하신 쿠폰·포인트는 '
-                . '복구되었습니다. 결제하신 금액은 확인 후 환불해 드립니다. 고객센터로 문의해 주세요.'
-            );
-            // TODO(#113): PG 자동 취소 요청 ($pg->cancel($result['tid'], $result['amount'], '결제 확정 실패'))
-            //             구현 전까지는 아래 critical 로그가 fail-closed 경로의 유일한 단서다.
-            log_message(
-                'critical',
-                "결제 확정 실패 — 확인 필요: attempt_id={$attemptId}, order_id={$legacyOrderId}, "
-                . "pg={$pgProvider}, tid={$result['tid']}, amount={$result['amount']}"
-            );
-
-            return redirect()->to('/order/fail/' . $snapshot['order_number']);
+        if (! $conversion->succeeded()) {
+            return $this->failWithCharge($conversion, $snapshot, $pgProvider, $attemptId, $legacyOrderId, $charge);
         }
 
         return redirect()->to('/order/complete/' . $snapshot['order_number']);
+    }
+
+    /**
+     * 승인은 끝났는데 주문 확정에 실패한 경우의 공통 마무리.
+     *
+     * 실패 원인마다 환불 추적 가능 여부가 달라 로그·안내를 뭉뚱그리면 안 된다:
+     * 보상 주문이 남은 실패는 관리자 화면의 "환불 필요"(findRefundPending)에
+     * 자동으로 뜨지만, 남지 않은 실패는 이 critical 로그가 유일한 단서다.
+     *
+     * PG 승인 취소를 자동으로 요청하는 기능(TODO #113)은 아직 없다 — 실제로
+     * 환불이 나가기 전까지 "자동 환불"이라고 안내해선 안 된다.
+     *
+     * @param array<string, mixed>                                                                              $snapshot
+     * @param array{pg_provider: string, pg_tid: string, method: string, amount: int, raw: array<string, mixed>} $charge
+     */
+    private function failWithCharge(
+        ConversionResult $result,
+        array $snapshot,
+        string $pgProvider,
+        int $attemptId,
+        int $legacyOrderId,
+        array $charge
+    ): \CodeIgniter\HTTP\ResponseInterface {
+        $failure = $result->failure ?? ConversionFailure::Unknown;
+
+        session()->setFlashdata('pg_error', $failure->userMessage());
+
+        // TODO(#113): PG 자동 취소 요청 ($pg->cancel(...)) 구현 전까지 이 로그가
+        //             보상되지 않은 청구를 찾아내는 유일한 단서다.
+        // 원응답·PG 토큰은 남기지 않는다(민감 정보). tid 는 환불 실행에 필요하다.
+        log_message(
+            'critical',
+            sprintf(
+                '결제 확정 실패 — 확인 필요: reason=%s, refund_tracked=%s, attempt_id=%d, order_id=%d, pg=%s, tid=%s, amount=%d',
+                $failure->value,
+                $result->compensated ? 'yes(환불 필요 목록)' : 'no(수동 확인 필요)',
+                $attemptId,
+                $legacyOrderId,
+                $pgProvider,
+                $charge['pg_tid'],
+                $charge['amount'],
+            )
+        );
+
+        return redirect()->to('/order/fail/' . $snapshot['order_number']);
+    }
+
+    /**
+     * 레거시 order_id 경로 — 이미 존재하는 pending 주문을 확정한다.
+     *
+     * 실패해도 주문·결제행이 이미 있어 환불 추적은 confirmPaid() 내부의
+     * compensateFailedConfirm() 이 담당한다.
+     *
+     * TODO(#214): 다음 릴리스에서 이 메서드를 통째로 제거한다.
+     *
+     * @param array<string, mixed> $result
+     */
+    private function confirmLegacyOrder(int $legacyOrderId, string $pgProvider, array $result): ConversionResult
+    {
+        $confirmed = $this->orderModel->confirmPaid(
+            $legacyOrderId,
+            $pgProvider,
+            $result['tid'],
+            $result['method'],
+            $result['raw']
+        );
+
+        // confirmPaid() 는 bool 만 돌려줘 재고 부족·fail-closed 거부를 구분할 수
+        // 없다. 추측해서 단정하느니 Unknown 으로 남겨 관리자 확인을 유도한다.
+        return $confirmed
+            ? ConversionResult::success($legacyOrderId)
+            : ConversionResult::failed(ConversionFailure::Unknown);
+    }
+
+    /**
+     * PG 어댑터 해소. 승인 결과를 가짜로 주입해 실패 분기를 검증할 수 있도록
+     * 정적 팩토리 호출을 이 메서드 하나로 모아 둔다(테스트 전용 시임).
+     */
+    protected function makePg(string $pgProvider): PGInterface
+    {
+        return PGFactory::make($pgProvider);
     }
 
     /** 결제 수단별 PG 토큰 파라미터 이름 해소 */
