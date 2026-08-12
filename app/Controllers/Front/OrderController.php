@@ -121,7 +121,8 @@ class OrderController extends BaseController
         $shippingData = $this->request->getPost(['receiver_name', 'receiver_phone', 'zipcode', 'address1', 'address2', 'delivery_memo']);
         $pgProvider   = $this->request->getPost('pg_provider');
         $saveAddress  = (bool) $this->request->getPost('save_address');
-        $couponCode   = trim($this->request->getPost('coupon_code') ?? '');
+        // 쿠폰은 발급받아 보유한 것(user_coupon_id)만 쓸 수 있다. 코드 입력 경로는
+        // 발급받지 않은 쿠폰도 코드만 알면 쓸 수 있어 제거했다(이슈 #219).
         $userCouponId = (int) ($this->request->getPost('user_coupon_id') ?? 0);
         $pointUse     = max(0, (int) ($this->request->getPost('point_use') ?? 0));
 
@@ -154,11 +155,8 @@ class OrderController extends BaseController
         $couponDiscountAmount = 0;
         $resolvedUserCouponId = null;
 
-        if ($userCouponId > 0 || $couponCode !== '') {
-            $svc = new CouponService();
-            $result = $userCouponId > 0
-                ? $svc->validateByUserCouponId($userCouponId, $userId, $totalAmount)
-                : $svc->validate($couponCode, $userId, $totalAmount);
+        if ($userCouponId > 0) {
+            $result = new CouponService()->validateByUserCouponId($userCouponId, $userId, $totalAmount);
 
             if (! $result['valid']) {
                 return $this->response->setJSON(['success' => false, 'message' => $result['message']]);

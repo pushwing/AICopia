@@ -309,9 +309,6 @@ $routes->group('order', ['filter' => 'auth:member'], function ($routes) {
     $routes->match(['get', 'post'], 'payment-cancel/(:segment)', 'Front\OrderController::cancelPayment/$1');
 });
 
-// ─── 쿠폰 (로그인 필요) ──────────────────────────────────────────────────────
-$routes->post('coupon/check', 'Front\CouponController::check', ['filter' => 'auth:member']);
-
 // ─── 마이페이지 (로그인 필요) ────────────────────────────────────────────────
 $routes->group('mypage', ['filter' => 'auth:member'], function ($routes) {
     $routes->get('orders', 'Front\MyPageController::orders');
