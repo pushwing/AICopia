@@ -57,7 +57,9 @@ for src in vendor/codeigniter4/framework/app/Config/*; do
 done
 [ -e system ] || ln -s vendor/codeigniter4/framework/system system
 cp vendor/codeigniter4/framework/env .env   # 이후 편집: DB, CI_ENVIRONMENT, AI 키, PG 키, OAuth 키, SMTP
-# app/Config/App.php: $appTimezone = 'Asia/Seoul' 로 설정
+# .env 에서 database.default.DBDriver / database.tests.DBDriver 줄은 삭제한다.
+#   (그 줄이 있으면 Registrar 의 타임존 인식 드라이버가 무시된다 — 아래 "타임존 규약" 참고)
+# $appTimezone 은 Config/Registrar.php 에서 Asia/Seoul 로 고정되므로 App.php 는 손대지 않는다.
 php spark migrate              # 테이블 생성 + 기본 데이터 시드
 ```
 
@@ -70,6 +72,48 @@ php spark migrate              # 테이블 생성 + 기본 데이터 시드
 브랜치 모델·표준 흐름·규칙은 규칙 문서로 분리했습니다 → @.claude/rules/git-workflow.md
 
 ## 아키텍처
+
+### 타임존 규약 (DB는 UTC 저장 / 앱·화면은 KST)
+
+**서버 자체 시계와 DB 저장값은 UTC, CI4 앱과 화면은 `Asia/Seoul`(KST, UTC+9).**
+
+| 계층 | 타임존 | 비고 |
+|------|--------|------|
+| 서버 OS 시계(시스템 시각·크론·DB 서버) | **UTC** | 운영 서버는 UTC로 돌아간다 |
+| CI4 앱 (`$appTimezone`) | **Asia/Seoul** | `Config/Registrar.php`의 `App()`에서 고정 |
+| DB 커넥션 세션 타임존 | **+09:00** | `App\Database\MySQLiTimezone\Connection`이 연결 시 `SET time_zone` |
+| DB 디스크 저장값 | **UTC** | 시각 컬럼은 전부 `TIMESTAMP` — MySQL이 자동 변환 |
+| 앱이 주고받는 값·화면 출력·사용자 입력 | **Asia/Seoul** | `date()`·`strtotime()`·뷰 출력 모두 KST |
+
+**핵심: 변환은 MySQL이 한다 — 애플리케이션 코드는 타임존을 신경 쓰지 않는다.**
+
+`TIMESTAMP` 컬럼은 내부 저장이 항상 UTC이고, 읽고 쓸 때 커넥션 세션 타임존 기준으로 자동 변환된다. 세션이 `+09:00`으로 고정돼 있으므로:
+
+```
+PHP date() → KST 문자열 → [MySQL이 UTC로 변환] → 디스크에 UTC 저장
+디스크의 UTC → [MySQL이 KST로 변환] → PHP가 KST 수신 → 뷰가 그대로 출력
+```
+
+```php
+// ✅ 저장 — 평소대로 쓴다. MySQL이 UTC로 바꿔 저장한다.
+$now = date('Y-m-d H:i:s');
+
+// ✅ 표시 — 평소대로 쓴다. MySQL이 KST로 바꿔 돌려준다.
+echo esc(date('Y년 n월 j일', strtotime($uc['expires_at'])));
+```
+
+**규칙**
+
+- **새 시각 컬럼은 반드시 `TIMESTAMP`로 정의한다.** `DATETIME`은 타임존 변환을 받지 않아 그 컬럼만 KST로 저장되어 규약이 조용히 깨진다. `DatabaseTimezoneTest::testNoDatetimeColumnsRemainInSchema()`가 이를 잡는다.
+  - 순수 날짜(생일, 프로모션 시작·종료일, 집계 기준일)는 시각이 아니므로 `DATE`를 그대로 쓴다.
+- **`$appTimezone`은 `Config/Registrar.php`에서 관리한다.** `app/Config/App.php`는 gitignore라 배포·신규 서버에서 vendor 기본값 `UTC`로 복원된다 — 직접 고치면 사라진다.
+- **`.env`에 `database.*.DBDriver`를 두지 않는다.** `.env`가 Registrar보다 우선하므로(`BaseConfig`가 `registerProperties()` 뒤에 `initEnvValue()` 실행) 그 줄이 있으면 표준 `MySQLi` 드라이버가 쓰여 세션 타임존이 걸리지 않는다. **로컬·CI·운영 각 `.env`에서 이 줄을 지워야 한다.**
+- **PHP에서 UTC로 변환해 저장하지 않는다.** `Time::now('UTC')` 같은 값을 넣으면 MySQL이 그걸 다시 KST로 해석해 9시간 어긋난다. 이중 변환 금지.
+- **비교·계산도 그대로** 한다. `NOW()`·`CURDATE()`도 세션이 `+09:00`이라 KST 기준이므로 PHP `date()`와 일관된다.
+
+> ⚠️ **`TIMESTAMP` 상한은 2038-01-19**다. 그 이후 날짜(쿠폰 만료일 등)를 넣으면 에러가 난다.
+
+전환 이력은 `2026-08-12-000001_ConvertDatetimeColumnsToTimestamp` 마이그레이션과 [설계 스펙](docs/superpowers/specs/2026-08-12-timezone-utc-storage-design.md) 참조.
 
 ### 테마 시스템
 
