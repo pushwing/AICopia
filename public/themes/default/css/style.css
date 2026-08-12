@@ -4,6 +4,14 @@
     --dark:    #1e2a38;
 }
 
+/* 세로 스크롤바 자리를 항상 비워 둔다. 내용이 짧아 스크롤바가 없는 화면
+   (쿠폰·포인트 등)은 그만큼 뷰포트가 넓어져, 가운데 정렬된 본문이 스크롤바가
+   있는 화면보다 스크롤바 폭의 절반만큼 밀린다. 마이페이지처럼 좌측 메뉴를
+   두고 화면을 오가면 메뉴가 좌우로 흔들려 보인다. */
+html {
+    scrollbar-gutter: stable;
+}
+
 body {
     font-family: 'Noto Sans KR', -apple-system, sans-serif;
     color: #333;
