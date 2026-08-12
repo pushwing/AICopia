@@ -53,6 +53,9 @@ class CouponService
             'code'                => $uc['code'],
             'name'                => $uc['name'],
             'type'                => $uc['type'],
+            // 누락되면 checkCoupon()의 등급 검증이 통째로 건너뛰어져
+            // 타 등급 회원이 등급 전용 쿠폰을 사용할 수 있게 된다.
+            'target_grade'        => $uc['target_grade'],
             'discount_value'      => $uc['discount_value'],
             'min_order_amount'    => $uc['min_order_amount'],
             'max_discount_amount' => $uc['max_discount_amount'],
