@@ -25,21 +25,25 @@ class SecurityHeadersFilter implements FilterInterface
 
             // t1.kakaocdn.net — 카카오 우편번호(주소검색) 서비스 로더
             // js.tosspayments.com — 주문서(shop/checkout)가 로드하는 토스페이먼츠 결제 SDK
-            // stdpay.inicis.com — INIStdPay SDK 본체
-            // stdux.inicis.com — INIStdPay가 이어서 로드하는 2차 스크립트(INIStdPay_third-party.js)
+            // stdpay·stgstdpay.inicis.com — INIStdPay SDK 본체(운영/테스트).
+            //   테스트 MID(INIpayTest 등)는 stg 도메인에서만 동작해 InicisAdapter가
+            //   SDK 주소를 환경에 맞춰 내려준다 — 두 호스트 모두 필요하다.
+            // stdux.inicis.com — INIStdPay가 이어서 로드하는 2차 스크립트(INIStdPay_third-party.js).
+            //   stg SDK도 이 CDN을 그대로 쓴다(stgstdux.inicis.com은 존재하지 않음).
             // pay.nicepay.co.kr — 나이스페이 AUTHNICE SDK
             // nsp.pay.naver.com — 네이버페이 SDK(Naver.Pay) 본체. SDK 로더 스크립트 URL 자체는
             // mode(개발/운영)에 상관없이 항상 이 도메인이다.
             // test-nsp.pay.naver.com — mode:"development"(샌드박스)일 때 SDK가 내부적으로
             // 추가 로드하는 리소스가 이 도메인을 쓴다(운영 전환 시에도 계속 필요할 수 있어 남겨둔다).
-            "script-src 'self' cdn.jsdelivr.net t1.kakaocdn.net js.tosspayments.com stdpay.inicis.com stdux.inicis.com pay.nicepay.co.kr nsp.pay.naver.com test-nsp.pay.naver.com 'unsafe-inline'",
+            "script-src 'self' cdn.jsdelivr.net t1.kakaocdn.net js.tosspayments.com stdpay.inicis.com stgstdpay.inicis.com stdux.inicis.com pay.nicepay.co.kr nsp.pay.naver.com test-nsp.pay.naver.com 'unsafe-inline'",
 
-            // stdpay.inicis.com — INIStdPay가 <link>로 주입하는 결제창 스타일(stdcss/INIStdPay.css)
+            // stdpay·stgstdpay.inicis.com — INIStdPay가 <link>로 주입하는 결제창 스타일
+            //   (INIopenDomain + stdcss/INIStdPay.css — 주소가 SDK 도메인을 따라간다)
             // ssl.pstatic.net — 네이버페이 SDK가 운영(production) 모드에서 로드하는 결제창 스타일
             // test-nsp.pay.naver.com — 네이버페이 SDK가 개발(development, 샌드박스) 모드에서
             //   로드하는 결제창 스타일(naverpay_sdk_*.css). 실제로 이게 없어서 결제창이
             //   깨진 채로(스타일 없이) 뜨거나 아예 렌더링되지 않는 문제가 있었다.
-            "style-src 'self' cdn.jsdelivr.net stdpay.inicis.com ssl.pstatic.net test-nsp.pay.naver.com 'unsafe-inline'",
+            "style-src 'self' cdn.jsdelivr.net stdpay.inicis.com stgstdpay.inicis.com ssl.pstatic.net test-nsp.pay.naver.com 'unsafe-inline'",
 
             // stdux.inicis.com — 이니시스 결제창 UI 이미지(닫기 버튼 등)
             // search.pstatic.net — 상품등록 "네이버 이미지 검색" 결과 미리보기(썸네일 프록시)
@@ -62,8 +66,13 @@ class SecurityHeadersFilter implements FilterInterface
 
             // payment-gateway(-sandbox).tosspayments.com — 토스 결제창은 팝업이 아니라
             // iframe으로 열린다. frame-src를 지정하지 않으면 default-src 'self'로 폴백돼 차단된다.
-            // stdpay.inicis.com — INIStdPay가 팝업 차단 해제용으로 넣는 allowPopupIframe.jsp.
-            //   (결제창 자체는 window.open 팝업이라 frame-src 대상이 아니다.)
+            // stdpay·stgstdpay.inicis.com — 이니시스 결제창은 payViewType을 지정하지 않으면
+            //   overlay 모드로 동작한다. 즉 결제창 자체가 주문서 위에 씌운 모달
+            //   (#inicisModalDiv) 안의 iframe이고, SDK가 그 iframe을 target으로
+            //   {도메인}/payMain/pay에 form POST를 보낸다 → frame-src 허용이 반드시 필요하다.
+            //   (팝업 차단 해제용 allowPopupIframe.jsp도 같은 도메인이다.)
+            //   막히면 결제창이 빈 화면이 되고, 오버레이를 걷어 줄 주체가 사라져
+            //   주문서가 클릭 불가 상태로 굳는다.
             // pay·sandbox-pay.nicepay.co.kr — 나이스페이 결제창은 iframe(newPayIframe)으로 열린다.
             //   clientId 접두어가 R1_/R2_면 운영(pay), S1_/S2_면 샌드박스(sandbox-pay)를 쓴다.
             //
@@ -82,7 +91,7 @@ class SecurityHeadersFilter implements FilterInterface
             // 공식 가이드가 문서화한 결제 서비스 도메인(PC/모바일, 운영/개발). 실측으로 확인된
             // nsp 계열과 달리 이번 흐름에서 직접 관측되진 않았지만, 다른 진입 경로(모바일 등)에서
             // 쓰일 수 있어 예방적으로 남겨둔다.
-            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr postcode.map.kakao.com nsp.pay.naver.com test-nsp.pay.naver.com pay.naver.com m.pay.naver.com test-pay.naver.com test-m.pay.naver.com",
+            "frame-src 'self' payment-gateway.tosspayments.com payment-gateway-sandbox.tosspayments.com stdpay.inicis.com stgstdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr postcode.map.kakao.com nsp.pay.naver.com test-nsp.pay.naver.com pay.naver.com m.pay.naver.com test-pay.naver.com test-m.pay.naver.com",
 
             // 이니시스·나이스페이는 결제창을 팝업이 아니라 페이지 위 레이어(iframe)로
             // 띄우고, 그 iframe 안에서 returnUrl·closeUrl(order/fail, payment/callback)을
@@ -94,10 +103,10 @@ class SecurityHeadersFilter implements FilterInterface
             "base-uri 'self'",
 
             // 이니시스·나이스페이 SDK는 파라미터 form을 결제 도메인으로 POST 전송한다.
-            // stdpay.inicis.com — INIStdPay.pay()가 form action을 payMain/pay로 바꿔 전송
+            // stdpay·stgstdpay.inicis.com — INIStdPay.pay()가 form action을 payMain/pay로 바꿔 전송
             // pay·sandbox-pay.nicepay.co.kr — AUTHNICE가 결제창 iframe을 대상으로 form 전송
             // (카카오페이·페이코는 location.href 최상위 이동이라 CSP 대상이 아니다.)
-            "form-action 'self' stdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr",
+            "form-action 'self' stdpay.inicis.com stgstdpay.inicis.com pay.nicepay.co.kr sandbox-pay.nicepay.co.kr",
         ]);
 
         $response->setHeader('Content-Security-Policy', $csp);

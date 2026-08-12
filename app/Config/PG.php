@@ -21,6 +21,13 @@ class PG extends BaseConfig
     public string $inicisMerchantId = '';
     public string $inicisSignKey    = '';
 
+    /**
+     * 이니시스 테스트 환경(stg 도메인) 사용 여부.
+     * null 이면 어댑터가 MID 로 자동 판별한다 — 상점별 테스트 MID 를 쓰는 경우
+     * .env 의 INICIS_TEST_MODE 로 명시 지정한다.
+     */
+    public ?bool $inicisTestMode = null;
+
     // ── 나이스페이먼츠 ───────────────────────────────────────────────────────
     public string $nicepayClientId  = '';
     public string $nicepaySecretKey = '';
@@ -51,6 +58,11 @@ class PG extends BaseConfig
 
         $this->inicisMerchantId = env('INICIS_MERCHANT_ID', '');
         $this->inicisSignKey    = env('INICIS_SIGN_KEY', '');
+
+        // env() 는 'true'/'false' 문자열을 bool 로 바꿔 준다. 미설정이면 null 로 두어
+        // 어댑터가 MID 로 판별하게 한다.
+        $testMode              = env('INICIS_TEST_MODE', null);
+        $this->inicisTestMode  = is_bool($testMode) ? $testMode : null;
 
         $this->nicepayClientId  = env('NICEPAY_CLIENT_ID', '');
         $this->nicepaySecretKey = env('NICEPAY_SECRET_KEY', '');
