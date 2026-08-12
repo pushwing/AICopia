@@ -35,11 +35,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
 
     <h4 class="fw-bold mb-4">주문서</h4>
 
-    <?php if (session()->getFlashdata('error')): ?>
-    <div class="alert alert-warning py-2 small">
-        <i class="bi bi-exclamation-triangle me-1"></i><?= esc(session()->getFlashdata('error')) ?>
-    </div>
-    <?php endif; ?>
+    <?php /* 플래시 메시지는 레이아웃 상단에서 한 번만 출력한다. */ ?>
 
     <form id="checkoutForm" novalidate>
         <?= csrf_field() ?>
@@ -202,9 +198,13 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                     </div>
                     <div class="card-body">
 
-                        <?php if (! empty($userCoupons)): ?>
-                        <div class="mb-3">
-                            <label class="form-label small fw-semibold">보유 쿠폰 선택</label>
+                        <?php if (empty($userCoupons)): ?>
+                        <p class="small text-muted mb-0">
+                            <i class="bi bi-info-circle me-1"></i>이 주문에 사용할 수 있는 쿠폰이 없습니다.
+                        </p>
+                        <?php else: ?>
+                        <div>
+                            <label class="form-label small fw-semibold" for="couponSelect">보유 쿠폰 선택</label>
                             <select class="form-select form-select-sm" id="couponSelect">
                                 <option value="">-- 쿠폰을 선택하세요 --</option>
                                 <?php foreach ($userCoupons as $uc): ?>
@@ -226,24 +226,10 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                                 </option>
                                 <?php endforeach; ?>
                             </select>
-                        </div>
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <span class="small text-muted">또는</span>
-                        </div>
-                        <?php endif; ?>
-
-                        <div class="input-group input-group-sm">
-                            <input type="text" id="couponCodeInput" class="form-control"
-                                   placeholder="쿠폰 코드 입력" maxlength="50"
-                                   style="text-transform:uppercase">
-                            <button type="button" class="btn btn-outline-primary" id="btnApplyCoupon">
-                                적용
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary d-none" id="btnRemoveCoupon">
-                                취소
-                            </button>
+                            <div class="form-text">선택을 해제하려면 "-- 쿠폰을 선택하세요 --"를 고르세요.</div>
                         </div>
                         <div id="couponMsg" class="small mt-2"></div>
+                        <?php endif; ?>
 
                     </div>
                 </div>
@@ -375,7 +361,6 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         <!-- 결제용 hidden 필드 -->
         <input type="hidden" name="delivery_memo"   id="deliveryMemoFinal">
         <input type="hidden" name="user_coupon_id"  id="hiddenUserCouponId"  value="">
-        <input type="hidden" name="coupon_code"     id="hiddenCouponCode"    value="">
         <input type="hidden" name="point_use"       id="hiddenPointUse"      value="0">
 
     </form>
@@ -389,7 +374,6 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
 
 <script>
 (function () {
-    const CSRF_NAME   = '<?= csrf_token() ?>';
     let   csrfHash    = '<?= csrf_hash() ?>';
 
     const TOTAL_AMOUNT  = <?= $totalAmount ?>;
@@ -397,9 +381,8 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
     const POINT_RATE    = <?= $pointEarnRate ?>;
     const MIN_PAYABLE   = <?= $minPayable ?>;
 
-    let couponDiscount   = 0;
-    let appliedCouponId  = 0;   // user_coupon_id (0 = none)
-    let appliedCouponCode = '';  // code-based
+    let couponDiscount  = 0;
+    let appliedCouponId = 0;   // user_coupon_id (0 = 미사용)
 
     // ─── 쿠폰/포인트 요약 업데이트 ────────────────────────────────────────────
     function updateSummary() {
@@ -452,7 +435,6 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         // hidden 필드 동기화
         document.getElementById('hiddenPointUse').value   = pointUse;
         document.getElementById('hiddenUserCouponId').value = appliedCouponId || '';
-        document.getElementById('hiddenCouponCode').value   = appliedCouponCode || '';
     }
 
     // ─── 보유 쿠폰 선택 ───────────────────────────────────────────────────────
@@ -488,62 +470,26 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         const discLabel = type === 'free_shipping'
             ? opt.dataset.name + ' (무료배송)'
             : opt.dataset.name + ' (' + discount.toLocaleString('ko-KR') + '원 할인)';
-        applyCoupon(parseInt(this.value), '', discount, discLabel);
+        applyCoupon(parseInt(this.value), discount, discLabel);
     });
 
-    // ─── 쿠폰 코드 적용 (AJAX) ────────────────────────────────────────────────
-    document.getElementById('btnApplyCoupon')?.addEventListener('click', async function () {
-        const code = document.getElementById('couponCodeInput').value.trim().toUpperCase();
-        if (! code) {
-            showMsg('couponMsg', 'warning', '쿠폰 코드를 입력해주세요.');
-            return;
-        }
+    function applyCoupon(userCouponId, discount, label) {
+        couponDiscount  = discount;
+        appliedCouponId = userCouponId;
 
-        const body = new FormData();
-        body.append(CSRF_NAME, csrfHash);
-        body.append('coupon_code',  code);
-        body.append('order_amount', TOTAL_AMOUNT);
-
-        try {
-            const res  = await fetch('/coupon/check', { method: 'POST', body });
-            const data = await res.json();
-            if (res.headers.get('X-CSRF-TOKEN')) csrfHash = res.headers.get('X-CSRF-TOKEN');
-
-            if (data.valid) {
-                applyCoupon(0, code, data.discount, data.label);
-            } else {
-                showMsg('couponMsg', 'danger', data.message || '유효하지 않은 쿠폰입니다.');
-            }
-        } catch {
-            showMsg('couponMsg', 'danger', '쿠폰 확인 중 오류가 발생했습니다.');
-        }
-    });
-
-    function applyCoupon(userCouponId, code, discount, label) {
-        couponDiscount    = discount;
-        appliedCouponId   = userCouponId;
-        appliedCouponCode = code;
-
-        document.getElementById('btnApplyCoupon').classList.add('d-none');
-        document.getElementById('btnRemoveCoupon').classList.remove('d-none');
         showMsg('couponMsg', 'success', '<i class="bi bi-check-circle me-1"></i>' + label + ' 적용됨');
         updateSummary();
     }
 
     function resetCoupon() {
-        couponDiscount    = 0;
-        appliedCouponId   = 0;
-        appliedCouponCode = '';
+        couponDiscount  = 0;
+        appliedCouponId = 0;
         const select = document.getElementById('couponSelect');
         if (select) select.value = '';
-        document.getElementById('couponCodeInput').value = '';
-        document.getElementById('btnApplyCoupon').classList.remove('d-none');
-        document.getElementById('btnRemoveCoupon').classList.add('d-none');
-        document.getElementById('couponMsg').innerHTML = '';
+        const msg = document.getElementById('couponMsg');
+        if (msg) msg.innerHTML = '';
         updateSummary();
     }
-
-    document.getElementById('btnRemoveCoupon')?.addEventListener('click', resetCoupon);
 
     // ─── 포인트 입력 ──────────────────────────────────────────────────────────
     document.getElementById('pointUseInput')?.addEventListener('input', function () {

@@ -4,37 +4,22 @@ declare(strict_types=1);
 
 namespace App\Libraries;
 
-use App\Models\CouponModel;
 use App\Models\UserCouponModel;
 
 class CouponService
 {
-    private readonly CouponModel     $couponModel;
     private readonly UserCouponModel $userCouponModel;
 
     public function __construct()
     {
-        $this->couponModel     = new CouponModel();
         $this->userCouponModel = new UserCouponModel();
     }
 
     /**
-     * 쿠폰 코드로 검증
-     *
-     * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
-     */
-    public function validate(string $code, int $userId, int $orderAmount): array
-    {
-        $coupon = $this->couponModel->findByCode($code);
-        if (! $coupon) {
-            return $this->fail('존재하지 않거나 비활성화된 쿠폰입니다.');
-        }
-
-        return $this->checkCoupon($coupon, $userId, $orderAmount, null);
-    }
-
-    /**
      * 발급된 user_coupon_id 로 검증
+     *
+     * 쿠폰은 발급받아 보유한 것만 쓸 수 있다. 코드로 조회해 검증하던 경로는
+     * 발급받지 않은 쿠폰도 코드만 알면 통과시켜서 제거했다(이슈 #219).
      *
      * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
      */
@@ -96,13 +81,11 @@ class CouponService
      * @param  array<string, mixed>  $coupon
      * @return array{valid: bool, coupon: array<string, mixed>|null, user_coupon_id: int|null, discount: int, message: string}
      */
-    private function checkCoupon(array $coupon, int $userId, int $orderAmount, ?int $userCouponId): array
+    private function checkCoupon(array $coupon, int $userId, int $orderAmount, int $userCouponId): array
     {
-        // MySQLi 는 정수 컬럼도 문자열로 반환한다. validate()/validateByUserCouponId()
-        // 두 경로 모두 여기서 합류하므로, 이 시점에 한 번만 정규화하면 두 경로 전부
-        // 안전해진다(정규화 없이 문자열이 그대로 나가면, strict_types 호출부인
-        // OrderController::create() → OrderAttemptModel::createAttempt(?int $couponId)
-        // 에서 TypeError 로 500 이 난다).
+        // MySQLi 는 정수 컬럼도 문자열로 반환한다. 정규화 없이 문자열이 그대로
+        // 나가면, strict_types 호출부인 OrderController::create() →
+        // OrderAttemptModel::createAttempt(?int $couponId) 에서 TypeError 로 500 이 난다.
         $coupon = $this->normalizeCoupon($coupon);
 
         if (! $coupon['is_active']) {
@@ -142,29 +125,14 @@ class CouponService
             }
         }
 
-        // user_coupon_id 없이 코드로 접근하는 경우: 이미 사용한 이력 확인
-        if ($userCouponId === null) {
-            $used = \Config\Database::connect()
-                ->table('user_coupons')
-                ->where('user_id', $userId)
-                ->where('coupon_id', $coupon['id'])
-                ->whereIn('status', ['used'])
-                ->countAllResults();
-            if ($used >= (int) $coupon['per_user_limit']) {
-                return $this->fail('이미 사용한 쿠폰입니다.');
-            }
-        }
-
-        $discount = $this->calculateDiscount($coupon, $orderAmount);
+        // 재사용 방지는 user_coupons.status 로 걸린다 — 이 메서드에 들어오는
+        // 시점에 validateByUserCouponId() 가 'issued' 인지 이미 확인했다.
 
         return [
             'valid'          => true,
             'coupon'         => $coupon,
-            // $userCouponId 는 파라미터 타입이 이미 ?int 라 PHP 레벨에서 보장되지만,
-            // 호출부(OrderController)가 strict_types 상태에서 그대로 넘기므로
-            // 계약을 명시적으로 지키는 의미로 한 번 더 정규화한다. null 은 null 유지.
-            'user_coupon_id' => $userCouponId !== null ? (int) $userCouponId : null,
-            'discount'       => $discount,
+            'user_coupon_id' => $userCouponId,
+            'discount'       => $this->calculateDiscount($coupon, $orderAmount),
             'message'        => '',
         ];
     }
@@ -193,11 +161,6 @@ class CouponService
         $coupon['used_count']          = (int) $coupon['used_count'];
         $coupon['total_qty']           = $coupon['total_qty'] !== null ? (int) $coupon['total_qty'] : null;
 
-        // validateByUserCouponId() 가 재조립하는 배열에는 per_user_limit 이 없다
-        // (checkCoupon() 이 그 경로에서 이 필드를 참조하지 않기 때문) — 있을 때만 캐스팅.
-        if (array_key_exists('per_user_limit', $coupon) && $coupon['per_user_limit'] !== null) {
-            $coupon['per_user_limit'] = (int) $coupon['per_user_limit'];
-        }
         if (array_key_exists('is_active', $coupon)) {
             $coupon['is_active'] = (int) $coupon['is_active'];
         }

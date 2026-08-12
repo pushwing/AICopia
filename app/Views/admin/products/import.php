@@ -47,9 +47,7 @@
                     <i class="bi bi-download me-1"></i>템플릿 다운로드
                 </a>
 
-                <?php if (session()->getFlashdata('error')): ?>
-                <div class="alert alert-danger py-2"><?= esc(session()->getFlashdata('error')) ?></div>
-                <?php endif; ?>
+                <?php /* 플래시 메시지는 레이아웃 상단에서 한 번만 출력한다. */ ?>
 
                 <form method="post" enctype="multipart/form-data" action="/admin/products/import">
                     <?= csrf_field() ?>

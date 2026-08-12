@@ -9,15 +9,7 @@
     <h4 class="fw-bold mb-0"><?= $pageTitle ?></h4>
 </div>
 
-<?php if (session()->has('errors')): ?>
-<div class="alert alert-danger mb-3">
-    <ul class="mb-0">
-        <?php foreach (session('errors') as $e): ?>
-        <li><?= esc($e) ?></li>
-        <?php endforeach; ?>
-    </ul>
-</div>
-<?php endif; ?>
+<?php /* 검증 오류는 레이아웃 상단에서 한 번만 출력한다. */ ?>
 
 <div class="row justify-content-center">
     <div class="col-lg-6">
