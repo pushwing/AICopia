@@ -57,7 +57,9 @@ for src in vendor/codeigniter4/framework/app/Config/*; do
 done
 [ -e system ] || ln -s vendor/codeigniter4/framework/system system
 cp vendor/codeigniter4/framework/env .env   # 이후 편집: DB, CI_ENVIRONMENT, AI 키, PG 키, OAuth 키, SMTP
-# app/Config/App.php: $appTimezone = 'Asia/Seoul' 로 설정 (아래 "타임존 규약" 참고)
+# .env 에서 database.default.DBDriver / database.tests.DBDriver 줄은 삭제한다.
+#   (그 줄이 있으면 Registrar 의 타임존 인식 드라이버가 무시된다 — 아래 "타임존 규약" 참고)
+# $appTimezone 은 Config/Registrar.php 에서 Asia/Seoul 로 고정되므로 App.php 는 손대지 않는다.
 php spark migrate              # 테이블 생성 + 기본 데이터 시드
 ```
 
@@ -71,45 +73,47 @@ php spark migrate              # 테이블 생성 + 기본 데이터 시드
 
 ## 아키텍처
 
-### 타임존 규약 (저장 UTC / 표시 KST)
+### 타임존 규약 (DB는 UTC 저장 / 앱·화면은 KST)
 
 **서버 자체 시계와 DB 저장값은 UTC, CI4 앱과 화면은 `Asia/Seoul`(KST, UTC+9).**
 
 | 계층 | 타임존 | 비고 |
 |------|--------|------|
 | 서버 OS 시계(시스템 시각·크론·DB 서버) | **UTC** | 운영 서버는 UTC로 돌아간다 |
-| CI4 앱 (`app/Config/App.php` `$appTimezone`) | **Asia/Seoul** | `$appTimezone = 'Asia/Seoul'` — PHP `date()`·`Time::now()`가 KST를 반환 |
-| DB에 저장되는 모든 시각 | **UTC** | `created_at`·`updated_at`·`expires_at`·`delivered_at`·`starts_at` 등 전부 |
-| 웹 화면 출력·사용자 입력 해석 | **Asia/Seoul** | 쿠폰 만료일, 주문 일시, 프로모션 기간, 통계 날짜 등 사용자가 보는 모든 시각 |
+| CI4 앱 (`$appTimezone`) | **Asia/Seoul** | `Config/Registrar.php`의 `App()`에서 고정 |
+| DB 커넥션 세션 타임존 | **+09:00** | `App\Database\MySQLiTimezone\Connection`이 연결 시 `SET time_zone` |
+| DB 디스크 저장값 | **UTC** | 시각 컬럼은 전부 `TIMESTAMP` — MySQL이 자동 변환 |
+| 앱이 주고받는 값·화면 출력·사용자 입력 | **Asia/Seoul** | `date()`·`strtotime()`·뷰 출력 모두 KST |
+
+**핵심: 변환은 MySQL이 한다 — 애플리케이션 코드는 타임존을 신경 쓰지 않는다.**
+
+`TIMESTAMP` 컬럼은 내부 저장이 항상 UTC이고, 읽고 쓸 때 커넥션 세션 타임존 기준으로 자동 변환된다. 세션이 `+09:00`으로 고정돼 있으므로:
+
+```
+PHP date() → KST 문자열 → [MySQL이 UTC로 변환] → 디스크에 UTC 저장
+디스크의 UTC → [MySQL이 KST로 변환] → PHP가 KST 수신 → 뷰가 그대로 출력
+```
+
+```php
+// ✅ 저장 — 평소대로 쓴다. MySQL이 UTC로 바꿔 저장한다.
+$now = date('Y-m-d H:i:s');
+
+// ✅ 표시 — 평소대로 쓴다. MySQL이 KST로 바꿔 돌려준다.
+echo esc(date('Y년 n월 j일', strtotime($uc['expires_at'])));
+```
 
 **규칙**
 
-- **DB에 쓸 때는 UTC로 변환해서 쓴다.** `$appTimezone`이 `Asia/Seoul`이라 `date('Y-m-d H:i:s')`·`Time::now()`는 **KST**를 반환한다 — 그대로 저장하면 UTC 규약이 깨진다.
+- **새 시각 컬럼은 반드시 `TIMESTAMP`로 정의한다.** `DATETIME`은 타임존 변환을 받지 않아 그 컬럼만 KST로 저장되어 규약이 조용히 깨진다. `DatabaseTimezoneTest::testNoDatetimeColumnsRemainInSchema()`가 이를 잡는다.
+  - 순수 날짜(생일, 프로모션 시작·종료일, 집계 기준일)는 시각이 아니므로 `DATE`를 그대로 쓴다.
+- **`$appTimezone`은 `Config/Registrar.php`에서 관리한다.** `app/Config/App.php`는 gitignore라 배포·신규 서버에서 vendor 기본값 `UTC`로 복원된다 — 직접 고치면 사라진다.
+- **`.env`에 `database.*.DBDriver`를 두지 않는다.** `.env`가 Registrar보다 우선하므로(`BaseConfig`가 `registerProperties()` 뒤에 `initEnvValue()` 실행) 그 줄이 있으면 표준 `MySQLi` 드라이버가 쓰여 세션 타임존이 걸리지 않는다. **로컬·CI·운영 각 `.env`에서 이 줄을 지워야 한다.**
+- **PHP에서 UTC로 변환해 저장하지 않는다.** `Time::now('UTC')` 같은 값을 넣으면 MySQL이 그걸 다시 KST로 해석해 9시간 어긋난다. 이중 변환 금지.
+- **비교·계산도 그대로** 한다. `NOW()`·`CURDATE()`도 세션이 `+09:00`이라 KST 기준이므로 PHP `date()`와 일관된다.
 
-  ```php
-  // ✅ 저장 — UTC로 변환해서 넣는다
-  $nowUtc = \CodeIgniter\I18n\Time::now('UTC')->format('Y-m-d H:i:s');
+> ⚠️ **`TIMESTAMP` 상한은 2038-01-19**다. 그 이후 날짜(쿠폰 만료일 등)를 넣으면 에러가 난다.
 
-  // ❌ 금지 — KST 값이 UTC 컬럼에 들어간다 (9시간 어긋남)
-  $now = date('Y-m-d H:i:s');
-  ```
-
-- **사용자에게 보여줄 때는 UTC 저장값을 KST로 변환한다.** DB 값을 그대로 `date()`·`strtotime()`으로 찍으면 UTC가 KST인 척 노출되어 9시간 어긋난다.
-
-  ```php
-  // ✅ 표시 — UTC 저장값을 KST로 변환 (앱 타임존이 Asia/Seoul이므로 setTimezone 생략 가능)
-  echo esc((new \CodeIgniter\I18n\Time($uc['expires_at'], 'UTC'))
-      ->setTimezone('Asia/Seoul')->format('Y년 n월 j일'));
-
-  // ❌ 금지 — UTC 값을 그대로 출력
-  echo date('Y년 n월 j일', strtotime($uc['expires_at']));
-  ```
-
-- **관리자 폼 등 사용자 입력(`datetime-local`)은 KST 입력으로 간주**해 저장 전에 UTC로 변환하고, 폼에 다시 채울 때는 UTC → KST로 되돌린다.
-- **날짜 경계가 있는 집계(일별 매출·통계·"오늘")는 KST 기준 하루**로 잡는다. UTC 기준으로 자르면 한국 시각 09:00을 경계로 하루가 갈린다 — KST 날짜 범위를 UTC 구간으로 환산해 `WHERE`에 넣는다.
-- **비교·계산은 UTC끼리** 한다(만료 판정 `expires_at < now()` 등). KST로 변환한 값과 UTC 저장값을 섞어 비교하지 말 것. MySQL `NOW()`는 DB 서버(UTC)를 따르므로 UTC 컬럼과 비교해도 안전하지만, PHP `date()`는 KST라 그대로 쓰면 안 된다.
-
-> ⚠️ 현재 코드 상당수(뷰의 `date()`/`strtotime()`, `CouponService`, `StatsFilter`, 시더·마이그레이션의 `date('Y-m-d H:i:s')`)는 앱 타임존(KST) 그대로 저장·출력해 변환 계층이 없다 — 즉 **기존 데이터에는 KST와 UTC가 섞여 있을 수 있다.** 시각을 다루는 코드를 새로 쓰거나 손댈 때 위 규칙에 맞게 정리한다.
+전환 이력은 `2026-08-12-000001_ConvertDatetimeColumnsToTimestamp` 마이그레이션과 [설계 스펙](docs/superpowers/specs/2026-08-12-timezone-utc-storage-design.md) 참조.
 
 ### 테마 시스템
 

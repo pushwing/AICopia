@@ -51,8 +51,15 @@ PHP date() → KST 문자열 → [MySQL이 UTC로 변환] → 디스크에 UTC �
 
 - 오프셋은 하드코딩하지 않고 `$appTimezone`에서 계산한다:
   `(new DateTimeZone(config('App')->appTimezone))->getOffset(new DateTime('now', new DateTimeZone('UTC')))` → `+09:00`
-- 재연결(`reconnect()`) 시에도 적용되어야 한다.
-- CI4 4.7은 `DBDriver`에 FQCN을 공식 지원한다(`Database::checkDbExtension()`이 `\` 포함 시 통과).
+  MySQL에 타임존 이름을 넘기지 않는 이유는 이름 해석에 `mysql.time_zone_name` 테이블이 필요한데
+  기본 설치에서는 비어 있는 경우가 많아 조용히 실패하기 때문이다.
+- `BaseConnection::reconnect()`도 결국 `connect()`를 다시 타므로 재연결 시에도 적용된다.
+- CI4 4.7은 커스텀 드라이버를 지원한다(`Database::checkDbExtension()`이 `\` 포함 시 통과).
+  단 `Database::initDriver()`는 **DBDriver 값을 네임스페이스로 취급해** 뒤에 클래스명을 붙인다
+  (`$driver . '\\' . $class`). 따라서 설정에 넣는 값은 FQCN이 아니라 네임스페이스이며,
+  `Connection` 외에 **`Forge`·`Utils`·`Result`·`PreparedQuery`·`Builder`**도 같은 네임스페이스에
+  있어야 한다(`BaseConnection`이 `static::class`의 `Connection`을 치환해 찾는다).
+  타임존 동작은 `Connection`에만 필요하므로 나머지는 MySQLi 것을 상속한 얇은 클래스로 둔다.
 
 이 방식이면 웹 요청·`spark` CLI·마이그레이션·테스트 등 **모든 커넥션에 자동 적용**되고, CI4의 지연 연결 이점도 유지된다.
 
@@ -73,8 +80,9 @@ public static function App(): array
 public static function Database(): array
 {
     return [
-        'default' => ['DBDriver' => \App\Database\MySQLiTimezone\Connection::class],
-        'tests'   => ['DBDriver' => \App\Database\MySQLiTimezone\Connection::class],
+        // Connection::DRIVER = __NAMESPACE__ (FQCN이 아니라 네임스페이스를 넘긴다)
+        'default' => ['DBDriver' => TimezoneAwareConnection::DRIVER],
+        'tests'   => ['DBDriver' => TimezoneAwareConnection::DRIVER],
     ];
 }
 ```
@@ -114,11 +122,26 @@ public static function Database(): array
 **수정하지 않는다.** `date()`가 만드는 KST 값은 MySQL이 UTC로 변환해 저장하고, 조회 시 KST로 돌려준다.
 `NOW()`·`CURDATE()`도 세션이 `+09:00`이라 KST 기준으로 일관된다.
 
-## 검증
+## 검증 (실행 결과)
 
-- 세션 타임존이 실제로 `+09:00`으로 적용되는지 확인하는 테스트
-- `TIMESTAMP` 컬럼에 KST로 쓴 값이 `SET time_zone='+00:00'` 조회 시 9시간 이르게 나오는지(= UTC 저장) 확인하는 테스트
-- `composer check`(cs + analyse + test) 통과
+`tests/unit/DatabaseTimezoneTest.php`:
+
+- 오프셋 계산이 타임존 이름에서 올바로 파생되는지 (`Asia/Seoul` → `+09:00`)
+- 실제 커넥션의 `@@session.time_zone`이 앱 타임존 오프셋과 일치하는지
+- `TIMESTAMP` 컬럼에 KST로 쓴 값이 `SET time_zone='+00:00'` 조회 시 9시간 이르게 나오는지(= UTC 저장)
+- 스키마에 `DATETIME` 컬럼이 남아 있지 않은지 (새 마이그레이션의 실수를 잡는 회귀 테스트)
+
+실제 전환 검증 결과:
+
+| 항목 | 결과 |
+|------|------|
+| 타입 분포 | `datetime` 85 → 0, `timestamp` 0 → 85, `date` 4 유지 |
+| KST 세션 조회값 | 전환 전과 **동일**(앱이 보는 값 불변) |
+| UTC 세션 조회값 | 정확히 **9시간 이름**(디스크에 UTC 저장 확인) |
+| NULL 허용 분포 | NOT NULL 8 / NULL 77 — 전환 전과 동일하게 보존 |
+| 롤백 → 재적용 왕복 | 값 손실·변형 없음 |
+| 전체 테스트 | **1116개 전부 통과** — 앱 코드를 고치지 않아도 된다는 설계 전제가 실증됨 |
+| `composer cs` / `analyse` | 통과 |
 
 ## 리스크
 
