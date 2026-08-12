@@ -564,6 +564,156 @@ class OrderAttemptModel extends Model
     }
 
     /**
+     * 관리자 "주문 시도 로그" 목록 — order_attempts 전체 + 레거시 orders 의
+     * pending/expired 행을 UNION ALL 로 합쳐 최신순 페이지네이션한다.
+     *
+     * PR1(#214)에서 orders 목록·대시보드는 pending/expired 를 감췄지만 행 자체는
+     * 지우지 않았다. 이 화면이 그 행을 조회할 유일한 경로이므로, 별도 소스임을
+     * source 컬럼('attempt'|'legacy')으로 구분해 함께 보여준다.
+     *
+     * @param array<string, mixed> $params keyword/status/from/to/page/perPage
+     *
+     * @return array<string, mixed>
+     */
+    public function adminGetAll(array $params = []): array
+    {
+        $keyword = trim((string) ($params['keyword'] ?? ''));
+        $status  = (string) ($params['status'] ?? '');
+        $from    = trim((string) ($params['from'] ?? ''));
+        $to      = trim((string) ($params['to'] ?? ''));
+        $page    = max(1, (int) ($params['page'] ?? 1));
+        $perPage = max(1, (int) ($params['perPage'] ?? 20));
+
+        if (! array_key_exists($status, self::STATUS_LABELS)) {
+            $status = '';
+        }
+
+        [$attemptSql, $attemptBindings] = $this->buildAttemptSide($keyword, $status, $from, $to);
+        [$legacySql, $legacyBindings]   = $this->buildLegacySide($keyword, $status, $from, $to);
+
+        $unionSql = "({$attemptSql}) UNION ALL ({$legacySql})";
+        $bindings = array_merge($attemptBindings, $legacyBindings);
+
+        $countRow = $this->db->query("SELECT COUNT(*) AS cnt FROM ({$unionSql}) u", $bindings)->getRowArray();
+        $total    = (int) ($countRow['cnt'] ?? 0);
+
+        $rows = $this->db->query(
+            "SELECT * FROM ({$unionSql}) u ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            [...$bindings, $perPage, ($page - 1) * $perPage]
+        )->getResultArray();
+
+        return [
+            'items'       => $rows,
+            'total'       => $total,
+            'totalPages'  => (int) ceil($total / $perPage),
+            'currentPage' => $page,
+            'perPage'     => $perPage,
+        ];
+    }
+
+    /**
+     * order_attempts 쪽 UNION 절.
+     *
+     * @return array{0: string, 1: array<int, mixed>}
+     */
+    private function buildAttemptSide(string $keyword, string $status, string $from, string $to): array
+    {
+        $where    = [];
+        $bindings = [];
+
+        if ($status !== '') {
+            $where[]    = 'oa.status = ?';
+            $bindings[] = $status;
+        }
+        if ($keyword !== '') {
+            $where[] = '(oa.order_number LIKE ? OR u.email LIKE ? OR u.nickname LIKE ?)';
+            $like    = '%' . $keyword . '%';
+            array_push($bindings, $like, $like, $like);
+        }
+        if ($from !== '') {
+            $where[]    = 'oa.created_at >= ?';
+            $bindings[] = $from . ' 00:00:00';
+        }
+        if ($to !== '') {
+            $where[]    = 'oa.created_at <= ?';
+            $bindings[] = $to . ' 23:59:59';
+        }
+
+        $whereSql = $where === [] ? '' : ('AND ' . implode(' AND ', $where));
+
+        $sql = "SELECT 'attempt' AS source, oa.id, oa.order_number, oa.user_id,
+                       u.email AS user_email, u.nickname AS user_nickname,
+                       oa.status, oa.pg_provider, oa.payable_amount, oa.fail_reason,
+                       oa.created_at, oa.order_id
+                FROM order_attempts oa
+                LEFT JOIN users u ON u.id = oa.user_id
+                WHERE 1 = 1 {$whereSql}";
+
+        return [$sql, $bindings];
+    }
+
+    /**
+     * 레거시 orders(pending/expired) 쪽 UNION 절.
+     *
+     * status 필터가 'converted'/'failed' 처럼 orders 에 존재하지 않는 값이면
+     * `o.status = ?` 조건이 자연스럽게 0건으로 걸러낸다 — 별도 분기가 필요 없다.
+     *
+     * @return array{0: string, 1: array<int, mixed>}
+     */
+    private function buildLegacySide(string $keyword, string $status, string $from, string $to): array
+    {
+        $where    = ["o.status IN ('pending', 'expired')"];
+        $bindings = [];
+
+        if ($status !== '') {
+            $where[]    = 'o.status = ?';
+            $bindings[] = $status;
+        }
+        if ($keyword !== '') {
+            $where[] = '(o.order_number LIKE ? OR u.email LIKE ? OR u.nickname LIKE ?)';
+            $like    = '%' . $keyword . '%';
+            array_push($bindings, $like, $like, $like);
+        }
+        if ($from !== '') {
+            $where[]    = 'o.created_at >= ?';
+            $bindings[] = $from . ' 00:00:00';
+        }
+        if ($to !== '') {
+            $where[]    = 'o.created_at <= ?';
+            $bindings[] = $to . ' 23:59:59';
+        }
+
+        $whereSql = implode(' AND ', $where);
+
+        $sql = "SELECT 'legacy' AS source, o.id, o.order_number, o.user_id,
+                       u.email AS user_email, u.nickname AS user_nickname,
+                       o.status, lp.pg_provider, o.payable_amount, NULL AS fail_reason,
+                       o.created_at, NULL AS order_id
+                FROM orders o
+                LEFT JOIN users u ON u.id = o.user_id
+                LEFT JOIN payments lp ON lp.id = (SELECT MAX(id) FROM payments WHERE order_id = o.id)
+                WHERE {$whereSql}";
+
+        return [$sql, $bindings];
+    }
+
+    /**
+     * 관리자 상세 — order_attempts 1건 + 회원 정보 + items(상품 라인).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function adminFind(int $id): ?array
+    {
+        $attempt = $this->db->table('order_attempts oa')
+            ->select('oa.*, u.email AS user_email, u.nickname AS user_nickname')
+            ->join('users u', 'u.id = oa.user_id', 'left')
+            ->where('oa.id', $id)
+            ->get()->getRowArray();
+
+        return $attempt === null ? null : $this->withItems($attempt);
+    }
+
+    /**
      * order_attempts 와 orders 양쪽에 없는 주문번호를 채번한다.
      * 최대 10회 시도하며, 모두 충돌하면 null 을 반환한다.
      *

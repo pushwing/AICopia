@@ -190,6 +190,11 @@ $routes->group('admin', ['filter' => 'auth:admin'], function ($routes) {
     $routes->get('points/(:num)/history', 'Admin\PointController::history/$1');
     $routes->post('points/adjust', 'Admin\PointController::adjust');
 
+    // 주문 시도 로그 (이슈 #214 PR2)
+    $routes->get('order-attempts', 'Admin\OrderAttemptController::index');
+    $routes->get('order-attempts/attempt/(:num)', 'Admin\OrderAttemptController::detailAttempt/$1');
+    $routes->get('order-attempts/legacy/(:num)', 'Admin\OrderAttemptController::detailLegacy/$1');
+
     // 주문 관리
     $routes->get('orders/json', 'Admin\OrderController::json');
     $routes->get('orders', 'Admin\OrderController::index');
