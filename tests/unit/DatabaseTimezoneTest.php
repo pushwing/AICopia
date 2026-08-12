@@ -85,4 +85,33 @@ final class DatabaseTimezoneTest extends CIUnitTestCase
 
         $this->assertSame('2026-08-12 05:00:00', $utcValue, 'TIMESTAMP 컬럼이 UTC로 저장되지 않았다.');
     }
+
+    /**
+     * 스키마 전체에 DATETIME 컬럼이 남아 있으면 안 된다.
+     *
+     * DATETIME은 넣은 문자열을 그대로 보관해 타임존 변환을 받지 않으므로, 새 마이그레이션이
+     * DATETIME 컬럼을 추가하면 그 컬럼만 KST로 저장되어 규약이 조용히 깨진다.
+     * (DATE 타입은 순수 날짜라 대상이 아니다.)
+     */
+    public function testNoDatetimeColumnsRemainInSchema(): void
+    {
+        $rows = $this->db->query(
+            'SELECT TABLE_NAME, COLUMN_NAME
+               FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = ? AND DATA_TYPE = ?
+              ORDER BY TABLE_NAME, COLUMN_NAME',
+            [$this->db->getDatabase(), 'datetime'],
+        )->getResultArray();
+
+        $offenders = array_map(
+            static fn (array $row): string => $row['TABLE_NAME'] . '.' . $row['COLUMN_NAME'],
+            $rows,
+        );
+
+        $this->assertSame(
+            [],
+            $offenders,
+            'DATETIME 컬럼이 남아 있다 — 시각 컬럼은 TIMESTAMP로 정의해야 UTC로 저장된다: ' . implode(', ', $offenders),
+        );
+    }
 }
