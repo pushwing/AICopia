@@ -272,15 +272,35 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                         <i class="bi bi-credit-card me-2 text-primary"></i>결제 수단
                     </div>
                     <div class="card-body">
+                        <?php
+                        // 결제수단 브랜드 식별 칩 — 각 PG 대표색 + 이니셜/아이콘(기능적 식별용).
+                        // 실제 브랜드 로고 파일이 아니라 자체 제작한 색상 칩이며, 중립 테마의
+                        // 의도된 예외다(결제수단 인지도 확보). 간편결제는 브랜드색+이니셜,
+                        // 무통장·카드 게이트웨이(이니시스·나이스페이)는 중립색+아이콘.
+                        $pgChip = [
+                            'bank_transfer' => ['bg' => '#6c757d', 'fg' => '#ffffff', 'icon' => 'bi-bank'],
+                            'toss'          => ['bg' => '#3182f6', 'fg' => '#ffffff', 'mark' => 'T'],
+                            'kakaopay'      => ['bg' => '#fee500', 'fg' => '#191919', 'mark' => 'K'],
+                            'naverpay'      => ['bg' => '#03c75a', 'fg' => '#ffffff', 'mark' => 'N'],
+                            'payco'         => ['bg' => '#ff1e27', 'fg' => '#ffffff', 'mark' => 'P'],
+                            'inicis'        => ['bg' => '#495057', 'fg' => '#ffffff', 'icon' => 'bi-credit-card'],
+                            'nicepay'       => ['bg' => '#495057', 'fg' => '#ffffff', 'icon' => 'bi-credit-card'],
+                        ];
+                        $pgChipDefault = ['bg' => '#6c757d', 'fg' => '#ffffff', 'icon' => 'bi-wallet2'];
+                        ?>
                         <div class="row g-2">
-                            <?php foreach ($pgProviders as $key => $label): ?>
+                            <?php foreach ($pgProviders as $key => $label):
+                                $chip = $pgChip[$key] ?? $pgChipDefault; ?>
                             <div class="col-6 col-sm-4">
                                 <input type="radio" class="btn-check" name="pg_provider"
                                        id="pg_<?= $key ?>" value="<?= $key ?>"
                                        <?= $key === array_key_first($pgProviders) ? 'checked' : '' ?>>
-                                <label class="btn btn-outline-secondary w-100 py-3 small fw-semibold"
+                                <label class="btn btn-outline-secondary w-100 py-3 small fw-semibold d-flex align-items-center justify-content-center gap-2"
                                        for="pg_<?= $key ?>">
-                                    <?= esc($label) ?>
+                                    <span class="pg-chip" style="background:<?= esc($chip['bg'], 'attr') ?>;color:<?= esc($chip['fg'], 'attr') ?>" aria-hidden="true">
+                                        <?php if (! empty($chip['icon'])): ?><i class="bi <?= esc($chip['icon']) ?>"></i><?php else: ?><?= esc($chip['mark']) ?><?php endif; ?>
+                                    </span>
+                                    <span><?= esc($label) ?></span>
                                 </label>
                             </div>
                             <?php endforeach; ?>
