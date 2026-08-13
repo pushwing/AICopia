@@ -152,4 +152,21 @@ a:hover { color: var(--au-primary-dker); }
     --bs-btn-hover-border-color: var(--au-red);
 }
 
+/* ─── Bootstrap 컴포넌트의 '활성=primary' 상태 ────────
+   list-group·pagination·nav-pills 의 active 배경은 컴파일타임 $primary 라
+   런타임 --bs-primary 오버라이드로는 안 바뀐다. 각 컴포넌트 변수를 직접 덮는다. */
+.list-group-item.active {
+    background-color: var(--au-primary);
+    border-color: var(--au-primary);
+}
+.page-link {
+    --bs-pagination-color:              var(--au-link);
+    --bs-pagination-hover-color:        var(--au-primary-dker);
+    --bs-pagination-focus-color:        var(--au-primary-dker);
+    --bs-pagination-active-bg:          var(--au-primary);
+    --bs-pagination-active-border-color: var(--au-primary);
+    --bs-pagination-focus-box-shadow:   0 0 0 .25rem var(--au-focus);
+}
+.nav-pills { --bs-nav-pills-link-active-bg: var(--au-primary); }
+
 /* 결제수단 브랜드 칩(.pg-chip)은 각 PG 고유색이라 테마와 무관하게 default 를 그대로 상속한다. */
