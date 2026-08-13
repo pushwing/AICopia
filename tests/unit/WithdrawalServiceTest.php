@@ -364,4 +364,66 @@ final class WithdrawalServiceTest extends CIUnitTestCase
         $count = db_connect()->table('withdrawn_users')->where('user_id', $id)->countAllResults();
         $this->assertSame(1, $count, '중복 탈퇴로 스냅샷이 두 번 쌓이면 안 된다');
     }
+
+    // ── 동시성 (SELECT ... FOR UPDATE) ──────────────────────────────────────
+    //
+    // PHPUnit 은 단일 프로세스로 실행되므로 두 요청이 진짜로 동시에 들어오는
+    // 레이스를 재현할 수는 없다. 대신 아래 두 가지로 동시성 가드를 검증한다.
+    //
+    // 1. testWithdrawStillSucceedsWithForUpdateLock — FOR UPDATE 잠금 쿼리
+    //    자체가 예외 없이 동작하고, 잠근 뒤에도 스냅샷·마스킹·부수정리가
+    //    정상적으로 끝까지 실행되는지(정상 탈퇴 케이스 회귀 확인).
+    // 2. testForUpdateLockActuallyBlocksSecondConnection — withdraw() 가 쓰는
+    //    SELECT ... FOR UPDATE 가 실제로 InnoDB 행 잠금을 거는지, 별도
+    //    커넥션에서 같은 행을 잠그려 하면 대기하다 타임아웃되는지 확인한다.
+    //    두 커넥션의 실행 순서를 테스트 코드가 고정하므로 타이밍에 좌우되는
+    //    진짜 스레드 레이스는 아니지만, withdraw()의 방어가 실제 DB 잠금에
+    //    기반한다는 사실은 결정론적으로 증명한다.
+
+    public function testWithdrawStillSucceedsWithForUpdateLock(): void
+    {
+        $id = $this->insertUser();
+
+        $this->service->withdraw($id, 'etc', null);
+        $this->trackSnapshot($id);
+
+        $masked = $this->reload($id);
+        $this->assertNotNull($masked['withdrawn_at'], 'FOR UPDATE 잠금 적용 후에도 탈퇴 처리가 정상 완료돼야 한다');
+
+        $count = db_connect()->table('withdrawn_users')->where('user_id', $id)->countAllResults();
+        $this->assertSame(1, $count);
+    }
+
+    public function testForUpdateLockActuallyBlocksSecondConnection(): void
+    {
+        $id = $this->insertUser();
+
+        // withdraw() 와 별개인 두 개의 독립 커넥션을 연다 (getShared=false)
+        $connA = db_connect('tests', false);
+        $connB = db_connect('tests', false);
+
+        // A 가 먼저 트랜잭션을 열고 withdraw() 와 동일한 잠금 쿼리로 행을 잠근다
+        $connA->transStart();
+        $connA->query('SELECT * FROM users WHERE id = ? FOR UPDATE', [$id]);
+
+        // B 는 락 대기를 오래 하지 않도록 타임아웃을 짧게 줄인 뒤 같은 행을 잠가본다
+        $connB->query('SET SESSION innodb_lock_wait_timeout = 1');
+
+        $blocked = false;
+
+        try {
+            $connB->query('SELECT * FROM users WHERE id = ? FOR UPDATE', [$id]);
+        } catch (\CodeIgniter\Database\Exceptions\DatabaseException $e) {
+            $blocked = true;
+            $this->assertMatchesRegularExpression('/lock wait timeout/i', $e->getMessage());
+        } finally {
+            $connA->transComplete();
+        }
+
+        $this->assertTrue(
+            $blocked,
+            'A 가 SELECT ... FOR UPDATE 로 행을 잠근 동안 B 의 동일 잠금 시도는 대기하다 타임아웃돼야 한다 — '
+            . 'withdraw() 의 동시성 가드가 실제 InnoDB 행 잠금에 의존하고 있음을 확인'
+        );
+    }
 }

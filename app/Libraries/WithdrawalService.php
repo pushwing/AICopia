@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Libraries;
 
 use App\Exceptions\WithdrawalBlockedException;
-use App\Models\UserModel;
 use App\Models\WithdrawnUserModel;
 
 /**
@@ -40,12 +39,10 @@ class WithdrawalService
     ];
 
     private readonly WithdrawnUserModel $withdrawnUserModel;
-    private readonly UserModel $userModel;
 
     public function __construct()
     {
         $this->withdrawnUserModel = new WithdrawnUserModel();
-        $this->userModel          = new UserModel();
     }
 
     /**
@@ -88,8 +85,12 @@ class WithdrawalService
         $db = db_connect();
         $db->transStart();
 
-        // 폼을 그린 시점과 제출 시점 사이에 주문이 생겼을 수 있다 — 트랜잭션 안에서 재검사
-        $user = $this->userModel->find($userId);
+        // 폼을 그린 시점과 제출 시점 사이에 주문이 생겼을 수 있다 — 트랜잭션 안에서 재검사.
+        // 일반 SELECT 대신 SELECT ... FOR UPDATE 로 행을 잠가 동시 탈퇴 요청(더블클릭,
+        // 네트워크 재시도 중복 POST)을 직렬화한다. 먼저 잠근 트랜잭션이 커밋할 때까지
+        // 뒤따르는 트랜잭션은 이 SELECT 에서 블록되고, 커밋 후에는 withdrawn_at 이 채워진
+        // 최신 값을 보게 되어 아래 멱등성 검사가 정상 동작한다.
+        $user = $db->query('SELECT * FROM users WHERE id = ? FOR UPDATE', [$userId])->getRowArray();
         if (! is_array($user)) {
             $db->transComplete();
 
