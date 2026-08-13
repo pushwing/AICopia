@@ -232,7 +232,7 @@ class UserController extends BaseController
         $from    = $this->request->getGet('from')      ?? '';
         $to      = $this->request->getGet('to')        ?? '';
 
-        $builder = $this->userModel->builder()
+        $builder = $this->userModel->activeBuilder()
             ->select('id, nickname, email, phone, role, grade, social_provider, is_active, email_verify_token, created_at, last_login');
 
         if ($keyword !== '') {
