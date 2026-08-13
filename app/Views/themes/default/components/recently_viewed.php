@@ -6,7 +6,8 @@
 if (empty($recentProducts)) return;
 ?>
 <div class="container py-4 border-top">
-    <h6 class="fw-bold mb-3 text-muted">최근 본 상품</h6>
+    <?php // 콘텐츠 섹션이므로 의미상 h2, 시각 크기는 .h6 유지(계층 결손 방지) ?>
+    <h2 class="h6 fw-bold mb-3 text-muted">최근 본 상품</h2>
     <div class="d-flex gap-3 overflow-auto pb-2" style="scrollbar-width:thin">
         <?php foreach ($recentProducts as $rp):
             $rIsSoldOut    = $rp['status'] === 'sold_out' || (int) $rp['stock'] === 0;

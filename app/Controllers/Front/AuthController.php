@@ -27,6 +27,23 @@ class AuthController extends BaseController
         if (session()->get('user_id')) {
             return redirect()->to('/');
         }
+
+        // 로그인이 필요 없는 화면(상품 목록의 찜 버튼, 상단 로그인 버튼 등)에서
+        // AuthFilter를 거치지 않고 곧장 /auth/login으로 이동한 경우 Referer로
+        // 원래 있던 페이지를 기억해둔다 (필터가 이미 저장한 값이 있으면 그대로 둔다).
+        if (! session()->getTempdata('redirect_url')) {
+            $referer = $this->request->getHeaderLine('Referer');
+            // app.baseURL(copia.test 등)이 아니라 실제 접속 호스트(localhost:8420 등)와
+            // 비교해야 한다 — 로컬 개발·포트포워딩 환경에서는 둘이 다를 수 있다.
+            $host      = $this->request->getServer('HTTP_HOST') ?: parse_url(base_url(), PHP_URL_HOST);
+            $refererUrl = parse_url($referer);
+
+            if ($referer !== '' && $host && ($refererUrl['host'] ?? null) === parse_url('http://' . $host, PHP_URL_HOST)
+                && ! str_starts_with($refererUrl['path'] ?? '', '/auth')) {
+                session()->setTempdata('redirect_url', $referer, 300);
+            }
+        }
+
         return $this->render('auth/login');
     }
 

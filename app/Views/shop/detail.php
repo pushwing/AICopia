@@ -22,7 +22,8 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
 <div class="container py-5">
 
     <!-- 상단: 이미지 + 구매 정보 -->
-    <div class="row g-5 mb-5">
+    <?php // g-5(3rem)는 모바일에서 행 음수 마진이 컨테이너 패딩을 넘겨 가로 넘침을 유발한다 → 모바일 g-4, 데스크톱만 g-5 ?>
+    <div class="row g-4 g-lg-5 mb-5">
 
         <!-- 이미지 영역 -->
         <div class="col-lg-6">
@@ -93,7 +94,8 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
             </nav>
 
             <!-- 상품명 -->
-            <h2 class="fw-bold mb-2"><?= esc($product['name']) ?></h2>
+            <?php // 상품명은 상세 페이지의 주 제목이므로 H1 (콘텐츠 레벨 H1 확보, WCAG 1.3.1) ?>
+            <h1 class="fw-bold mb-2 h2"><?= esc($product['name']) ?></h1>
 
             <!-- 평점 요약 (결정 순간에 신뢰 신호를 노출; 리뷰 탭으로 이동) -->
             <?php $rSumTop = $ratingSummary ?? ['count' => 0, 'average' => 0]; ?>
@@ -182,7 +184,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                     <div class="border rounded p-2 mb-2" data-addon-idx="<?= (int) $i ?>">
                         <div class="d-flex align-items-center">
                             <?php if ($addon['file_path']): ?>
-                            <img src="<?= esc(base_url($addon['file_path'])) ?>" class="rounded me-3" style="width:56px;height:56px;object-fit:cover" alt="">
+                            <img src="<?= esc(base_url($addon['file_path'])) ?>" class="rounded me-3" style="width:56px;height:56px;object-fit:cover" loading="lazy" alt="<?= esc($addon['name'] ?? '') ?>">
                             <?php endif; ?>
                             <?php
                             // discount_price는 0원일 수 있으므로 `?:` 대신 null 여부로만 대체 판단한다
@@ -485,7 +487,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                             <div class="d-flex gap-2 flex-wrap mb-2">
                                 <?php foreach ($review['images'] as $img): ?>
                                 <a href="<?= esc($img['image_path']) ?>" target="_blank">
-                                    <img src="<?= esc($img['image_path']) ?>" alt=""
+                                    <img src="<?= esc($img['image_path']) ?>" alt="리뷰 이미지" loading="lazy"
                                          class="rounded" style="width:80px;height:80px;object-fit:cover">
                                 </a>
                                 <?php endforeach; ?>
@@ -1091,7 +1093,10 @@ document.getElementById('btnReviewSubmit')?.addEventListener('click', function (
 
     fetch('/shop/<?= esc($product['slug']) ?>/review', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
-        .then(function (data) { toast(data.message, data.success ? 'success' : 'error'); if (data.success) location.reload(); })
+        .then(function (data) {
+            toast(data.message, data.success ? 'success' : 'error');
+            if (data.success) { window.location.hash = '#tabReviews'; location.reload(); }
+        })
         .catch(function () { toast('오류가 발생했습니다.', 'error'); });
 });
 
@@ -1109,7 +1114,7 @@ document.querySelectorAll('.btn-review-delete').forEach(function (btn) {
                   { method: 'POST', body: fd })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    if (data.success) location.reload();
+                    if (data.success) { window.location.hash = '#tabReviews'; location.reload(); }
                     else toast(data.message || '삭제에 실패했습니다.', 'error');
                 })
                 .catch(function () { toast('오류가 발생했습니다.', 'error'); });
@@ -1138,7 +1143,7 @@ document.getElementById('btnQnaSubmit')?.addEventListener('click', function () {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             toast(data.message, data.success ? 'success' : 'error');
-            if (data.success) location.reload();
+            if (data.success) { window.location.hash = '#tabQna'; location.reload(); }
         })
         .catch(function () { toast('오류가 발생했습니다.', 'error'); });
 });
@@ -1156,7 +1161,7 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
                   { method: 'POST', body: fd })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    if (data.success) location.reload();
+                    if (data.success) { window.location.hash = '#tabQna'; location.reload(); }
                     else toast(data.message || '삭제에 실패했습니다.', 'error');
                 })
                 .catch(function () { toast('오류가 발생했습니다.', 'error'); });

@@ -11,8 +11,13 @@
     <?php if (!empty($settings['favicon'])): ?>
     <link rel="icon" href="/<?= esc($settings['favicon']) ?>">
     <?php endif; ?>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <?php /* CDN(부트스트랩·아이콘) 연결을 미리 열어 초기 렌더 지연을 줄인다 */ ?>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <?php /* SRI(integrity) — CDN 변조/오염 시 로드를 차단한다. 해시는 5.3.0/1.11.0 실제 파일 기준 */ ?>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
+          integrity="sha384-QuGBSgV5Im3DzL2z+8Ko9/hqNy/N0O7zwvXAtfd1MvPKWa/UbeLV65cfm4BV5Wgq" crossorigin="anonymous">
     <?php /* 로컬 에셋에 파일 수정시각 기반 버전을 붙여 배포·수정 시 옛 브라우저 캐시를 무효화한다 */ ?>
     <?php $assetVer = static fn (string $p): string => is_file(FCPATH . $p) ? '?v=' . filemtime(FCPATH . $p) : ''; ?>
     <link rel="stylesheet" href="/themes/default/css/style.css<?= $assetVer('themes/default/css/style.css') ?>">
@@ -78,7 +83,8 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
 <script src="/themes/default/js/main.js<?= $assetVer('themes/default/js/main.js') ?>"></script>
 <?= $this->renderSection('scripts') ?>
 <?= $this->include('components/popups') ?>
