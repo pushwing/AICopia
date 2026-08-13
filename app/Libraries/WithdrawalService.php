@@ -146,6 +146,16 @@ class WithdrawalService
     }
 
     /**
+     * 보관기간이 지난 탈퇴회원의 개인정보 파기
+     *
+     * @return int 파기한 행 수
+     */
+    public function purgeExpired(int $retentionDays): int
+    {
+        return $this->withdrawnUserModel->purgeOlderThan($retentionDays);
+    }
+
+    /**
      * users 행 마스킹
      *
      * email 은 UNIQUE 이므로 id 기반 고유값으로 바꾼다. 그러면 원래 이메일이
