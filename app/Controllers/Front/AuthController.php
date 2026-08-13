@@ -27,6 +27,18 @@ class AuthController extends BaseController
         if (session()->get('user_id')) {
             return redirect()->to('/');
         }
+
+        // 로그인이 필요 없는 화면(상품 목록의 찜 버튼, 상단 로그인 버튼 등)에서
+        // AuthFilter를 거치지 않고 곧장 /auth/login으로 이동한 경우 Referer로
+        // 원래 있던 페이지를 기억해둔다 (필터가 이미 저장한 값이 있으면 그대로 둔다).
+        if (! session()->getTempdata('redirect_url')) {
+            $referer = $this->request->getHeaderLine('Referer');
+            $siteUrl = rtrim(base_url(), '/');
+            if ($referer !== '' && str_starts_with($referer, $siteUrl) && ! str_starts_with(substr($referer, strlen($siteUrl)), '/auth')) {
+                session()->setTempdata('redirect_url', $referer, 300);
+            }
+        }
+
         return $this->render('auth/login');
     }
 
