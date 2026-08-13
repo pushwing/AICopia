@@ -242,7 +242,7 @@
                             </a>
                             <?php else: ?>
                             <button type="button"
-                                    class="btn btn-sm btn-outline-primary w-100 py-2 btn-quick-cart"
+                                    class="btn btn-sm btn-primary w-100 py-2 btn-quick-cart"
                                     style="border-radius:0 0 calc(.375rem - 1px) calc(.375rem - 1px)"
                                     data-product-id="<?= $p['id'] ?>"
                                     data-csrf="<?= csrf_token() ?>"
@@ -256,19 +256,47 @@
                 <?php endforeach; ?>
             </div>
 
-            <!-- 페이지네이션 -->
+            <!-- 페이지네이션 (윈도우: 첫·이전 · 현재±2 · 다음·마지막) -->
             <?php if ($totalPages > 1):
-                $baseQs = array_intersect_key($_GET, array_flip(['keyword', 'category_id', 'sort', 'price_min', 'price_max', 'only_discount']));
+                // 뷰에서 $_GET 직접 사용 대신 명명 변수로 base 쿼리 구성 (보안 규칙 준수)
+                $baseQs = array_filter([
+                    'keyword'       => $keyword ?? '',
+                    'category_id'   => $curCat ?: '',
+                    'sort'          => $curSort ?? '',
+                    'price_min'     => $priceMin ?? '',
+                    'price_max'     => $priceMax ?? '',
+                    'only_discount' => ($onlyDiscount ?? false) ? 1 : '',
+                ], fn($v) => $v !== '');
+                $win   = 2;
+                $start = max(1, $currentPage - $win);
+                $end   = min($totalPages, $currentPage + $win);
+                $pageUrl = fn(int $pg): string => '/shop?' . http_build_query(array_merge($baseQs, ['page' => $pg]));
             ?>
-            <nav class="mt-4">
-                <ul class="pagination justify-content-center">
-                    <?php for ($pg = 1; $pg <= $totalPages; $pg++): ?>
+            <nav class="mt-4" aria-label="상품 목록 페이지 이동">
+                <ul class="pagination justify-content-center flex-wrap">
+                    <li class="page-item <?= $currentPage <= 1 ? 'disabled' : '' ?>">
+                        <a class="page-link" href="<?= esc($pageUrl(max(1, $currentPage - 1))) ?>" aria-label="이전 페이지"><i class="bi bi-chevron-left"></i></a>
+                    </li>
+
+                    <?php if ($start > 1): ?>
+                    <li class="page-item"><a class="page-link" href="<?= esc($pageUrl(1)) ?>">1</a></li>
+                    <?php if ($start > 2): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?>
+                    <?php endif; ?>
+
+                    <?php for ($pg = $start; $pg <= $end; $pg++): ?>
                     <li class="page-item <?= $pg === $currentPage ? 'active' : '' ?>">
-                        <a class="page-link" href="/shop?<?= http_build_query(array_merge($baseQs, ['page' => $pg])) ?>">
-                            <?= $pg ?>
-                        </a>
+                        <a class="page-link" href="<?= esc($pageUrl($pg)) ?>"<?= $pg === $currentPage ? ' aria-current="page"' : '' ?>><?= $pg ?></a>
                     </li>
                     <?php endfor; ?>
+
+                    <?php if ($end < $totalPages): ?>
+                    <?php if ($end < $totalPages - 1): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?>
+                    <li class="page-item"><a class="page-link" href="<?= esc($pageUrl($totalPages)) ?>"><?= $totalPages ?></a></li>
+                    <?php endif; ?>
+
+                    <li class="page-item <?= $currentPage >= $totalPages ? 'disabled' : '' ?>">
+                        <a class="page-link" href="<?= esc($pageUrl(min($totalPages, $currentPage + 1))) ?>" aria-label="다음 페이지"><i class="bi bi-chevron-right"></i></a>
+                    </li>
                 </ul>
             </nav>
             <?php endif; ?>
@@ -328,13 +356,13 @@
 // 담기 실패 시 네이티브 alert 대신 버튼 인라인 피드백 (비차단)
 function showCartFail(btn, original, message) {
     btn.disabled = false;
-    btn.classList.remove('btn-outline-primary');
-    btn.classList.add('btn-outline-danger');
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-danger');
     btn.innerHTML = '<i class="bi bi-exclamation-circle"></i> ' + (message || '담기 실패');
     setTimeout(function() {
         btn.innerHTML = original;
-        btn.classList.remove('btn-outline-danger');
-        btn.classList.add('btn-outline-primary');
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-primary');
     }, 1800);
 }
 
@@ -368,7 +396,7 @@ document.querySelectorAll('.btn-quick-cart').forEach(function(btn) {
             }
             if (data.success) {
                 btn.innerHTML = '<i class="bi bi-check2"></i> 담김';
-                btn.classList.remove('btn-outline-primary');
+                btn.classList.remove('btn-primary');
                 btn.classList.add('btn-success');
                 // 카트 카운트 업데이트
                 var badge = document.getElementById('cartBadge');
@@ -379,7 +407,7 @@ document.querySelectorAll('.btn-quick-cart').forEach(function(btn) {
                 setTimeout(function() {
                     btn.innerHTML = original;
                     btn.classList.remove('btn-success');
-                    btn.classList.add('btn-outline-primary');
+                    btn.classList.add('btn-primary');
                     btn.disabled = false;
                 }, 1500);
             } else {
