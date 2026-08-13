@@ -124,6 +124,12 @@ class WithdrawalService
         $this->cleanupPersonalData($userId, $forfeit['point']);
 
         $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            log_message('error', "[withdraw] 트랜잭션 실패 user_id={$userId}");
+
+            throw new \RuntimeException('탈퇴 처리 중 오류가 발생했습니다.');
+        }
     }
 
     /**
