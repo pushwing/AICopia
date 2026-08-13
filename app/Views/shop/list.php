@@ -100,10 +100,12 @@
         <!-- 상품 목록 -->
         <div class="col-lg-10 col-md-9">
 
-            <!-- 모바일 전용: 필터·카테고리 서랍 열기 -->
+            <!-- 모바일 전용: 필터·카테고리 서랍 열기 (필터 적용 상태 표시) -->
+            <?php $filtersActive = $curCat || ($keyword ?? '') !== '' || ($priceMin ?? '') !== '' || ($priceMax ?? '') !== '' || ($onlyDiscount ?? false); ?>
             <button class="btn btn-outline-secondary w-100 d-md-none mb-3" type="button"
                     data-bs-toggle="offcanvas" data-bs-target="#filterOffcanvas" aria-controls="filterOffcanvas">
-                <i class="bi bi-funnel"></i> 필터 · 카테고리
+                <i class="bi <?= $filtersActive ? 'bi-funnel-fill' : 'bi-funnel' ?>"></i> 필터 · 카테고리
+                <?php if ($filtersActive): ?><span class="badge bg-dark ms-1">적용됨</span><?php endif; ?>
             </button>
 
             <!-- 카테고리 소개 카피 (랜딩) -->
