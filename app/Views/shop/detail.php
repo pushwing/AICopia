@@ -270,6 +270,24 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
         </div>
     </div>
 
+    <?php if (! $isSoldOut): ?>
+    <!-- 모바일 스티키 구매 바 (스크롤해도 담기/합계가 항상 손닿는 곳에) -->
+    <div class="d-lg-none position-fixed bottom-0 start-0 end-0 bg-white border-top d-flex align-items-center gap-2 px-2 py-2"
+         id="stickyBuyBar" style="z-index:1040">
+        <div class="flex-shrink-0 ps-1">
+            <div class="text-muted" style="font-size:.7rem;line-height:1.1">합계</div>
+            <div class="fw-bold" id="stickyTotal"><?= number_format($displayPrice) ?>원</div>
+        </div>
+        <button class="btn btn-primary flex-grow-1 py-2" id="btnStickyCart"
+                data-product-id="<?= (int) $product['id'] ?>"
+                data-csrf="<?= csrf_token() ?>" data-csrf-val="<?= csrf_hash() ?>">
+            <i class="bi bi-bag-plus me-1"></i>장바구니 담기
+        </button>
+    </div>
+    <!-- 고정 바가 본문 하단을 가리지 않도록 확보하는 여백 -->
+    <div class="d-lg-none" style="height:76px"></div>
+    <?php endif; ?>
+
     <!-- 하단: 상세정보 탭 -->
     <div class="row">
         <div class="col-12">
@@ -774,6 +792,7 @@ function updatePriceDisplay(price, stock) {
     const qtyPlus  = document.getElementById('qtyPlus');
     const btnCart  = document.getElementById('btnAddCart');
     const btnBuy   = document.getElementById('btnBuyNow');
+    const btnSticky = document.getElementById('btnStickyCart');
     const soldOutMsg = document.querySelector('.alert.alert-secondary');
 
     const isSoldOut = stock < 1;
@@ -787,9 +806,12 @@ function updatePriceDisplay(price, stock) {
     if (qtyPlus)  qtyPlus.disabled  = isSoldOut;
     if (btnCart)  btnCart.disabled   = isSoldOut;
     if (btnBuy)   btnBuy.disabled    = isSoldOut;
+    if (btnSticky) btnSticky.disabled = isSoldOut;
     if (totalEl) {
         const qty = parseInt(qtyInput?.value || 1);
         totalEl.textContent = (price * qty).toLocaleString('ko-KR') + '원';
+        const stickyEl = document.getElementById('stickyTotal');
+        if (stickyEl) stickyEl.textContent = totalEl.textContent;
     }
 
     // 현재 unitPrice 업데이트 (수량 변경 핸들러가 참조)
@@ -810,6 +832,8 @@ function updatePriceDisplay(price, stock) {
         const qty    = Math.max(1, Math.min(parseInt(qtyInput.value) || 1, maxQty || 9999));
         qtyInput.value = qty;
         totalEl.textContent = ((window._currentUnitPrice || basePrice) * qty).toLocaleString('ko-KR') + '원';
+        const stickyEl = document.getElementById('stickyTotal');
+        if (stickyEl) stickyEl.textContent = totalEl.textContent;
     }
 
     document.getElementById('qtyMinus')?.addEventListener('click', function () {
@@ -911,6 +935,18 @@ document.getElementById('btnAddCart')?.addEventListener('click', function () {
 document.getElementById('btnBuyNow')?.addEventListener('click', function () {
     addToCart(this, function () {
         window.location.href = '/cart';
+    });
+});
+
+// 모바일 스티키 바 담기 — 메인 담기와 동일 동작(옵션·추가구성 전역 상태 재사용)
+document.getElementById('btnStickyCart')?.addEventListener('click', function () {
+    const btn = this;
+    addToCart(btn, function () {
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>담기 완료';
+        setTimeout(function () {
+            btn.innerHTML = '<i class="bi bi-bag-plus me-1"></i>장바구니 담기';
+            btn.disabled  = false;
+        }, 1500);
     });
 });
 
