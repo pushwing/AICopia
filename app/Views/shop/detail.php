@@ -41,11 +41,13 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                     <?php endforeach; ?>
                 </div>
                 <?php if (count($allImages) > 1): ?>
-                <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
-                    <span class="carousel-control-prev-icon"></span>
+                <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev" aria-label="이전 이미지">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">이전 이미지</span>
                 </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
-                    <span class="carousel-control-next-icon"></span>
+                <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next" aria-label="다음 이미지">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">다음 이미지</span>
                 </button>
                 <?php endif; ?>
             </div>
@@ -79,13 +81,32 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
         <!-- 구매 정보 영역 -->
         <div class="col-lg-6">
 
-            <!-- 카테고리 브레드크럼 -->
-            <?php if (! empty($product['category_name'])): ?>
-            <div class="text-muted small mb-2"><?= esc($product['category_name']) ?></div>
-            <?php endif; ?>
+            <!-- 브레드크럼 (홈·쇼핑 네비게이블 + 카테고리 맥락) -->
+            <nav aria-label="breadcrumb" class="mb-2">
+                <ol class="breadcrumb small mb-0">
+                    <li class="breadcrumb-item"><a href="/" class="text-muted text-decoration-none">홈</a></li>
+                    <li class="breadcrumb-item"><a href="/shop" class="text-muted text-decoration-none">쇼핑</a></li>
+                    <?php if (! empty($product['category_name'])): ?>
+                    <li class="breadcrumb-item active" aria-current="page"><?= esc($product['category_name']) ?></li>
+                    <?php endif; ?>
+                </ol>
+            </nav>
 
             <!-- 상품명 -->
-            <h2 class="fw-bold mb-3"><?= esc($product['name']) ?></h2>
+            <h2 class="fw-bold mb-2"><?= esc($product['name']) ?></h2>
+
+            <!-- 평점 요약 (결정 순간에 신뢰 신호를 노출; 리뷰 탭으로 이동) -->
+            <?php $rSumTop = $ratingSummary ?? ['count' => 0, 'average' => 0]; ?>
+            <?php if (($rSumTop['count'] ?? 0) > 0): $rrTop = (int) round((float) $rSumTop['average']); ?>
+            <a href="#detailTabs" data-goto-tab="#tabReviews"
+               class="d-inline-flex align-items-center gap-1 text-decoration-none mb-3">
+                <span class="text-warning lh-1">
+                    <?php for ($s = 1; $s <= 5; $s++): ?><i class="bi bi-star<?= $s <= $rrTop ? '-fill' : '' ?>"></i><?php endfor; ?>
+                </span>
+                <span class="fw-semibold text-dark"><?= esc(number_format((float) $rSumTop['average'], 1)) ?></span>
+                <span class="text-muted small">리뷰 <?= (int) $rSumTop['count'] ?>개</span>
+            </a>
+            <?php endif; ?>
 
             <!-- 가격 -->
             <div class="mb-4">
@@ -249,7 +270,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                         data-csrf-val="<?= csrf_hash() ?>">
                     <i class="bi bi-bag-plus me-1"></i>장바구니 담기
                 </button>
-                <button class="btn btn-dark btn-lg" id="btnBuyNow"
+                <button class="btn btn-outline-dark btn-lg" id="btnBuyNow"
                         data-product-id="<?= (int) $product['id'] ?>"
                         data-csrf="<?= csrf_token() ?>"
                         data-csrf-val="<?= csrf_hash() ?>">
@@ -265,6 +286,13 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                     <i class="bi <?= ($isWished ?? false) ? 'bi-heart-fill text-danger' : 'bi-heart' ?> me-1"></i>
                     <span id="wishLabel"><?= ($isWished ?? false) ? '찜 해제' : '찜하기' ?></span>
                 </button>
+            </div>
+
+            <!-- 결정 순간 신뢰 신호: 배송·교환·반품 안내로 바로가기 -->
+            <div class="text-center mt-3">
+                <a href="#detailTabs" data-goto-tab="#tabShipping" class="text-muted small text-decoration-none">
+                    <i class="bi bi-truck me-1"></i>배송·교환·반품 안내
+                </a>
             </div>
 
         </div>
@@ -350,9 +378,11 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                         <div class="card-body">
                             <div class="mb-2">
                                 <label class="form-label small text-muted mb-1 d-block">별점</label>
-                                <div id="reviewStarInput" class="fs-4 text-warning lh-1" style="cursor:pointer">
+                                <div id="reviewStarInput" class="fs-4 text-warning lh-1" style="cursor:pointer"
+                                     role="radiogroup" aria-label="별점 선택 (1~5점)">
                                     <?php for ($s = 1; $s <= 5; $s++): ?>
-                                    <i class="bi bi-star" data-value="<?= $s ?>"></i>
+                                    <i class="bi bi-star" data-value="<?= $s ?>" role="radio" tabindex="0"
+                                       aria-label="<?= $s ?>점" aria-checked="false"></i>
                                     <?php endfor; ?>
                                 </div>
                                 <input type="hidden" id="reviewRating" value="0">
@@ -993,13 +1023,26 @@ document.getElementById('btnStickyCart')?.addEventListener('click', function () 
     }
 })();
 
+// 평점 요약·안내 링크 클릭 시 해당 상세 탭으로 전환하고 스크롤한다.
+document.querySelectorAll('[data-goto-tab]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+        const target = el.getAttribute('data-goto-tab');
+        const tabBtn = document.querySelector('#detailTabs [data-bs-target="' + target + '"]');
+        if (tabBtn) {
+            e.preventDefault();
+            tabBtn.click();
+            document.getElementById('detailTabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+});
+
 // ─── 리뷰 ─────────────────────────────────────────────────────────────────────
 // 별점 입력 인터랙션
 (function () {
     const wrap = document.getElementById('reviewStarInput');
     if (! wrap) return;
     const hidden = document.getElementById('reviewRating');
-    const stars  = wrap.querySelectorAll('i');
+    const stars  = Array.from(wrap.querySelectorAll('i'));
     const paint  = function (val) {
         stars.forEach(function (st) {
             const v = parseInt(st.dataset.value, 10);
@@ -1007,11 +1050,24 @@ document.getElementById('btnStickyCart')?.addEventListener('click', function () 
             st.classList.toggle('bi-star', v > val);
         });
     };
+    // 별점 확정 — hidden 값·칠·aria-checked 갱신
+    const select = function (val) {
+        val = Math.max(1, Math.min(5, val));
+        hidden.value = val;
+        paint(val);
+        stars.forEach(function (st) {
+            st.setAttribute('aria-checked', parseInt(st.dataset.value, 10) === val ? 'true' : 'false');
+        });
+    };
     stars.forEach(function (st) {
-        st.addEventListener('mouseenter', function () { paint(parseInt(st.dataset.value, 10)); });
-        st.addEventListener('click', function () {
-            hidden.value = st.dataset.value;
-            paint(parseInt(st.dataset.value, 10));
+        const v = parseInt(st.dataset.value, 10);
+        st.addEventListener('mouseenter', function () { paint(v); });
+        st.addEventListener('click', function () { select(v); });
+        // 키보드: Enter/Space 선택, 화살표로 이동+선택 (radiogroup 표준 동작)
+        st.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(v); }
+            else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); select(v + 1); stars[Math.min(4, v)].focus(); }
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); select(v - 1); stars[Math.max(0, v - 2)].focus(); }
         });
     });
     wrap.addEventListener('mouseleave', function () { paint(parseInt(hidden.value, 10) || 0); });
