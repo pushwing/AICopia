@@ -28,7 +28,7 @@
 이 계획은 마이그레이션을 3개 추가한다. Task 1 커밋 후 반드시 로컬 DB와 테스트 DB에 반영해야 이후 태스크의 테스트가 돈다:
 
 ```bash
-php spark migrate --all
+php spark migrate
 ```
 
 ## 파일 구조
@@ -248,7 +248,7 @@ class SeedWithdrawalSettings extends Migration
 
 - [ ] **Step 4: 마이그레이션 실행**
 
-Run: `php spark migrate --all`
+Run: `php spark migrate`
 Expected: 3개 마이그레이션이 `Running:` 으로 표시되고 에러 없이 완료
 
 - [ ] **Step 5: 타임존 스키마 회귀 테스트로 검증**
@@ -541,14 +541,19 @@ final class WithdrawalServiceTest extends CIUnitTestCase
 
     private function insertOrder(int $userId, string $status): int
     {
+        // receiver_name·receiver_phone·zipcode·address1 은 NOT NULL 에 기본값이 없다 — 반드시 채운다
         $db = db_connect();
         $db->table('orders')->insert([
-            'user_id'      => $userId,
-            'order_number' => 'WD' . strtoupper(substr(uniqid(), -10)),
-            'status'       => $status,
-            'total_amount' => 10000,
-            'created_at'   => date('Y-m-d H:i:s'),
-            'updated_at'   => date('Y-m-d H:i:s'),
+            'user_id'        => $userId,
+            'order_number'   => 'WD' . strtoupper(substr(uniqid(), -10)),
+            'status'         => $status,
+            'total_amount'   => 10000,
+            'receiver_name'  => '홍길동',
+            'receiver_phone' => '01012345678',
+            'zipcode'        => '06134',
+            'address1'       => '서울시 강남구 테헤란로',
+            'created_at'     => date('Y-m-d H:i:s'),
+            'updated_at'     => date('Y-m-d H:i:s'),
         ]);
         $id = (int) $db->insertID();
         $this->cleanup['orders'][] = $id;
