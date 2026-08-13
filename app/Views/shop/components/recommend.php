@@ -13,7 +13,7 @@ $recoTitle = $recoTitle ?? '회원님을 위한 추천 상품';
 ?>
 <div class="mb-4">
     <h6 class="fw-bold mb-3"><i class="bi bi-stars text-primary me-1"></i><?= esc($recoTitle) ?></h6>
-    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3">
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
         <?php foreach ($recommended as $p):
             $isSoldOut    = $p['status'] === 'sold_out' || (int) $p['stock'] === 0;
             $displayPrice = $p['discount_price'] ?? $p['price'];
@@ -34,8 +34,7 @@ $recoTitle = $recoTitle ?? '회원님을 위한 추천 상품';
                         </div>
                         <?php endif; ?>
                         <?php if ($isSoldOut): ?>
-                        <div class="position-absolute inset-0 d-flex align-items-center justify-content-center"
-                             style="background:rgba(0,0,0,.4)">
+                        <div class="product-soldout-scrim">
                             <span class="badge bg-dark fs-6">품절</span>
                         </div>
                         <?php endif; ?>

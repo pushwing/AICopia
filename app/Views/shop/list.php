@@ -13,7 +13,7 @@
             <?php if ($curCat): ?>
             <input type="hidden" name="category_id" value="<?= $curCat ?>">
             <?php endif; ?>
-            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-search"></i></button>
+            <button type="submit" class="btn btn-sm btn-outline-secondary" aria-label="검색"><i class="bi bi-search"></i></button>
         </form>
     </div>
 
@@ -31,8 +31,14 @@
 
     <div class="row g-4">
 
-        <!-- 필터 사이드바 -->
+        <!-- 필터 사이드바 (모바일: 오프캔버스 서랍 / md+: 인라인 사이드바) -->
         <div class="col-lg-2 col-md-3">
+            <div class="offcanvas-md offcanvas-start" tabindex="-1" id="filterOffcanvas" aria-labelledby="filterOffcanvasLabel">
+                <div class="offcanvas-header d-md-none">
+                    <h5 class="offcanvas-title" id="filterOffcanvasLabel">필터 · 카테고리</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#filterOffcanvas" aria-label="닫기"></button>
+                </div>
+                <div class="offcanvas-body flex-column">
             <!-- 카테고리 -->
             <div class="list-group list-group-flush mb-3">
                 <a href="/shop" class="list-group-item list-group-item-action <?= ! $curCat ? 'active' : '' ?> py-2">
@@ -67,14 +73,15 @@
                 <div class="border rounded p-3 bg-white small">
                     <div class="fw-semibold mb-2">가격 범위</div>
                     <div class="d-flex align-items-center gap-1 mb-2">
-                        <input type="number" name="price_min" class="form-control form-control-sm"
+                        <input type="number" name="price_min" id="priceMin" class="form-control form-control-sm"
                                placeholder="최소" min="0" step="1000"
                                value="<?= esc($priceMin ?? '') ?>" style="width:0;flex:1">
                         <span class="text-muted">~</span>
-                        <input type="number" name="price_max" class="form-control form-control-sm"
+                        <input type="number" name="price_max" id="priceMax" class="form-control form-control-sm"
                                placeholder="최대" min="0" step="1000"
                                value="<?= esc($priceMax ?? '') ?>" style="width:0;flex:1">
                     </div>
+                    <div id="priceHint" class="text-danger mb-2 d-none">최소 금액이 최대 금액보다 큽니다.</div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="only_discount" value="1"
                                id="chkDiscount" <?= ($onlyDiscount ?? false) ? 'checked' : '' ?>>
@@ -86,10 +93,20 @@
                     </div>
                 </div>
             </form>
+                </div><!-- /offcanvas-body -->
+            </div><!-- /offcanvas (md+ 인라인) -->
         </div>
 
         <!-- 상품 목록 -->
         <div class="col-lg-10 col-md-9">
+
+            <!-- 모바일 전용: 필터·카테고리 서랍 열기 (필터 적용 상태 표시) -->
+            <?php $filtersActive = $curCat || ($keyword ?? '') !== '' || ($priceMin ?? '') !== '' || ($priceMax ?? '') !== '' || ($onlyDiscount ?? false); ?>
+            <button class="btn btn-outline-secondary w-100 d-md-none mb-3" type="button"
+                    data-bs-toggle="offcanvas" data-bs-target="#filterOffcanvas" aria-controls="filterOffcanvas">
+                <i class="bi <?= $filtersActive ? 'bi-funnel-fill' : 'bi-funnel' ?>"></i> 필터 · 카테고리
+                <?php if ($filtersActive): ?><span class="badge bg-dark ms-1">적용됨</span><?php endif; ?>
+            </button>
 
             <!-- 카테고리 소개 카피 (랜딩) -->
             <?php if (! empty($catLanding['description'])): ?>
@@ -117,10 +134,37 @@
                 </div>
             </div>
 
-            <?php if (empty($items)): ?>
+            <?php if (empty($items)):
+                // 빈 상태 유형 판별 — 필터/검색으로 0건인지, 카탈로그가 비었는지
+                $hasFilter = ($keyword ?? '') !== '' || ($priceMin ?? '') !== '' || ($priceMax ?? '') !== '' || ($onlyDiscount ?? false) || $curCat;
+            ?>
             <div class="text-center text-muted py-5">
                 <i class="bi bi-bag-x fs-1 d-block mb-2"></i>
-                <?= $keyword ? '검색 결과가 없습니다.' : '등록된 상품이 없습니다.' ?>
+                <p class="mb-3"><?= ($keyword ?? '') !== ''
+                    ? '‘' . esc($keyword) . '’ 검색 결과가 없습니다.'
+                    : ($hasFilter ? '조건에 맞는 상품이 없습니다.' : '등록된 상품이 없습니다.') ?></p>
+
+                <!-- 검색 0건일 때 AI 연관검색어를 여기서 대안으로 제시 -->
+                <?php if (! empty($expandedTerms ?? []) && ($keyword ?? '') !== ''): ?>
+                <div class="mb-3">
+                    <div class="small mb-2"><i class="bi bi-stars text-primary me-1"></i>이런 검색은 어때요?</div>
+                    <div class="d-flex flex-wrap justify-content-center gap-1">
+                        <?php foreach ($expandedTerms as $term): ?>
+                        <a href="/shop?keyword=<?= urlencode($term) ?>" class="badge bg-primary-subtle text-primary text-decoration-none border border-primary-subtle"><?= esc($term) ?></a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- 복구 CTA -->
+                <?php if ($hasFilter): ?>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <a href="/shop<?= $curCat ? '?category_id=' . $curCat : '' ?>" class="btn btn-sm btn-dark">필터·검색 초기화</a>
+                    <?php if ($curCat): ?>
+                    <a href="/shop" class="btn btn-sm btn-outline-secondary">전체 상품 보기</a>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
             </div>
             <?php else: ?>
 
@@ -136,12 +180,14 @@
                         <!-- 찜 버튼 -->
                         <?php $isWishedItem = in_array((int) $p['id'], $wishedIds ?? [], true); ?>
                         <button class="btn-wish position-absolute btn btn-sm"
-                                style="top:6px;right:6px;z-index:2;padding:2px 6px;background:rgba(255,255,255,.85);border:none"
+                                style="top:6px;right:6px;z-index:2;padding:2px 6px;background:rgba(255,255,255,.92);border:none;box-shadow:0 1px 3px rgba(0,0,0,.18)"
                                 data-slug="<?= esc($p['slug']) ?>"
                                 data-csrf="<?= csrf_token() ?>"
                                 data-csrf-val="<?= csrf_hash() ?>"
                                 data-loggedin="<?= session()->get('user_id') ? 'true' : 'false' ?>"
-                                title="찜하기">
+                                aria-pressed="<?= $isWishedItem ? 'true' : 'false' ?>"
+                                aria-label="<?= $isWishedItem ? '찜 해제' : '찜하기' ?>"
+                                title="<?= $isWishedItem ? '찜 해제' : '찜하기' ?>">
                             <i class="bi <?= $isWishedItem ? 'bi-heart-fill' : 'bi-heart' ?> text-danger"></i>
                         </button>
                         <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
@@ -158,8 +204,7 @@
                                 <?php endif; ?>
                                 <!-- 품절 배지 -->
                                 <?php if ($isSoldOut): ?>
-                                <div class="position-absolute inset-0 d-flex align-items-center justify-content-center"
-                                     style="background:rgba(0,0,0,.4)">
+                                <div class="product-soldout-scrim">
                                     <span class="badge bg-dark fs-6">품절</span>
                                 </div>
                                 <?php endif; ?>
@@ -200,7 +245,7 @@
                             </a>
                             <?php else: ?>
                             <button type="button"
-                                    class="btn btn-sm btn-outline-primary w-100 py-2 btn-quick-cart"
+                                    class="btn btn-sm btn-primary w-100 py-2 btn-quick-cart"
                                     style="border-radius:0 0 calc(.375rem - 1px) calc(.375rem - 1px)"
                                     data-product-id="<?= $p['id'] ?>"
                                     data-csrf="<?= csrf_token() ?>"
@@ -214,19 +259,47 @@
                 <?php endforeach; ?>
             </div>
 
-            <!-- 페이지네이션 -->
+            <!-- 페이지네이션 (윈도우: 첫·이전 · 현재±2 · 다음·마지막) -->
             <?php if ($totalPages > 1):
-                $baseQs = array_intersect_key($_GET, array_flip(['keyword', 'category_id', 'sort', 'price_min', 'price_max', 'only_discount']));
+                // 뷰에서 $_GET 직접 사용 대신 명명 변수로 base 쿼리 구성 (보안 규칙 준수)
+                $baseQs = array_filter([
+                    'keyword'       => $keyword ?? '',
+                    'category_id'   => $curCat ?: '',
+                    'sort'          => $curSort ?? '',
+                    'price_min'     => $priceMin ?? '',
+                    'price_max'     => $priceMax ?? '',
+                    'only_discount' => ($onlyDiscount ?? false) ? 1 : '',
+                ], fn($v) => $v !== '');
+                $win   = 2;
+                $start = max(1, $currentPage - $win);
+                $end   = min($totalPages, $currentPage + $win);
+                $pageUrl = fn(int $pg): string => '/shop?' . http_build_query(array_merge($baseQs, ['page' => $pg]));
             ?>
-            <nav class="mt-4">
-                <ul class="pagination justify-content-center">
-                    <?php for ($pg = 1; $pg <= $totalPages; $pg++): ?>
+            <nav class="mt-4" aria-label="상품 목록 페이지 이동">
+                <ul class="pagination justify-content-center flex-wrap">
+                    <li class="page-item <?= $currentPage <= 1 ? 'disabled' : '' ?>">
+                        <a class="page-link" href="<?= esc($pageUrl(max(1, $currentPage - 1))) ?>" aria-label="이전 페이지"><i class="bi bi-chevron-left"></i></a>
+                    </li>
+
+                    <?php if ($start > 1): ?>
+                    <li class="page-item"><a class="page-link" href="<?= esc($pageUrl(1)) ?>">1</a></li>
+                    <?php if ($start > 2): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?>
+                    <?php endif; ?>
+
+                    <?php for ($pg = $start; $pg <= $end; $pg++): ?>
                     <li class="page-item <?= $pg === $currentPage ? 'active' : '' ?>">
-                        <a class="page-link" href="/shop?<?= http_build_query(array_merge($baseQs, ['page' => $pg])) ?>">
-                            <?= $pg ?>
-                        </a>
+                        <a class="page-link" href="<?= esc($pageUrl($pg)) ?>"<?= $pg === $currentPage ? ' aria-current="page"' : '' ?>><?= $pg ?></a>
                     </li>
                     <?php endfor; ?>
+
+                    <?php if ($end < $totalPages): ?>
+                    <?php if ($end < $totalPages - 1): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?>
+                    <li class="page-item"><a class="page-link" href="<?= esc($pageUrl($totalPages)) ?>"><?= $totalPages ?></a></li>
+                    <?php endif; ?>
+
+                    <li class="page-item <?= $currentPage >= $totalPages ? 'disabled' : '' ?>">
+                        <a class="page-link" href="<?= esc($pageUrl(min($totalPages, $currentPage + 1))) ?>" aria-label="다음 페이지"><i class="bi bi-chevron-right"></i></a>
+                    </li>
                 </ul>
             </nav>
             <?php endif; ?>
@@ -262,6 +335,40 @@
 
 <?= $this->section('scripts') ?>
 <script>
+// 가격 필터: 최소 > 최대면 제출 차단 + 인라인 힌트 (조용한 빈 결과 방지)
+(function() {
+    var form = document.getElementById('filterForm');
+    if (! form) return;
+    var min  = document.getElementById('priceMin');
+    var max  = document.getElementById('priceMax');
+    var hint = document.getElementById('priceHint');
+    form.addEventListener('submit', function(e) {
+        var lo = min.value !== '' ? Number(min.value) : null;
+        var hi = max.value !== '' ? Number(max.value) : null;
+        if (lo !== null && hi !== null && lo > hi) {
+            e.preventDefault();
+            hint.classList.remove('d-none');
+            max.focus();
+        }
+    });
+    [min, max].forEach(function(el) {
+        el.addEventListener('input', function() { hint.classList.add('d-none'); });
+    });
+})();
+
+// 담기 실패 시 네이티브 alert 대신 버튼 인라인 피드백 (비차단)
+function showCartFail(btn, original, message) {
+    btn.disabled = false;
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-danger');
+    btn.innerHTML = '<i class="bi bi-exclamation-circle"></i> ' + (message || '담기 실패');
+    setTimeout(function() {
+        btn.innerHTML = original;
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-primary');
+    }, 1800);
+}
+
 document.querySelectorAll('.btn-quick-cart').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
         e.preventDefault();
@@ -292,7 +399,7 @@ document.querySelectorAll('.btn-quick-cart').forEach(function(btn) {
             }
             if (data.success) {
                 btn.innerHTML = '<i class="bi bi-check2"></i> 담김';
-                btn.classList.remove('btn-outline-primary');
+                btn.classList.remove('btn-primary');
                 btn.classList.add('btn-success');
                 // 카트 카운트 업데이트
                 var badge = document.getElementById('cartBadge');
@@ -303,18 +410,15 @@ document.querySelectorAll('.btn-quick-cart').forEach(function(btn) {
                 setTimeout(function() {
                     btn.innerHTML = original;
                     btn.classList.remove('btn-success');
-                    btn.classList.add('btn-outline-primary');
+                    btn.classList.add('btn-primary');
                     btn.disabled = false;
                 }, 1500);
             } else {
-                btn.innerHTML = original;
-                btn.disabled = false;
-                alert(data.message || '장바구니 담기에 실패했습니다.');
+                showCartFail(btn, original, data.message);
             }
         })
         .catch(function() {
-            btn.innerHTML = original;
-            btn.disabled = false;
+            showCartFail(btn, original);
         });
     });
 });
@@ -352,6 +456,11 @@ document.querySelectorAll('.btn-wish').forEach(function(btn) {
                 icon.classList.remove('bi-heart-fill');
                 icon.classList.add('bi-heart');
             }
+            // 접근성 상태 동기화
+            btn.setAttribute('aria-pressed', data.wished ? 'true' : 'false');
+            var label = data.wished ? '찜 해제' : '찜하기';
+            btn.setAttribute('aria-label', label);
+            btn.title = label;
             if (data.csrf_hash) btn.dataset.csrfVal = data.csrf_hash;
         })
         .catch(function() {});

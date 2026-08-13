@@ -15,6 +15,7 @@ colors:
   surface: "#ffffff"
   subtle-bg: "#f8f9fa"
   border: "#f0f0f0"
+  soldout-scrim: "rgba(0, 0, 0, 0.4)"
 typography:
   display:
     fontFamily: "Noto Sans KR, -apple-system, sans-serif"
@@ -183,6 +184,7 @@ Bootstrap의 `.container`·플렉스 그리드·반응형 유틸리티를 그대
 - **Corner:** `.75rem`. **Background:** 흰 표면. **Border:** Bootstrap 기본 카드 테두리.
 - **Shadow Strategy:** 정지 시 없음 → hover 시 `0 4px 12px rgba(0,0,0,.1)` 리프트(Elevation 참조).
 - **Overlay 배지:** 할인율 `bg-danger`(우상단 절대배치), 품절 `bg-dark`, 무료배송 `bg-light text-success border border-success`.
+- **품절 스크림:** `.product-soldout-scrim`(`Soldout Scrim`, `rgba(0,0,0,0.4)`) — 이미지 전체를 덮는 반투명 오버레이 + 중앙 "품절" 배지. 목록·추천 카드가 공유하는 단일 클래스(인라인 색 중복·`inset-0` 미정의 버그 제거).
 
 ### Grade Badge (signature)
 - 회원 등급 표시 전용 pill 배지. `.badge-bronze`(#a0522d)·`.badge-silver`(#888f94) — 시스템에서 유일하게 시맨틱 규칙을 벗어난 장식성 색이며 등급 도메인에만 쓴다.
