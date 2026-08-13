@@ -110,17 +110,24 @@
 <script>
 document.querySelectorAll('.btn-wish-remove').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (! confirm('찜 목록에서 제거하시겠습니까?')) return;
-        var fd = new FormData();
-        fd.append(btn.dataset.csrf, btn.dataset.csrfVal);
-        fetch('/shop/' + btn.dataset.slug + '/wish', { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (! data.wished) {
-                    var el = document.getElementById('wish-item-' + btn.dataset.item);
-                    if (el) el.remove();
-                }
-            });
+        confirmDialog({
+            title: '찜 해제', message: '찜 목록에서 제거하시겠습니까?',
+            confirmText: '제거', danger: true
+        }).then(function (ok) {
+            if (! ok) return;
+            var fd = new FormData();
+            fd.append(btn.dataset.csrf, btn.dataset.csrfVal);
+            fetch('/shop/' + btn.dataset.slug + '/wish', { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (! data.wished) {
+                        var el = document.getElementById('wish-item-' + btn.dataset.item);
+                        if (el) el.remove();
+                        toast('찜 목록에서 제거했습니다.', 'success');
+                    }
+                })
+                .catch(function () { toast('오류가 발생했습니다.', 'error'); });
+        });
     });
 });
 </script>

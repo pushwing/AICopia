@@ -49,7 +49,7 @@
                         </form>
                         <?php endif; ?>
                         <form method="post" action="/mypage/addresses/<?= (int) $addr['id'] ?>/delete"
-                              onsubmit="return confirm('이 배송지를 삭제하시겠습니까?')">
+                              data-confirm="이 배송지를 삭제하시겠습니까?" data-confirm-danger>
                             <?= csrf_field() ?>
                             <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
                         </form>
