@@ -19,6 +19,17 @@ class UserModel extends Model
         'email_verify_token', 'email_verify_token_at',
     ];
 
+    /**
+     * 탈퇴회원(tombstone)을 제외한 회원 빌더
+     *
+     * 탈퇴 시 users 행은 삭제하지 않고 마스킹만 하므로, 필터를 걸지 않으면
+     * '탈퇴회원' 닉네임의 행이 일반 회원 목록에 그대로 섞인다.
+     */
+    public function activeBuilder(): \CodeIgniter\Database\BaseBuilder
+    {
+        return $this->builder()->where('withdrawn_at IS NULL');
+    }
+
     /** @return array<string, mixed>|null */
     public function findByEmail(string $email): ?array
     {
