@@ -33,12 +33,13 @@
     <?php endif; ?>
 </div>
 <?php else: ?>
-<!-- 배너 없을 때 기본 Hero -->
-<div class="bg-dark text-white py-5" style="background: linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%) !important;">
+<!-- 배너 없을 때 기본 Hero — 중립 서피스(브랜드 드라마는 클라이언트 주입 배너의 몫,
+     Flat-By-Default·Empty-Brand 규칙에 따라 default 는 장식 그라디언트를 쓰지 않는다) -->
+<div class="bg-light border-bottom py-5">
     <div class="container py-4 text-center">
         <h1 class="display-5 fw-bold mb-3">새로운 컬렉션</h1>
-        <p class="lead text-white-50 mb-4">트렌디한 스타일을 합리적인 가격으로 만나보세요</p>
-        <a href="/shop" class="btn btn-light btn-lg px-5">쇼핑 시작하기</a>
+        <p class="lead text-muted mb-4">트렌디한 스타일을 합리적인 가격으로 만나보세요</p>
+        <a href="/shop" class="btn btn-primary btn-lg px-5">쇼핑 시작하기</a>
     </div>
 </div>
 <?php endif; ?>
@@ -49,17 +50,12 @@
     <div class="container">
         <div class="d-flex flex-wrap gap-2 justify-content-center">
             <a href="/shop" class="btn btn-sm btn-outline-dark rounded-pill px-4">전체</a>
+            <?php /* 레일에는 상위 카테고리만 — 하위는 /shop 목록에서 좁힌다(플랫 나열 인지부하 방지) */ ?>
             <?php foreach ($categories as $cat): ?>
             <a href="/shop?category_id=<?= $cat['id'] ?>"
                class="btn btn-sm btn-outline-secondary rounded-pill px-4">
                 <?= esc($cat['name']) ?>
             </a>
-            <?php foreach ($cat['children'] as $child): ?>
-            <a href="/shop?category_id=<?= $child['id'] ?>"
-               class="btn btn-sm btn-outline-secondary rounded-pill px-3">
-                <?= esc($child['name']) ?>
-            </a>
-            <?php endforeach; ?>
             <?php endforeach; ?>
         </div>
     </div>
@@ -89,7 +85,7 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                 $hasDiscount  = $p['discount_price'] !== null;
             ?>
             <div class="col">
-                <div class="card h-100 product-card border-danger position-relative">
+                <div class="card h-100 product-card position-relative">
                     <span class="badge bg-danger position-absolute" style="top:8px;left:8px;z-index:1">PICK</span>
                     <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
                         <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
@@ -102,8 +98,7 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                             </div>
                             <?php endif; ?>
                             <?php if ($isSoldOut): ?>
-                            <div class="position-absolute inset-0 d-flex align-items-center justify-content-center"
-                                 style="background:rgba(0,0,0,.4)">
+                            <div class="product-soldout-scrim">
                                 <span class="badge bg-dark fs-6">품절</span>
                             </div>
                             <?php endif; ?>
@@ -143,7 +138,7 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                 <span class="badge bg-dark me-2">NEW</span>
                 <span class="fw-bold fs-5"><?= esc($newTitle) ?></span>
             </div>
-            <a href="/shop" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
+            <a href="/shop?sort=latest" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
         </div>
         <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
             <?php foreach ($newProducts as $p):
@@ -164,8 +159,7 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                             </div>
                             <?php endif; ?>
                             <?php if ($isSoldOut): ?>
-                            <div class="position-absolute inset-0 d-flex align-items-center justify-content-center"
-                                 style="background:rgba(0,0,0,.4)">
+                            <div class="product-soldout-scrim">
                                 <span class="badge bg-dark fs-6">품절</span>
                             </div>
                             <?php endif; ?>
@@ -205,7 +199,7 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                 <span class="badge bg-danger me-2">SALE</span>
                 <span class="fw-bold fs-5"><?= esc($discountTitle) ?></span>
             </div>
-            <a href="/shop" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
+            <a href="/shop?only_discount=1" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
         </div>
         <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
             <?php foreach ($discountedProducts as $p):
