@@ -73,14 +73,15 @@
                 <div class="border rounded p-3 bg-white small">
                     <div class="fw-semibold mb-2">가격 범위</div>
                     <div class="d-flex align-items-center gap-1 mb-2">
-                        <input type="number" name="price_min" class="form-control form-control-sm"
+                        <input type="number" name="price_min" id="priceMin" class="form-control form-control-sm"
                                placeholder="최소" min="0" step="1000"
                                value="<?= esc($priceMin ?? '') ?>" style="width:0;flex:1">
                         <span class="text-muted">~</span>
-                        <input type="number" name="price_max" class="form-control form-control-sm"
+                        <input type="number" name="price_max" id="priceMax" class="form-control form-control-sm"
                                placeholder="최대" min="0" step="1000"
                                value="<?= esc($priceMax ?? '') ?>" style="width:0;flex:1">
                     </div>
+                    <div id="priceHint" class="text-danger mb-2 d-none">최소 금액이 최대 금액보다 큽니다.</div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="only_discount" value="1"
                                id="chkDiscount" <?= ($onlyDiscount ?? false) ? 'checked' : '' ?>>
@@ -303,6 +304,40 @@
 
 <?= $this->section('scripts') ?>
 <script>
+// 가격 필터: 최소 > 최대면 제출 차단 + 인라인 힌트 (조용한 빈 결과 방지)
+(function() {
+    var form = document.getElementById('filterForm');
+    if (! form) return;
+    var min  = document.getElementById('priceMin');
+    var max  = document.getElementById('priceMax');
+    var hint = document.getElementById('priceHint');
+    form.addEventListener('submit', function(e) {
+        var lo = min.value !== '' ? Number(min.value) : null;
+        var hi = max.value !== '' ? Number(max.value) : null;
+        if (lo !== null && hi !== null && lo > hi) {
+            e.preventDefault();
+            hint.classList.remove('d-none');
+            max.focus();
+        }
+    });
+    [min, max].forEach(function(el) {
+        el.addEventListener('input', function() { hint.classList.add('d-none'); });
+    });
+})();
+
+// 담기 실패 시 네이티브 alert 대신 버튼 인라인 피드백 (비차단)
+function showCartFail(btn, original, message) {
+    btn.disabled = false;
+    btn.classList.remove('btn-outline-primary');
+    btn.classList.add('btn-outline-danger');
+    btn.innerHTML = '<i class="bi bi-exclamation-circle"></i> ' + (message || '담기 실패');
+    setTimeout(function() {
+        btn.innerHTML = original;
+        btn.classList.remove('btn-outline-danger');
+        btn.classList.add('btn-outline-primary');
+    }, 1800);
+}
+
 document.querySelectorAll('.btn-quick-cart').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
         e.preventDefault();
@@ -348,14 +383,11 @@ document.querySelectorAll('.btn-quick-cart').forEach(function(btn) {
                     btn.disabled = false;
                 }, 1500);
             } else {
-                btn.innerHTML = original;
-                btn.disabled = false;
-                alert(data.message || '장바구니 담기에 실패했습니다.');
+                showCartFail(btn, original, data.message);
             }
         })
         .catch(function() {
-            btn.innerHTML = original;
-            btn.disabled = false;
+            showCartFail(btn, original);
         });
     });
 });
