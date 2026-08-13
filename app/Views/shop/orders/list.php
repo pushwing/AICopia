@@ -5,17 +5,19 @@
 <?php
 use App\Models\OrderModel;
 
+// 색 = 라이프사이클 의미로 일관화한다(주황=대기/주의, 파랑=배송중, 초록=배송완료만,
+// 회색·info=처리 중, 빨강·검정=종료-부정). 같은 색이 서로 다른 뜻을 갖지 않게 한다.
 $statusBadge = [
-    'pending'           => ['secondary', '결제 대기'],
-    'awaiting_payment'  => ['primary',   '입금 대기'],
-    'paid'              => ['success',   '결제 완료'],
-    'preparing'         => ['info',      '배송 준비'],
-    'shipped'           => ['warning',   '배송 중'],
-    'delivered'         => ['success',   '배송 완료'],
-    'cancelled'         => ['danger',    '취소'],
-    'expired'           => ['secondary', '만료'],
-    'refund_requested'  => ['warning',   '환불 요청'],
-    'refunded'          => ['dark',      '환불 완료'],
+    'pending'           => ['secondary', '결제 대기'],   // 처리 전 중립
+    'awaiting_payment'  => ['warning',   '입금 대기'],   // 사용자 조치 필요(대기)
+    'paid'              => ['info',       '결제 완료'],   // 처리 중(미완료)
+    'preparing'         => ['info',       '배송 준비'],   // 처리 중
+    'shipped'           => ['primary',    '배송 중'],     // 진행 중(주의 아님)
+    'delivered'         => ['success',    '배송 완료'],   // 종료-완료(초록은 여기만)
+    'cancelled'         => ['danger',     '취소'],
+    'expired'           => ['secondary',  '만료'],
+    'refund_requested'  => ['warning',    '환불 요청'],   // 대기/주의(입금대기와 같은 뜻)
+    'refunded'          => ['dark',       '환불 완료'],
 ];
 ?>
 
@@ -38,14 +40,14 @@ $statusBadge = [
         <input type="hidden" name="status" value="<?= esc($status) ?>">
         <div class="input-group">
             <input type="text" name="keyword" class="form-control"
-                   placeholder="상품명, 설명, 가격으로 검색"
+                   placeholder="상품명, 설명, 가격으로 검색" aria-label="주문 검색"
                    value="<?= esc($keyword) ?>">
-            <button class="btn btn-outline-secondary" type="submit">
+            <button class="btn btn-outline-secondary" type="submit" aria-label="검색">
                 <i class="bi bi-search"></i>
             </button>
             <?php if ($keyword !== ''): ?>
             <a href="?period=<?= esc($period) ?>&status=<?= esc($status) ?>"
-               class="btn btn-outline-danger" title="검색 초기화">
+               class="btn btn-outline-danger" title="검색 초기화" aria-label="검색어 지우기">
                 <i class="bi bi-x-lg"></i>
             </a>
             <?php endif; ?>
@@ -62,27 +64,37 @@ $statusBadge = [
         <?php endforeach; ?>
     </div>
 
-    <!-- ─── 상태 탭 ────────────────────────────────────────────────────────── -->
-    <ul class="nav nav-tabs mb-3">
+    <!-- ─── 상태 필터 ──────────────────────────────────────────────────────────
+         nav-tabs 대신 감싸지는 pill 로 렌더 — 모바일에서 탭 메타포가 다행 랩으로
+         깨지고 페이지가 가로로 넘치던 문제 해소(DESIGN.md "가로 스크롤 탭 금지").
+         활성 상태 언어(btn-dark)는 위 기간 필터와 통일한다. -->
+    <div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="주문 상태 필터">
         <?php foreach ($statusTabs as $val => $label): ?>
-        <li class="nav-item">
-            <a class="nav-link <?= $status === $val ? 'active' : '' ?>"
-               href="?period=<?= esc($period) ?>&status=<?= $val ?>&keyword=<?= esc($keyword) ?>">
-                <?= $label ?>
-            </a>
-        </li>
+        <a href="?period=<?= esc($period) ?>&status=<?= $val ?>&keyword=<?= esc($keyword) ?>"
+           class="btn btn-sm rounded-pill <?= $status === $val ? 'btn-dark' : 'btn-outline-secondary' ?>"
+           <?= $status === $val ? 'aria-current="page"' : '' ?>>
+            <?= $label ?>
+        </a>
         <?php endforeach; ?>
-    </ul>
+    </div>
 
 
 
     <!-- ─── 주문 목록 ──────────────────────────────────────────────────────── -->
-    <?php if (empty($items)): ?>
+    <?php if (empty($items)):
+        // 검색/필터로 0건인지, 실제로 주문이 없는지 구분한다.
+        $hasFilter = ($keyword ?? '') !== '' || ($status ?? 'all') !== 'all' || ($period ?? 'all') !== 'all';
+    ?>
 
     <div class="text-center text-muted py-5">
         <i class="bi bi-bag-x fs-1 d-block mb-3"></i>
+        <?php if ($hasFilter): ?>
+        <p class="mb-3">검색·필터 조건에 맞는 주문이 없습니다.</p>
+        <a href="/mypage/orders" class="btn btn-outline-secondary">필터 초기화</a>
+        <?php else: ?>
         <p class="mb-3">주문 내역이 없습니다.</p>
         <a href="/shop" class="btn btn-primary">쇼핑하러 가기</a>
+        <?php endif; ?>
     </div>
 
     <?php else: ?>
@@ -101,8 +113,6 @@ $statusBadge = [
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-shrink-0">
                     <span class="badge bg-<?= $badgeColor ?>"><?= $badgeLabel ?></span>
-                    <a href="/mypage/orders/<?= esc($order['order_number']) ?>"
-                       class="btn btn-sm btn-outline-secondary">상세</a>
                 </div>
             </div>
             <div class="card-body py-3">
@@ -114,21 +124,24 @@ $statusBadge = [
                             총 <?= number_format($order['payable_amount'] ?? $order['total_amount']) ?>원
                         </div>
                     </div>
-                    <div class="d-flex gap-2">
-                    <?php if ($canCancel): ?>
-                    <button type="button" class="btn btn-sm btn-outline-danger btn-cancel"
-                            data-order-id="<?= (int) $order['id'] ?>"
-                            data-csrf="<?= csrf_token() ?>"
-                            data-csrf-val="<?= csrf_hash() ?>">
-                        주문 취소
-                    </button>
-                    <?php endif; ?>
+                    <div class="d-flex gap-2 flex-wrap justify-content-end">
+                    <a href="/mypage/orders/<?= esc($order['order_number']) ?>"
+                       class="btn btn-sm btn-dark">상세</a>
                     <button type="button" class="btn btn-sm btn-outline-primary btn-reorder"
                             data-order-id="<?= (int) $order['id'] ?>"
                             data-csrf="<?= csrf_token() ?>"
                             data-csrf-val="<?= csrf_hash() ?>">
                         <i class="bi bi-arrow-clockwise me-1"></i>재주문
                     </button>
+                    <?php if ($canCancel): ?>
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-cancel"
+                            data-order-id="<?= (int) $order['id'] ?>"
+                            data-order-number="<?= esc($order['order_number'], 'attr') ?>"
+                            data-csrf="<?= csrf_token() ?>"
+                            data-csrf-val="<?= csrf_hash() ?>">
+                        주문 취소
+                    </button>
+                    <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -179,7 +192,8 @@ $statusBadge = [
 (function () {
     document.querySelectorAll('.btn-cancel').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            if (! confirm('주문을 취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다.')) return;
+            var orderNo = btn.dataset.orderNumber ? '[' + btn.dataset.orderNumber + '] ' : '';
+            if (! confirm(orderNo + '주문을 취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다.')) return;
 
             const orderId = btn.dataset.orderId;
             const body    = new FormData();
