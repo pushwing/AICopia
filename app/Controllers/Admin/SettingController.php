@@ -70,7 +70,7 @@ class SettingController extends BaseController
             ]);
         }
 
-        $allowed = ['general', 'contact', 'sns', 'seo', 'footer', 'shop', 'grade'];
+        $allowed = ['general', 'contact', 'sns', 'seo', 'footer', 'shop', 'grade', 'member'];
         if (! in_array($group, $allowed)) {
             $group = 'general';
         }
