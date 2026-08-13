@@ -23,7 +23,7 @@ php spark migrate:rollback   # 마지막 마이그레이션 배치 롤백
 php spark db:seed <Seeder>   # 시더 실행 (예: ProductSeeder, PostSeeder)
 
 composer test                # PHPUnit
-composer analyse             # PHPStan (레벨 5)
+composer analyse             # PHPStan (레벨 6)
 composer cs                  # 코드 스타일 검사 (PHP-CS-Fixer, dry-run)
 composer cs-fix              # 코드 스타일 자동 수정
 composer rector              # 리팩토링 미리보기 (dry-run)
