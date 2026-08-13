@@ -18,6 +18,11 @@ $statusBadge = [
     'expired'           => ['secondary',  '만료'],
     'refund_requested'  => ['warning',    '환불 요청'],   // 대기/주의(입금대기와 같은 뜻)
     'refunded'          => ['dark',       '환불 완료'],
+    'return_requested'  => ['warning',    '반품 요청'],   // 처리 대기
+    'return_approved'   => ['info',       '반품 승인'],   // 처리 중
+    'exchange_requested' => ['warning',   '교환 요청'],   // 처리 대기
+    'exchange_approved'  => ['info',      '교환 승인'],   // 처리 중
+    'exchange_completed' => ['dark',      '교환 완료'],   // 종료(초록은 배송완료 전용)
 ];
 ?>
 

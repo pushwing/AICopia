@@ -47,6 +47,26 @@ class OrderModel extends Model
     ];
 
     /**
+     * 주문 목록 상태 필터의 매크로 그룹 → 실제 상태 집합 매핑(단일 소스).
+     *
+     * 고객은 세분화된 내부 상태(입금대기·결제완료·배송준비…)를 라이프사이클 단계로
+     * 인지하므로, 목록 탭은 5개 그룹으로 묶는다(전체는 빈 문자열로 별도 처리).
+     * 키는 목록 탭의 status 파라미터 값이고, 표시 라벨은 MyPageController::STATUS_TABS 가 갖는다.
+     *
+     * @var array<string, list<string>>
+     */
+    public const array STATUS_GROUPS = [
+        'ready'     => ['awaiting_payment', 'paid', 'preparing'],
+        'shipped'   => ['shipped'],
+        'delivered' => ['delivered'],
+        'closed'    => [
+            'cancelled', 'expired', 'refund_requested', 'refunded',
+            'return_requested', 'return_approved',
+            'exchange_requested', 'exchange_approved', 'exchange_completed',
+        ],
+    ];
+
+    /**
      * 실결제 금액이 주문 가능한 값인지 검증한다.
      *
      * payable_amount 가 0 인 주문(100% 할인 쿠폰·포인트 전액 사용)은 PG 를 거치지
@@ -1255,15 +1275,18 @@ class OrderModel extends Model
         }
 
         if ($status !== '') {
-            if ($status === 'cancel') {
-                $builder->whereIn('status', ['cancelled', 'expired', 'refunded', 'refund_requested']);
+            // 매크로 그룹(ready·shipped·delivered·closed)은 상태 집합으로 확장한다.
+            $group = self::STATUS_GROUPS[$status] ?? null;
+            if ($group !== null) {
+                $builder->whereIn('status', $group);
             } else {
+                // 알 수 없는 status 값(레거시 북마크 등)은 단일 상태로 처리 — 사실상 결과 없음.
                 $builder->where('status', $status);
             }
         } else {
             // "전체" 탭 기본 조회에서는 결제가 확정되지 않은 주문을 제외한다.
             // 신규 주문은 order_attempts 에 쌓이므로 여기 걸리는 건 레거시 행뿐이다.
-            // 만료 주문은 "취소/환불" 탭(status=cancel)에서 계속 확인 가능하다. (이슈 #214)
+            // 만료 주문은 "취소·반품·교환" 탭(status=closed)에서 계속 확인 가능하다. (이슈 #214)
             $builder->whereNotIn('status', ['pending', 'expired']);
         }
 

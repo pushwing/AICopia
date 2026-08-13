@@ -20,14 +20,14 @@ class MyPageController extends BaseController
     private readonly WishlistModel        $wishlistModel;
 
     // 상태 탭 정의 — key: 쿼리 파라미터 값, label: 표시명
+    // 주문 목록 상태 탭 — 고객이 인지하는 라이프사이클 5단계로 묶는다.
+    // 키는 OrderModel::STATUS_GROUPS 와 일치(전체는 빈 문자열). 세부 상태는 카드 배지로 구분한다.
     private const array STATUS_TABS = [
-        ''                  => '전체',
-        'awaiting_payment'  => '입금대기',
-        'paid'              => '결제완료',
-        'preparing'         => '배송준비',
-        'shipped'           => '배송중',
-        'delivered'         => '배송완료',
-        'cancel'            => '취소/환불',
+        ''          => '전체',
+        'ready'     => '준비중',
+        'shipped'   => '배송중',
+        'delivered' => '배송완료',
+        'closed'    => '취소·반품·교환',
     ];
 
     public function __construct()
