@@ -170,92 +170,16 @@
 
             <!-- 상품 그리드 -->
             <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
-                <?php foreach ($items as $p):
-                    $isSoldOut = $p['status'] === 'sold_out' || $p['stock'] == 0;
-                    $displayPrice = $p['discount_price'] ?? $p['price'];
-                    $hasDiscount  = $p['discount_price'] !== null;
-                ?>
-                <div class="col">
-                    <div class="card h-100 product-card position-relative">
-                        <!-- 찜 버튼 -->
-                        <?php $isWishedItem = in_array((int) $p['id'], $wishedIds ?? [], true); ?>
-                        <button class="btn-wish position-absolute btn btn-sm"
-                                style="top:6px;right:6px;z-index:2;padding:2px 6px;background:rgba(255,255,255,.92);border:none;box-shadow:0 1px 3px rgba(0,0,0,.18)"
-                                data-slug="<?= esc($p['slug']) ?>"
-                                data-csrf="<?= csrf_token() ?>"
-                                data-csrf-val="<?= csrf_hash() ?>"
-                                data-loggedin="<?= session()->get('user_id') ? 'true' : 'false' ?>"
-                                aria-pressed="<?= $isWishedItem ? 'true' : 'false' ?>"
-                                aria-label="<?= $isWishedItem ? '찜 해제' : '찜하기' ?>"
-                                title="<?= $isWishedItem ? '찜 해제' : '찜하기' ?>">
-                            <i class="bi <?= $isWishedItem ? 'bi-heart-fill' : 'bi-heart' ?> text-danger"></i>
-                        </button>
-                        <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark flex-grow-1">
-                            <!-- 이미지 -->
-                            <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
-                                <?php if ($p['primary_image']): ?>
-                                <img src="<?= esc($p['primary_image']) ?>" alt="<?= esc($p['name']) ?>"
-                                     style="width:100%;height:100%;object-fit:cover"
-                                     loading="lazy">
-                                <?php else: ?>
-                                <div class="d-flex align-items-center justify-content-center h-100 text-muted">
-                                    <i class="bi bi-image fs-1"></i>
-                                </div>
-                                <?php endif; ?>
-                                <!-- 품절 배지 -->
-                                <?php if ($isSoldOut): ?>
-                                <div class="product-soldout-scrim">
-                                    <span class="badge bg-dark fs-6">품절</span>
-                                </div>
-                                <?php endif; ?>
-                                <!-- 할인율 배지 -->
-                                <?php if ($hasDiscount && ! $isSoldOut):
-                                    $rate = round((1 - $p['discount_price'] / $p['price']) * 100);
-                                ?>
-                                <span class="badge bg-danger position-absolute" style="top:8px;left:8px"><?= $rate ?>%</span>
-                                <?php endif; ?>
-                            </div>
-                            <!-- 정보 -->
-                            <div class="card-body p-2">
-                                <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                                <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
-                                <div class="mt-1">
-                                    <?php if ($hasDiscount): ?>
-                                    <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
-                                    <span class="text-danger fw-bold ms-1"><?= number_format($displayPrice) ?>원</span>
-                                    <?php else: ?>
-                                    <span class="fw-bold"><?= number_format($displayPrice) ?>원</span>
-                                    <?php endif; ?>
-                                </div>
-                                <!-- 배송비 뱃지 -->
-                                <?php if ($p['shipping_type'] === 'free'): ?>
-                                <span class="badge bg-light text-success border border-success small mt-1">무료배송</span>
-                                <?php elseif ($p['shipping_type'] === 'conditional'): ?>
-                                <span class="badge bg-light text-secondary border small mt-1"><?= number_format((int)$p['free_threshold']) ?>원 이상 무료</span>
-                                <?php endif; ?>
-                            </div>
-                        </a>
-                        <!-- 빠른 장바구니 -->
-                        <?php if (! $isSoldOut): ?>
-                            <?php if ($p['has_options']): ?>
-                            <a href="/shop/<?= esc($p['slug']) ?>"
-                               class="btn btn-sm btn-outline-secondary w-100 py-2"
-                               style="border-radius:0 0 calc(.75rem - 1px) calc(.75rem - 1px)">
-                                <i class="bi bi-bag"></i> 옵션 선택
-                            </a>
-                            <?php else: ?>
-                            <button type="button"
-                                    class="btn btn-sm btn-primary w-100 py-2 btn-quick-cart"
-                                    style="border-radius:0 0 calc(.75rem - 1px) calc(.75rem - 1px)"
-                                    data-product-id="<?= $p['id'] ?>"
-                                    data-csrf="<?= csrf_token() ?>"
-                                    data-csrf-val="<?= csrf_hash() ?>">
-                                <i class="bi bi-cart-plus"></i> 담기
-                            </button>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
+                <?php foreach ($items as $p): ?>
+                <?= view('shop/components/product_card', [
+                    'p'             => $p,
+                    'card_category' => true,
+                    'card_badgePos' => 'left',
+                    'card_shipping' => 'full',
+                    'card_wish'     => 'toggle',
+                    'card_wishedIds' => $wishedIds ?? [],
+                    'card_action'   => 'quick',
+                ]) ?>
                 <?php endforeach; ?>
             </div>
 
