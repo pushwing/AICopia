@@ -268,7 +268,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
 
         if (! holder.children.length) {
             e.preventDefault();
-            alert('주문할 상품을 선택해주세요.');
+            toast('주문할 상품을 선택해주세요.', 'warning');
         }
     });
 
