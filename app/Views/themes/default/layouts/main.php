@@ -55,6 +55,27 @@
 
 <?= $this->include('components/footer') ?>
 
+<?php /* ─── 공용 토스트/확인 모달 (네이티브 alert/confirm 대체) ───
+        window.toast(message, type) 와 window.confirmDialog(opts)->Promise 가
+        이 컨테이너를 사용한다. 정의는 main.js. */ ?>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer" style="z-index:1090"></div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true" aria-labelledby="confirmModalTitle">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalTitle" data-confirm-title>확인</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body" data-confirm-message style="white-space:pre-line"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-confirm-cancel>취소</button>
+                <button type="button" class="btn btn-primary" data-confirm-ok>확인</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/themes/default/js/main.js"></script>
 <?= $this->renderSection('scripts') ?>

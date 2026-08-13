@@ -201,6 +201,12 @@ Bootstrap의 `.container`·플렉스 그리드·반응형 유틸리티를 그대
 - 데스크톱: `position:sticky; top:1rem` 세로 `list-group`.
 - 모바일(<992px): `card-header` 숨김 + 3열 그리드, 아이콘 위·라벨 아래 스택, 셀 사이 세로 구분선(3n마다 제거).
 
+### Shared Feedback (Toast · Confirm Modal) — signature
+네이티브 `alert()`·`confirm()`을 대체하는 공용 피드백. 레이아웃(`layouts/main.php`)의 `#toastContainer`·`#confirmModal` 스켈레톤을 테마 JS(`main.js`)의 두 API가 재사용한다.
+- **Toast** — `window.toast(message, type)`. 우하단(`toast-container bottom-0 end-0`, z-index 1090) Bootstrap Toast, 3초 후 자동 소멸. 색은 시맨틱(`success`=녹, `error`/`danger`=빨, `warning`=주황, 기본 `info`=`text-bg-dark`). `role=status`·`aria-live=polite`. 메시지는 `textContent`(XSS 안전). 비차단 결과 알림에 쓴다.
+- **Confirm Modal** — `window.confirmDialog({title, message, confirmText, cancelText, danger}) → Promise<boolean>`. 중앙정렬 flat 모달, 확인=`btn-primary`(파괴 액션이면 `danger:true`로 `btn-danger`), 취소/백드롭/ESC → `false`, 확인 → `true`. 파괴 액션은 `message`에 대상(주문번호 등)을 명시해 오조작을 막는다(줄바꿈 지원).
+- 컨테이너/Bootstrap 미가용 시 각각 `alert()`·`confirm()`로 폴백한다.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -210,6 +216,7 @@ Bootstrap의 `.container`·플렉스 그리드·반응형 유틸리티를 그대
 - **Do** 로고·사이트명·색·연락처를 `settings`/DB에서 주입받는 전제로 만든다. 값이 비었을 때(빈 상태)도 레이아웃이 무너지지 않게 한다.
 - **Do** 카드 `.75rem`·배지 pill·헤어라인 경계의 형태 언어를 지킨다.
 - **Do** 플렉스 본문에 `.min-w-0`, 긴 상품명에 `.text-clamp-2`를 적용해 가로 넘침을 막는다.
+- **Do** 결과 알림·확인은 공용 `window.toast()`·`window.confirmDialog()`를 쓴다(위 Shared Feedback). 파괴 액션의 confirm에는 대상(주문번호 등)을 명시한다.
 
 ### Don't:
 - **Don't** 기본 테마를 특정 클라이언트 브랜드 색으로 물들이지 않는다(`The Empty-Brand Rule`). retint·브랜드 표현은 **파생 테마(dark/spring 등)와 `settings`**에서 한다. default는 재색칠 가능한 중립 캔버스로 남긴다.
@@ -217,3 +224,4 @@ Bootstrap의 `.container`·플렉스 그리드·반응형 유틸리티를 그대
 - **Don't** 서체를 여러 개 섞지 않는다(`The One-Typeface Rule`). 위계는 굵기·크기로만.
 - **Don't** 코어 뷰(`app/Views/shop/**`)의 구조를 특정 납품처에 맞춰 하드코딩하지 않는다 — 표현 차이는 테마 오버라이드로.
 - **Don't** 모바일에서 가로 스크롤 탭(nowrap + overflow-x) 메뉴를 만들지 않는다 — 페이지 전체 가로 넘침을 유발한다(마이페이지 사이드바 주석 참조).
+- **Don't** 네이티브 `alert()`·`confirm()`을 직접 쓰지 않는다 — 무스타일·모바일 비친화·비접근성. 공용 `toast()`·`confirmDialog()`로 대체한다(폴백으로만 허용).

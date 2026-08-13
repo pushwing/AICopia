@@ -192,61 +192,77 @@ $statusBadge = [
 (function () {
     document.querySelectorAll('.btn-cancel').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            var orderNo = btn.dataset.orderNumber ? '[' + btn.dataset.orderNumber + '] ' : '';
-            if (! confirm(orderNo + '주문을 취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다.')) return;
+            var orderNo = btn.dataset.orderNumber || '';
+            confirmDialog({
+                title:       '주문 취소',
+                message:     (orderNo ? '[' + orderNo + ']\n' : '') + '이 주문을 취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다.',
+                confirmText: '주문 취소',
+                cancelText:  '닫기',
+                danger:      true
+            }).then(function (ok) {
+                if (! ok) return;
 
-            const orderId = btn.dataset.orderId;
-            const body    = new FormData();
-            body.append(btn.dataset.csrf, btn.dataset.csrfVal);
-            body.append('order_id', orderId);
+                const body = new FormData();
+                body.append(btn.dataset.csrf, btn.dataset.csrfVal);
+                body.append('order_id', btn.dataset.orderId);
 
-            btn.disabled    = true;
-            btn.textContent = '처리 중...';
+                btn.disabled    = true;
+                btn.textContent = '처리 중...';
 
-            fetch('/mypage/orders/cancel', { method: 'POST', body })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert(data.message || '취소에 실패했습니다.');
+                fetch('/mypage/orders/cancel', { method: 'POST', body })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            toast('주문이 취소되었습니다.', 'success');
+                            // full reload 대신 해당 카드만 제자리 제거(스크롤·필터 컨텍스트 유지)
+                            var card = btn.closest('.card');
+                            if (card) card.remove();
+                        } else {
+                            toast(data.message || '취소에 실패했습니다.', 'error');
+                            btn.disabled    = false;
+                            btn.textContent = '주문 취소';
+                        }
+                    })
+                    .catch(function () {
+                        toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
                         btn.disabled    = false;
                         btn.textContent = '주문 취소';
-                    }
-                })
-                .catch(function () {
-                    alert('오류가 발생했습니다. 다시 시도해주세요.');
-                    btn.disabled    = false;
-                    btn.textContent = '주문 취소';
-                });
+                    });
+            });
         });
     });
 })();
 
 document.querySelectorAll('.btn-reorder').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (! confirm('해당 주문의 상품을 장바구니에 담으시겠습니까?')) return;
-        var body = new FormData();
-        body.append(btn.dataset.csrf, btn.dataset.csrfVal);
-        body.append('order_id', btn.dataset.orderId);
-        btn.disabled = true;
-        fetch('/mypage/orders/reorder', { method: 'POST', body: body })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                alert(data.message);
-                if (data.success) {
-                    var badge = document.getElementById('cartBadge');
-                    if (badge) {
-                        badge.textContent   = data.cartCount;
-                        badge.style.display = data.cartCount > 0 ? '' : 'none';
+        confirmDialog({
+            title:       '재주문',
+            message:     '이 주문의 상품을 장바구니에 담으시겠습니까?',
+            confirmText: '장바구니에 담기'
+        }).then(function (ok) {
+            if (! ok) return;
+            var body = new FormData();
+            body.append(btn.dataset.csrf, btn.dataset.csrfVal);
+            body.append('order_id', btn.dataset.orderId);
+            btn.disabled = true;
+            fetch('/mypage/orders/reorder', { method: 'POST', body: body })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    toast(data.message, data.success ? 'success' : 'error');
+                    if (data.success) {
+                        var badge = document.getElementById('cartBadge');
+                        if (badge) {
+                            badge.textContent   = data.cartCount;
+                            badge.style.display = data.cartCount > 0 ? '' : 'none';
+                        }
                     }
-                }
-                btn.disabled = false;
-            })
-            .catch(function () {
-                alert('오류가 발생했습니다. 다시 시도해주세요.');
-                btn.disabled = false;
-            });
+                    btn.disabled = false;
+                })
+                .catch(function () {
+                    toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
+                    btn.disabled = false;
+                });
+        });
     });
 });
 </script>

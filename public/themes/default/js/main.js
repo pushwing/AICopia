@@ -114,3 +114,89 @@
         }
     });
 })();
+
+// ─── 공용 토스트 (네이티브 alert 대체) ──────────────────────────────────────
+// window.toast(message, type) — type: success | error/danger | warning | info(기본)
+// 우하단 컨테이너(#toastContainer)에 Bootstrap Toast 를 띄운다.
+// 메시지는 textContent 로 넣어 XSS 안전. 컨테이너/Bootstrap 이 없으면 alert 폴백.
+window.toast = function (message, type) {
+    var container = document.getElementById('toastContainer');
+    if (! container || typeof bootstrap === 'undefined') { alert(message); return; }
+
+    var clsMap = {
+        success: 'text-bg-success',
+        error:   'text-bg-danger',
+        danger:  'text-bg-danger',
+        warning: 'text-bg-warning',
+        info:    'text-bg-dark'
+    };
+    var cls = clsMap[type] || 'text-bg-dark';
+
+    var el = document.createElement('div');
+    el.className = 'toast align-items-center border-0 ' + cls;
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-atomic', 'true');
+
+    var flex = document.createElement('div');
+    flex.className = 'd-flex';
+
+    var body = document.createElement('div');
+    body.className = 'toast-body';
+    body.textContent = message;
+
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'btn-close me-2 m-auto' + (cls === 'text-bg-warning' ? '' : ' btn-close-white');
+    close.setAttribute('data-bs-dismiss', 'toast');
+    close.setAttribute('aria-label', '닫기');
+
+    flex.appendChild(body);
+    flex.appendChild(close);
+    el.appendChild(flex);
+    container.appendChild(el);
+
+    var t = new bootstrap.Toast(el, { delay: 3000 });
+    el.addEventListener('hidden.bs.toast', function () { el.remove(); });
+    t.show();
+};
+
+// ─── 공용 확인 모달 (네이티브 confirm 대체, Promise<boolean> 반환) ────────────
+// window.confirmDialog({ title, message, confirmText, cancelText, danger }).then(ok => ...)
+// #confirmModal 스켈레톤(레이아웃)을 재사용. 없으면 window.confirm 폴백.
+window.confirmDialog = function (opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+        var modalEl = document.getElementById('confirmModal');
+        if (! modalEl || typeof bootstrap === 'undefined') {
+            resolve(window.confirm(opts.message || '진행하시겠습니까?'));
+            return;
+        }
+
+        modalEl.querySelector('[data-confirm-title]').textContent   = opts.title   || '확인';
+        modalEl.querySelector('[data-confirm-message]').textContent = opts.message || '';
+
+        var okBtn     = modalEl.querySelector('[data-confirm-ok]');
+        var cancelBtn = modalEl.querySelector('[data-confirm-cancel]');
+        okBtn.textContent     = opts.confirmText || '확인';
+        cancelBtn.textContent = opts.cancelText || '취소';
+        okBtn.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+
+        var modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+        var settled = false;
+
+        function finish(result) {
+            if (settled) return;
+            settled = true;
+            okBtn.removeEventListener('click', onOk);
+            modalEl.removeEventListener('hidden.bs.modal', onHidden);
+            resolve(result);
+        }
+        function onOk()     { modal.hide(); finish(true); }
+        function onHidden() { finish(false); }
+
+        okBtn.addEventListener('click', onOk);
+        modalEl.addEventListener('hidden.bs.modal', onHidden);
+        modal.show();
+    });
+};
