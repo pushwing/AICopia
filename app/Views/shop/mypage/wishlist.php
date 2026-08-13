@@ -23,60 +23,15 @@
     <?php else: ?>
 
     <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3">
-        <?php foreach ($items as $p):
-            $isSoldOut    = $p['status'] === 'sold_out' || (int) $p['stock'] === 0;
-            $displayPrice = $p['discount_price'] ?? $p['price'];
-            $hasDiscount  = $p['discount_price'] !== null;
-        ?>
-        <div class="col" id="wish-item-<?= (int) $p['id'] ?>">
-            <div class="card h-100 product-card position-relative">
-                <!-- 찜 해제 버튼 -->
-                <button class="btn-wish-remove btn btn-sm position-absolute"
-                        style="top:6px;right:6px;z-index:2;padding:2px 6px;background:rgba(255,255,255,.85);border:none"
-                        data-slug="<?= esc($p['slug']) ?>"
-                        data-item="<?= (int) $p['id'] ?>"
-                        data-csrf="<?= csrf_token() ?>"
-                        data-csrf-val="<?= csrf_hash() ?>"
-                        title="찜 해제">
-                    <i class="bi bi-heart-fill text-danger"></i>
-                </button>
-                <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
-                    <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
-                        <?php if (! empty($p['primary_image'])): ?>
-                        <?php /* primary_image 는 모델에서 base_url() 로 만든 절대 URL 이므로 그대로 사용 */ ?>
-                        <img src="<?= esc($p['primary_image']) ?>"
-                             alt="<?= esc($p['name']) ?>"
-                             style="width:100%;height:100%;object-fit:cover"
-                             loading="lazy">
-                        <?php else: ?>
-                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
-                            <i class="bi bi-image fs-1"></i>
-                        </div>
-                        <?php endif; ?>
-                        <?php if ($isSoldOut): ?>
-                        <div class="position-absolute inset-0 d-flex align-items-center justify-content-center"
-                             style="background:rgba(0,0,0,.4)">
-                            <span class="badge bg-dark fs-6">품절</span>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    <div class="card-body p-2">
-                        <div class="fw-semibold text-truncate fs-compact"><?= esc($p['name']) ?></div>
-                        <div class="mt-1">
-                            <?php if ($hasDiscount): ?>
-                            <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
-                            <span class="text-danger fw-bold ms-1"><?= number_format($displayPrice) ?>원</span>
-                            <?php else: ?>
-                            <span class="fw-bold"><?= number_format($displayPrice) ?>원</span>
-                            <?php endif; ?>
-                        </div>
-                        <?php if ($p['shipping_type'] === 'free'): ?>
-                        <span class="badge bg-light text-success border border-success small mt-1">무료배송</span>
-                        <?php endif; ?>
-                    </div>
-                </a>
-            </div>
-        </div>
+        <?php foreach ($items as $p): ?>
+        <?php /* 찜 목록: 할인 배지·카테고리 없이, 찜 해제 버튼 + 무료배송 배지만 노출 */ ?>
+        <?= view('shop/components/product_card', [
+            'p'                 => $p,
+            'card_discountBadge' => false,
+            'card_shipping'     => 'free',
+            'card_wish'         => 'remove',
+            'card_colId'        => 'wish-item-' . (int) $p['id'],
+        ]) ?>
         <?php endforeach; ?>
     </div>
 
