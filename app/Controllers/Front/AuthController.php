@@ -30,17 +30,24 @@ class AuthController extends BaseController
 
         // 로그인이 필요 없는 화면(상품 목록의 찜 버튼, 상단 로그인 버튼 등)에서
         // AuthFilter를 거치지 않고 곧장 /auth/login으로 이동한 경우 Referer로
-        // 원래 있던 페이지를 기억해둔다 (필터가 이미 저장한 값이 있으면 그대로 둔다).
-        if (! session()->getTempdata('redirect_url')) {
+        // 원래 있던 페이지를 기억해둔다.
+        // flashdata(다음 요청까지만 유지)를 쓰는 이유: tempdata처럼 TTL로 오래
+        // 남겨두면, 예전에 A 페이지에서 찜하기 → 로그인 취소 → B 페이지에서
+        // 다시 찜하기를 눌러도 A가 "이미 저장된 값"으로 남아 덮어써지지 않고,
+        // 로그인 후 엉뚱한 A로 돌아가 버린다. flashdata는 이 로그인 흐름을
+        // 벗어나는 순간 자연히 사라지므로 그런 stale 값이 남지 않는다.
+        if (session()->getFlashdata('redirect_url')) {
+            session()->keepFlashdata('redirect_url');
+        } else {
             $referer = $this->request->getHeaderLine('Referer');
             // app.baseURL(copia.test 등)이 아니라 실제 접속 호스트(localhost:8420 등)와
             // 비교해야 한다 — 로컬 개발·포트포워딩 환경에서는 둘이 다를 수 있다.
-            $host      = $this->request->getServer('HTTP_HOST') ?: parse_url(base_url(), PHP_URL_HOST);
+            $host       = $this->request->getServer('HTTP_HOST') ?: parse_url(base_url(), PHP_URL_HOST);
             $refererUrl = parse_url($referer);
 
             if ($referer !== '' && $host && ($refererUrl['host'] ?? null) === parse_url('http://' . $host, PHP_URL_HOST)
                 && ! str_starts_with($refererUrl['path'] ?? '', '/auth')) {
-                session()->setTempdata('redirect_url', $referer, 300);
+                session()->setFlashdata('redirect_url', $referer);
             }
         }
 
@@ -49,6 +56,10 @@ class AuthController extends BaseController
 
     public function loginProcess(): \CodeIgniter\HTTP\RedirectResponse
     {
+        // 유효성 검사 실패·비밀번호 오류로 로그인 폼에 되돌아가는 동안에도
+        // redirect_url flashdata가 살아있게 매 시도마다 수명을 연장한다.
+        session()->keepFlashdata('redirect_url');
+
         $rules = [
             'email'    => 'required|valid_email',
             'password' => 'required|min_length[6]',
@@ -89,7 +100,7 @@ class AuthController extends BaseController
         // 비로그인 세션 카트를 DB 카트로 병합
         new CartModel()->mergeAndClear((int) $user['id']);
 
-        return redirect()->to(session()->getTempdata('redirect_url') ?? '/');
+        return redirect()->to(session()->getFlashdata('redirect_url') ?? '/');
     }
 
     public function logout(): \CodeIgniter\HTTP\RedirectResponse

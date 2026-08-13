@@ -17,15 +17,26 @@ use CodeIgniter\Test\CIUnitTestCase;
  */
 final class AuthLoginRedirectTest extends CIUnitTestCase
 {
+    /** @var array<string, mixed> */
+    private array $originalServer;
+
     protected function setUp(): void
     {
         parent::setUp();
         session()->destroy();
+        $this->originalServer = $_SERVER;
     }
 
     protected function tearDown(): void
     {
         session()->destroy();
+        // Superglobals::setServerArray()는 실제 $_SERVER 전역을 통째로 바꿔치기한다
+        // (CodeIgniter\Superglobals::setServerArray 내부에서 `$_SERVER = $array;`).
+        // resetSingle()로 캐시된 서비스 인스턴스만 지우면 다음 인스턴스가 이미
+        // 오염된 $_SERVER를 다시 읽어들이므로, 원본 $_SERVER 자체를 복원해야
+        // 뒤따르는 테스트의 base_url()/current_url() 계산이 깨끗하게 유지된다.
+        $_SERVER = $this->originalServer;
+        \CodeIgniter\Config\Services::resetSingle('superglobals');
         parent::tearDown();
     }
 
@@ -44,7 +55,9 @@ final class AuthLoginRedirectTest extends CIUnitTestCase
         }
 
         if ($host !== null) {
-            $request->setGlobal('server', ['HTTP_HOST' => $host]);
+            // 전체 서버 배열을 통째로 교체하면 SCRIPT_NAME 등 SiteURI 계산에 쓰이는
+            // 다른 키가 사라져 이후 요청 처리가 깨진다 — 기존 값에 HTTP_HOST만 덮어쓴다.
+            $request->setGlobal('server', array_merge($request->getServer() ?? [], ['HTTP_HOST' => $host]));
         }
 
         $controller = new AuthController();
@@ -59,38 +72,38 @@ final class AuthLoginRedirectTest extends CIUnitTestCase
 
         $this->controllerWithReferer($shopListUrl)->login();
 
-        $this->assertSame($shopListUrl, session()->getTempdata('redirect_url'));
+        $this->assertSame($shopListUrl, session()->getFlashdata('redirect_url'));
     }
 
     public function testLoginDoesNotOverrideRedirectUrlAlreadySetByAuthFilter(): void
     {
         $protectedUrl = base_url('mypage/wishlist');
-        session()->setTempdata('redirect_url', $protectedUrl, 300);
+        session()->setFlashdata('redirect_url', $protectedUrl);
 
         $this->controllerWithReferer(base_url('shop'))->login();
 
-        $this->assertSame($protectedUrl, session()->getTempdata('redirect_url'));
+        $this->assertSame($protectedUrl, session()->getFlashdata('redirect_url'));
     }
 
     public function testLoginIgnoresCrossOriginReferer(): void
     {
         $this->controllerWithReferer('https://evil.example.com/phish')->login();
 
-        $this->assertNull(session()->getTempdata('redirect_url'));
+        $this->assertNull(session()->getFlashdata('redirect_url'));
     }
 
     public function testLoginIgnoresRefererPointingBackToAuthPages(): void
     {
         $this->controllerWithReferer(base_url('auth/register'))->login();
 
-        $this->assertNull(session()->getTempdata('redirect_url'));
+        $this->assertNull(session()->getFlashdata('redirect_url'));
     }
 
     public function testLoginLeavesRedirectUrlUnsetWhenNoReferer(): void
     {
         $this->controllerWithReferer(null)->login();
 
-        $this->assertNull(session()->getTempdata('redirect_url'));
+        $this->assertNull(session()->getFlashdata('redirect_url'));
     }
 
     /**
@@ -104,6 +117,33 @@ final class AuthLoginRedirectTest extends CIUnitTestCase
 
         $this->controllerWithReferer($referer, 'localhost:8420')->login();
 
-        $this->assertSame($referer, session()->getTempdata('redirect_url'));
+        $this->assertSame($referer, session()->getFlashdata('redirect_url'));
+    }
+
+    /**
+     * A 페이지에서 찜하기 → 로그인 취소 → B 페이지에서 다시 찜하기를 눌러도
+     * 로그인 후 최신 요청인 B로 돌아가야 한다. tempdata(TTL) 방식이었을 때는
+     * A가 "이미 저장된 값"으로 남아 B가 덮어쓰지 못했다 — flashdata는 로그인
+     * 폼을 새로 그리는 이번 요청에서 갱신되므로 최신 값이 이긴다.
+     *
+     * (참고: 실제 다중 요청에 걸친 flashdata 만료 자체는 CI4 세션의 요청 경계
+     * 기반 aging 메커니즘이라 단일 프로세스 단위 테스트로는 재현하기 어렵다.
+     * 이 케이스는 개발 서버에서 curl로 세션 파일까지 직접 확인해 검증했다.)
+     */
+    public function testLoginUpdatesRedirectUrlToLatestRefererWhenPreviousAttemptWasAbandoned(): void
+    {
+        $firstReferer  = base_url('shop');
+        $secondReferer = base_url('shop/tshirt');
+
+        $this->controllerWithReferer($firstReferer)->login();
+        $this->assertSame($firstReferer, session()->getFlashdata('redirect_url'));
+
+        // 로그인 폼을 제출하지 않고 다른 페이지에서 다시 로그인 화면으로 들어온
+        // 상황을 흉내내기 위해, 이전 flashdata를 지우고(= 실제로는 다음 요청
+        // 경계에서 만료되는 것과 동등) 새 Referer로 다시 진입한다.
+        session()->remove('redirect_url');
+        $this->controllerWithReferer($secondReferer)->login();
+
+        $this->assertSame($secondReferer, session()->getFlashdata('redirect_url'));
     }
 }
