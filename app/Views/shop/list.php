@@ -31,8 +31,14 @@
 
     <div class="row g-4">
 
-        <!-- 필터 사이드바 -->
+        <!-- 필터 사이드바 (모바일: 오프캔버스 서랍 / md+: 인라인 사이드바) -->
         <div class="col-lg-2 col-md-3">
+            <div class="offcanvas-md offcanvas-start" tabindex="-1" id="filterOffcanvas" aria-labelledby="filterOffcanvasLabel">
+                <div class="offcanvas-header d-md-none">
+                    <h5 class="offcanvas-title" id="filterOffcanvasLabel">필터 · 카테고리</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#filterOffcanvas" aria-label="닫기"></button>
+                </div>
+                <div class="offcanvas-body flex-column">
             <!-- 카테고리 -->
             <div class="list-group list-group-flush mb-3">
                 <a href="/shop" class="list-group-item list-group-item-action <?= ! $curCat ? 'active' : '' ?> py-2">
@@ -86,10 +92,18 @@
                     </div>
                 </div>
             </form>
+                </div><!-- /offcanvas-body -->
+            </div><!-- /offcanvas (md+ 인라인) -->
         </div>
 
         <!-- 상품 목록 -->
         <div class="col-lg-10 col-md-9">
+
+            <!-- 모바일 전용: 필터·카테고리 서랍 열기 -->
+            <button class="btn btn-outline-secondary w-100 d-md-none mb-3" type="button"
+                    data-bs-toggle="offcanvas" data-bs-target="#filterOffcanvas" aria-controls="filterOffcanvas">
+                <i class="bi bi-funnel"></i> 필터 · 카테고리
+            </button>
 
             <!-- 카테고리 소개 카피 (랜딩) -->
             <?php if (! empty($catLanding['description'])): ?>
