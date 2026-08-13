@@ -34,6 +34,16 @@ class AuthFilter implements FilterInterface
             return redirect()->to('/auth/login')->with('error', '로그인이 필요합니다.');
         }
 
+        // 관리자가 강제 탈퇴시킨 회원의 세션이 만료 전까지 살아있지 않도록,
+        // PK 단건 조회로 매 요청 탈퇴 여부를 확인한다(인덱스를 타는 조회라 부하가 작다).
+        $userId = (int) $session->get('user_id');
+        $user   = db_connect()->table('users')->select('withdrawn_at')->where('id', $userId)->get()->getRowArray();
+
+        if (is_array($user) && ! empty($user['withdrawn_at'])) {
+            $session->destroy();
+            return redirect()->to('/auth/login')->with('error', '탈퇴한 계정입니다.');
+        }
+
         if ($requiredRole === 'admin' && $session->get('user_role') !== 'admin') {
             return redirect()->back()->with('error', '접근 권한이 없습니다.');
         }
