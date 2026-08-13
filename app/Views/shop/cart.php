@@ -54,6 +54,8 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                  data-product-id="<?= (int) $item['product_id'] ?>"
                  data-sku-id="<?= (int) ($item['sku_id'] ?? 0) ?>"
                  data-price="<?= (int) $item['display_price'] ?>"
+                 data-shipping-type="<?= esc($item['shipping_type'], 'attr') ?>"
+                 data-free-threshold="<?= (int) ($item['free_threshold'] ?? 0) ?>"
                  <?php if ($isAddon): ?>data-parent-product-id="<?= (int) $item['parent_product_id'] ?>"<?php endif; ?>>
                 <div class="card-body py-3">
                     <?php /* 좁은 화면에서는 수량·삭제 묶음(고정폭)이 자리를 다 차지해
@@ -177,6 +179,8 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                         <span id="selectedTotal" class="fw-bold fs-5">0원</span>
                     </div>
 
+                    <?php // 선택 상품 기준 무료배송 진행 안내 — JS 가 선택/수량 변화에 맞춰 갱신한다. ?>
+                    <div id="freeShipHint" class="small mb-2"></div>
                     <div class="text-muted small mb-3">
                         <i class="bi bi-info-circle me-1"></i>배송비는 결제 시 확인됩니다.
                     </div>
@@ -226,6 +230,8 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
 
         let count = 0;
         let total = 0;
+        let anyFree = false;          // 무료배송 상품이 선택됐나 (있으면 전체 무료)
+        const thresholds = [];        // 선택된 조건부 상품들의 무료 기준액
         document.querySelectorAll('.cart-item').forEach(function (card) {
             const check = card.querySelector('.item-check');
             if (! check || ! check.checked) return;
@@ -233,10 +239,20 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
             const price = parseInt(card.dataset.price || 0);
             const qty   = parseInt(card.querySelector('.qty-input')?.value || 1);
             total += price * qty;
+
+            const shipType = card.dataset.shippingType || '';
+            if (shipType === 'free') {
+                anyFree = true;
+            } else if (shipType === 'conditional') {
+                const th = parseInt(card.dataset.freeThreshold || 0);
+                if (th > 0) thresholds.push(th);
+            }
         });
         countEl.textContent = count + '개';
         const totalStr = total.toLocaleString('ko-KR') + '원';
         document.getElementById('selectedTotal').textContent = totalStr;
+
+        updateFreeShipHint(count, total, anyFree, thresholds);
 
         const btn = document.getElementById('btnCheckout');
         if (btn) btn.disabled = (count === 0);
@@ -248,6 +264,30 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
         if (sc) sc.textContent = count + '개';
         if (st) st.textContent = totalStr;
         if (sb) sb.disabled = (count === 0);
+    }
+
+    // 선택 상품 기준 무료배송 진행 안내. 서버(calculateShippingFee/freeShippingHint)와 같은 규칙:
+    // 무료배송 상품이 있거나 조건부 기준을 충족하면 전체 무료, 아니면 가장 가까운 기준까지 남은 금액을 보여준다.
+    function updateFreeShipHint(count, total, anyFree, thresholds) {
+        const el = document.getElementById('freeShipHint');
+        if (! el) return;
+
+        if (count === 0) { el.className = 'small mb-2'; el.textContent = ''; return; }
+
+        const met = anyFree || thresholds.some(function (th) { return total >= th; });
+        if (met) {
+            el.className = 'small mb-2 text-success';
+            el.innerHTML = '<i class="bi bi-truck me-1"></i>무료배송 적용 중';
+            return;
+        }
+
+        const unmet = thresholds.filter(function (th) { return th > total; });
+        if (unmet.length === 0) { el.className = 'small mb-2'; el.textContent = ''; return; }
+
+        const nearest   = Math.min.apply(null, unmet);
+        const remaining = (nearest - total).toLocaleString('ko-KR');
+        el.className = 'small mb-2 text-success';
+        el.innerHTML = '<i class="bi bi-truck me-1"></i>무료배송까지 <b>' + remaining + '원</b>';
     }
 
     // 주문 폼 제출 — 체크된 카드의 cart id 를 hidden 으로 실어 보낸다.

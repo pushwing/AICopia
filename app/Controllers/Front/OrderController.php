@@ -83,6 +83,7 @@ class OrderController extends BaseController
         $totalProduct = ItemPricing::totalProductPrice($available);
 
         $shippingFee    = $this->orderModel->calculateShippingFee($available, $totalProduct);
+        $freeShipHint   = $this->orderModel->freeShippingHint($available, $totalProduct);
         $totalAmount    = $totalProduct + $shippingFee;
         $savedAddresses = $this->addressModel->getByUser($userId);
         $savedAddress   = $this->addressModel->getDefault($userId);
@@ -92,7 +93,7 @@ class OrderController extends BaseController
         $user         = \Config\Database::connect()->table('users')->select('point_balance')->where('id', $userId)->get()->getRow();
         $pointBalance = (int) ($user->point_balance ?? 0);
 
-        return $this->render('shop/checkout', ['available' => $available, 'totalProduct' => $totalProduct, 'shippingFee' => $shippingFee, 'totalAmount' => $totalAmount, 'savedAddresses' => $savedAddresses, 'savedAddress' => $savedAddress, 'pgProviders' => $pgProviders, 'userCoupons' => $userCoupons, 'pointBalance' => $pointBalance]);
+        return $this->render('shop/checkout', ['available' => $available, 'totalProduct' => $totalProduct, 'shippingFee' => $shippingFee, 'freeShipHint' => $freeShipHint, 'totalAmount' => $totalAmount, 'savedAddresses' => $savedAddresses, 'savedAddress' => $savedAddress, 'pgProviders' => $pgProviders, 'userCoupons' => $userCoupons, 'pointBalance' => $pointBalance]);
     }
 
     /**
