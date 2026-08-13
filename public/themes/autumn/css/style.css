@@ -1,0 +1,155 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Autumn Theme — AICopia 파생 테마 (가을)
+   중립 default(themes/default/css/style.css) 위에 얹는 "팔레트 리틴트" 레이어.
+   구조·컴포넌트·접근성은 default 를 그대로 상속하고, 색만 가을 톤으로 바꾼다.
+
+   팔레트: 번트 오렌지(브랜드) · 크림 종이(배경) · 웜 브라운(잉크) ·
+          하베스트 올리브(성공) · 딥 가을 레드(할인/위험) · 앰버 골드(포인트).
+   시맨틱 색은 "녹=성공 / 빨=할인·위험" 의미를 유지한 채 가을 채도로만 옮긴다.
+   모든 색은 아래 --au-* 토큰으로 일원화한다(리터럴 색 사용 금지).
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* ── 가을 팔레트 원색(단일 소스) ── */
+    --au-primary:      #c05621;   /* 번트 오렌지 — 브랜드/기본 액션 */
+    --au-primary-dk:   #a5471a;
+    --au-primary-dker: #8f3d16;
+    --au-primary-lt:   #d9a06b;   /* 아웃라인/포커스 보더 */
+    --au-link:         #b24e1c;
+    --au-amber:        #d98324;   /* 앰버 골드 포인트 */
+    --au-cream:        #fbf6ef;   /* 종이 배경 */
+    --au-cream-2:      #f5ecdf;   /* 은은한 서브 배경 */
+    --au-surface:      #fffdf9;   /* 카드/네비 웜 화이트 */
+    --au-ink:          #3a2d24;   /* 웜 브라운 잉크 */
+    --au-ink-dk:       #2c2019;
+    --au-ink-dker:     #241a14;
+    --au-border:       #ece0d2;   /* 웜 헤어라인 */
+    --au-olive:        #5f7d3a;   /* 하베스트 그린(성공) */
+    --au-olive-dk:     #516b31;
+    --au-red:          #b23a2e;   /* 딥 가을 레드(할인/위험) */
+    --au-red-dk:       #9c3227;
+    --au-footer-link:  #e0b483;   /* 어두운 푸터 위 밝은 웜 */
+    --au-shadow:       rgba(120, 72, 32, .16);
+    --au-focus:        rgba(192, 86, 33, .2);
+
+    /* ── 앱 커스텀 토큰(default 정의를 덮어씀) ── */
+    --primary:     var(--au-primary);
+    --dark:        var(--au-ink);
+    --ink-muted:   #8a7563;
+    --footer-link: var(--au-footer-link);
+
+    /* ── Bootstrap 5.3 런타임 변수 ── */
+    --bs-primary:          var(--au-primary);
+    --bs-primary-rgb:      192, 86, 33;
+    --bs-body-bg:          var(--au-cream);
+    --bs-body-color:       var(--au-ink);
+    --bs-emphasis-color:   var(--au-ink-dk);
+    --bs-border-color:     var(--au-border);
+    --bs-link-color:       var(--au-link);
+    --bs-link-color-rgb:   178, 78, 28;
+    --bs-link-hover-color: var(--au-primary-dker);
+    --bs-dark:             var(--au-ink);
+    --bs-dark-rgb:         58, 45, 36;
+}
+
+/* ─── 기본 표면 ───────────────────────────────────── */
+body {
+    background: var(--au-cream);
+    color: var(--au-ink);
+}
+.bg-light { background-color: var(--au-cream-2) !important; }
+
+/* ─── 내비게이션 ──────────────────────────────────── */
+.navbar {
+    background-color: var(--au-surface) !important;
+    border-bottom-color: var(--au-border);
+}
+.navbar-brand { color: var(--au-primary) !important; }
+
+/* ─── 카드 ────────────────────────────────────────── */
+.card {
+    background-color: var(--au-surface);
+    border-color: var(--au-border);
+}
+.product-card:hover { box-shadow: 0 6px 16px var(--au-shadow); }
+
+/* ─── 링크 ────────────────────────────────────────── */
+a { color: var(--au-link); }
+a:hover { color: var(--au-primary-dker); }
+
+/* ─── 기본 버튼(primary) ──────────────────────────── */
+.btn-primary {
+    --bs-btn-bg:                var(--au-primary);
+    --bs-btn-border-color:      var(--au-primary);
+    --bs-btn-hover-bg:          var(--au-primary-dk);
+    --bs-btn-hover-border-color: var(--au-primary-dk);
+    --bs-btn-active-bg:         var(--au-primary-dker);
+    --bs-btn-active-border-color: var(--au-primary-dker);
+    --bs-btn-disabled-bg:       var(--au-primary);
+    --bs-btn-disabled-border-color: var(--au-primary);
+}
+.btn-outline-primary {
+    --bs-btn-color:             var(--au-primary-dk);
+    --bs-btn-border-color:      var(--au-primary-lt);
+    --bs-btn-hover-bg:          var(--au-primary);
+    --bs-btn-hover-border-color: var(--au-primary);
+    --bs-btn-active-bg:         var(--au-primary-dk);
+    --bs-btn-active-border-color: var(--au-primary-dk);
+}
+.bg-primary      { background-color: var(--au-primary) !important; }
+.text-primary    { color: var(--au-primary-dk) !important; }
+.text-bg-primary { background-color: var(--au-primary) !important; color: #fff !important; }
+
+/* ─── dark 버튼·배경(푸터 등) → 웜 브라운 ──────────── */
+.btn-dark {
+    --bs-btn-bg:                var(--au-ink);
+    --bs-btn-border-color:      var(--au-ink);
+    --bs-btn-hover-bg:          var(--au-ink-dk);
+    --bs-btn-hover-border-color: var(--au-ink-dk);
+    --bs-btn-active-bg:         var(--au-ink-dker);
+}
+.bg-dark      { background-color: var(--au-ink) !important; }
+.text-bg-dark { background-color: var(--au-ink) !important; }
+
+/* ─── 폼 포커스 링(웜) ────────────────────────────── */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--au-primary-lt);
+    box-shadow: 0 0 0 .25rem var(--au-focus);
+}
+.form-check-input:checked {
+    background-color: var(--au-primary);
+    border-color: var(--au-primary);
+}
+
+/* ─── 시맨틱: 성공(하베스트 올리브) — 여전히 '녹=성공' ─ */
+.btn-success {
+    --bs-btn-bg:                var(--au-olive);
+    --bs-btn-border-color:      var(--au-olive);
+    --bs-btn-hover-bg:          var(--au-olive-dk);
+    --bs-btn-hover-border-color: var(--au-olive-dk);
+    --bs-btn-active-bg:         var(--au-olive-dk);
+}
+.text-success   { color: var(--au-olive) !important; }
+.bg-success     { background-color: var(--au-olive) !important; }
+.border-success { border-color: var(--au-olive) !important; }
+
+/* ─── 시맨틱: 할인·위험(딥 가을 레드) — 여전히 '빨=할인/위험' ─ */
+.text-danger { color: var(--au-red) !important; }
+.bg-danger,
+.badge.bg-danger { background-color: var(--au-red) !important; }
+.btn-danger {
+    --bs-btn-bg:                var(--au-red);
+    --bs-btn-border-color:      var(--au-red);
+    --bs-btn-hover-bg:          var(--au-red-dk);
+    --bs-btn-hover-border-color: var(--au-red-dk);
+}
+.btn-outline-danger {
+    --bs-btn-color:             var(--au-red);
+    --bs-btn-border-color:      var(--au-red);
+    --bs-btn-hover-bg:          var(--au-red);
+    --bs-btn-hover-border-color: var(--au-red);
+}
+
+/* 결제수단 브랜드 칩(.pg-chip)은 각 PG 고유색이라 테마와 무관하게 default 를 그대로 상속한다. */
