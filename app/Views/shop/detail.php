@@ -721,7 +721,7 @@ document.getElementById('addonListArea')?.addEventListener('click', function (e)
         const selected = Array.from(selects).map(function (s) { return parseInt(s.value) || 0; });
 
         if (selected.length === 0 || selected.some(function (v) { return v === 0; })) {
-            alert('옵션을 선택해주세요.');
+            toast('옵션을 선택해주세요.', 'warning');
             return;
         }
 
@@ -731,11 +731,11 @@ document.getElementById('addonListArea')?.addEventListener('click', function (e)
         });
 
         if (! sku) {
-            alert('해당 옵션 조합은 준비 중입니다.');
+            toast('해당 옵션 조합은 준비 중입니다.', 'warning');
             return;
         }
         if (sku.stock < 1) {
-            alert('품절된 옵션입니다.');
+            toast('품절된 옵션입니다.', 'warning');
             return;
         }
 
@@ -963,7 +963,7 @@ function addToCart(btn, onSuccess) {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.skipped && data.skipped.length > 0) {
-                alert(data.skipped.join('\n'));
+                toast(data.skipped.join('\n'), 'warning');
             }
             if (data.success) {
                 // 네비바 장바구니 뱃지 업데이트
@@ -976,12 +976,12 @@ function addToCart(btn, onSuccess) {
                 renderSelectedAddons();
                 onSuccess(data);
             } else {
-                alert(data.message);
+                toast(data.message, 'error');
                 btn.disabled = false;
             }
         })
         .catch(function () {
-            alert('오류가 발생했습니다. 다시 시도해주세요.');
+            toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
             btn.disabled = false;
         });
 }
@@ -1075,13 +1075,13 @@ document.querySelectorAll('[data-goto-tab]').forEach(function (el) {
 
 document.getElementById('btnReviewSubmit')?.addEventListener('click', function () {
     const rating = parseInt(document.getElementById('reviewRating')?.value ?? '0', 10) || 0;
-    if (rating < 1 || rating > 5) { alert('별점을 선택해주세요.'); return; }
+    if (rating < 1 || rating > 5) { toast('별점을 선택해주세요.', 'warning'); return; }
 
     const content = (document.getElementById('reviewContent')?.value ?? '').trim();
-    if (! content) { alert('리뷰 내용을 입력해주세요.'); return; }
+    if (! content) { toast('리뷰 내용을 입력해주세요.', 'warning'); return; }
 
     const files = document.getElementById('reviewImages')?.files ?? [];
-    if (files.length > 3) { alert('이미지는 최대 3장까지 첨부할 수 있습니다.'); return; }
+    if (files.length > 3) { toast('이미지는 최대 3장까지 첨부할 수 있습니다.', 'warning'); return; }
 
     const fd = new FormData();
     fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
@@ -1091,23 +1091,29 @@ document.getElementById('btnReviewSubmit')?.addEventListener('click', function (
 
     fetch('/shop/<?= esc($product['slug']) ?>/review', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
-        .then(function (data) { alert(data.message); if (data.success) location.reload(); })
-        .catch(function () { alert('오류가 발생했습니다.'); });
+        .then(function (data) { toast(data.message, data.success ? 'success' : 'error'); if (data.success) location.reload(); })
+        .catch(function () { toast('오류가 발생했습니다.', 'error'); });
 });
 
 document.querySelectorAll('.btn-review-delete').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (! confirm('리뷰를 삭제하시겠습니까? 지급된 포인트도 회수됩니다.')) return;
-        const fd = new FormData();
-        fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
-        fetch('/shop/<?= esc($product['slug']) ?>/review/' + btn.dataset.id + '/delete',
-              { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.success) location.reload();
-                else alert(data.message || '삭제에 실패했습니다.');
-            })
-            .catch(function () { alert('오류가 발생했습니다.'); });
+        confirmDialog({
+            title: '리뷰 삭제',
+            message: '리뷰를 삭제하시겠습니까?\n지급된 포인트도 회수됩니다.',
+            confirmText: '삭제', danger: true
+        }).then(function (ok) {
+            if (! ok) return;
+            const fd = new FormData();
+            fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+            fetch('/shop/<?= esc($product['slug']) ?>/review/' + btn.dataset.id + '/delete',
+                  { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) location.reload();
+                    else toast(data.message || '삭제에 실패했습니다.', 'error');
+                })
+                .catch(function () { toast('오류가 발생했습니다.', 'error'); });
+        });
     });
 });
 
@@ -1118,7 +1124,7 @@ document.getElementById('btnQnaSubmit')?.addEventListener('click', function () {
     const secret  = document.getElementById('qnaSecret')?.checked ? 1 : 0;
 
     if (! title || ! content) {
-        alert('제목과 내용을 입력해주세요.');
+        toast('제목과 내용을 입력해주세요.', 'warning');
         return;
     }
 
@@ -1131,25 +1137,30 @@ document.getElementById('btnQnaSubmit')?.addEventListener('click', function () {
     fetch('/shop/<?= esc($product['slug']) ?>/qna', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            alert(data.message);
+            toast(data.message, data.success ? 'success' : 'error');
             if (data.success) location.reload();
         })
-        .catch(function () { alert('오류가 발생했습니다.'); });
+        .catch(function () { toast('오류가 발생했습니다.', 'error'); });
 });
 
 document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (! confirm('문의를 삭제하시겠습니까?')) return;
-        const fd = new FormData();
-        fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
-        fetch('/shop/<?= esc($product['slug']) ?>/qna/' + btn.dataset.id + '/delete',
-              { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.success) location.reload();
-                else alert(data.message || '삭제에 실패했습니다.');
-            })
-            .catch(function () { alert('오류가 발생했습니다.'); });
+        confirmDialog({
+            title: '문의 삭제', message: '문의를 삭제하시겠습니까?',
+            confirmText: '삭제', danger: true
+        }).then(function (ok) {
+            if (! ok) return;
+            const fd = new FormData();
+            fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+            fetch('/shop/<?= esc($product['slug']) ?>/qna/' + btn.dataset.id + '/delete',
+                  { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) location.reload();
+                    else toast(data.message || '삭제에 실패했습니다.', 'error');
+                })
+                .catch(function () { toast('오류가 발생했습니다.', 'error'); });
+        });
     });
 });
 
@@ -1171,9 +1182,9 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
             var email      = '';
             if (emailInput) {
                 email = emailInput.value.trim();
-                if (! email) { alert('이메일을 입력해주세요.'); emailInput.focus(); return; }
+                if (! email) { toast('이메일을 입력해주세요.', 'warning'); emailInput.focus(); return; }
                 if (! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                    alert('올바른 이메일 형식을 입력해주세요.'); return;
+                    toast('올바른 이메일 형식을 입력해주세요.', 'warning'); return;
                 }
             }
             var fd = new FormData();
@@ -1183,7 +1194,7 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
             fetch('/shop/' + slug + '/restock-alert', { method: 'POST', body: fd })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    alert(data.message);
+                    toast(data.message, data.success ? 'success' : 'error');
                     if (data.success && ! data.already) {
                         btn.innerHTML = '<i class="bi bi-bell-fill me-1"></i>알림 신청 완료';
                     } else {
@@ -1191,7 +1202,7 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
                     }
                 })
                 .catch(function () {
-                    alert('오류가 발생했습니다. 다시 시도해주세요.');
+                    toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
                     btn.disabled = false;
                 });
         });
@@ -1204,9 +1215,11 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
     if (! btn) return;
     btn.addEventListener('click', function () {
         if (btn.dataset.loggedin !== 'true') {
-            if (confirm('로그인이 필요합니다. 로그인 페이지로 이동할까요?')) {
-                window.location.href = '/auth/login';
-            }
+            confirmDialog({
+                title: '로그인 필요',
+                message: '로그인이 필요합니다. 로그인 페이지로 이동할까요?',
+                confirmText: '로그인'
+            }).then(function (ok) { if (ok) window.location.href = '/auth/login'; });
             return;
         }
         var fd = new FormData();
