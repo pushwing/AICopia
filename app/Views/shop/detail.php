@@ -303,7 +303,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
     <div class="d-lg-none position-fixed bottom-0 start-0 end-0 bg-white border-top d-flex align-items-center gap-2 px-2 py-2"
          id="stickyBuyBar" style="z-index:1040">
         <div class="flex-shrink-0 ps-1">
-            <div class="text-muted" style="font-size:.7rem;line-height:1.1">합계</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.1">합계</div>
             <div class="fw-bold" id="stickyTotal"><?= number_format($displayPrice) ?>원</div>
         </div>
         <button class="btn btn-primary flex-grow-1 py-2" id="btnStickyCart"
@@ -446,7 +446,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                                 </div>
                                 <?php endif; ?>
                             </div>
-                            <div class="text-muted mt-3" style="font-size:.72rem">AI가 구매자 리뷰를 분석한 요약입니다.</div>
+                            <div class="text-muted small mt-3">AI가 구매자 리뷰를 분석한 요약입니다.</div>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -486,7 +486,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                                 <?php foreach ($review['images'] as $img): ?>
                                 <a href="<?= esc($img['image_path']) ?>" target="_blank">
                                     <img src="<?= esc($img['image_path']) ?>" alt=""
-                                         style="width:80px;height:80px;object-fit:cover;border-radius:4px">
+                                         class="rounded" style="width:80px;height:80px;object-fit:cover">
                                 </a>
                                 <?php endforeach; ?>
                             </div>
