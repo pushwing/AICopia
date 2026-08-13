@@ -320,6 +320,12 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                             <span class="text-muted">배송비</span>
                             <span><?= $shippingFee > 0 ? number_format($shippingFee) . '원' : '무료' ?></span>
                         </div>
+                        <?php // 조건부 무료배송 기준까지 남은 금액 안내 (장바구니에서 더 담으면 무료) ?>
+                        <?php if (! empty($freeShipHint)): ?>
+                        <div class="small text-success mb-2">
+                            <i class="bi bi-truck me-1"></i><?= number_format($freeShipHint['remaining']) ?>원 더 담으면 무료배송
+                        </div>
+                        <?php endif; ?>
 
                         <!-- 쿠폰 할인 (동적) -->
                         <div id="rowCouponDiscount" class="d-none d-flex justify-content-between small mb-2">

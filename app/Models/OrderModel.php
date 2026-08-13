@@ -1617,6 +1617,49 @@ class OrderModel extends Model
     }
 
     /**
+     * 조건부 무료배송까지 남은 금액 안내 정보.
+     *
+     * calculateShippingFee() 와 같은 규칙을 쓴다: 무료배송 상품이 있거나 조건부
+     * 기준을 이미 충족했으면 전체 무료이므로 안내가 필요 없어 null 을 돌려준다.
+     * 아직 충족 못한 조건부 기준이 있으면 그중 가장 가까운(작은) 기준과 남은 금액을 준다.
+     * ("○○원 더 담으면 무료배송" 안내용)
+     *
+     * @param  array<int, array<string, mixed>> $items
+     * @return array{threshold: int, remaining: int}|null
+     */
+    public function freeShippingHint(array $items, int $totalProduct): ?array
+    {
+        foreach ($items as $item) {
+            $type = $item['shipping_type'] ?? '';
+            if ($type === 'free') {
+                return null; // 무료배송 상품 → 전체 무료
+            }
+            if ($type === 'conditional'
+                && (int) ($item['free_threshold'] ?? 0) > 0
+                && $totalProduct >= (int) ($item['free_threshold'] ?? 0)) {
+                return null; // 조건부 기준 충족 → 전체 무료
+            }
+        }
+
+        // 아직 충족 못한 조건부 기준 중 가장 가까운(작은) 값
+        $nearest = null;
+        foreach ($items as $item) {
+            if (($item['shipping_type'] ?? '') === 'conditional') {
+                $threshold = (int) ($item['free_threshold'] ?? 0);
+                if ($threshold > $totalProduct) {
+                    $nearest = $nearest === null ? $threshold : min($nearest, $threshold);
+                }
+            }
+        }
+
+        if ($nearest === null) {
+            return null; // 조건부 상품이 없으면 안내 대상 아님
+        }
+
+        return ['threshold' => $nearest, 'remaining' => $nearest - $totalProduct];
+    }
+
+    /**
      * 쿠폰 복구 헬퍼
      *
      * @param array<string, mixed> $order
