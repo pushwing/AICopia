@@ -123,6 +123,9 @@ final class AuthProfileTabViewTest extends CIUnitTestCase
         $this->assertStringContainsString('2장', $html);
         $this->assertStringContainsString('csrf', $html);
         $this->assertStringContainsString('name="password"', $html, '일반 계정은 비밀번호로 본인 확인한다');
+        // 회귀 방지: tab=withdraw 에서 $showInfoTab 이 false 가 되며 예전엔 else 분기(비밀번호 변경 카드)가
+        // 함께 렌더링됐다 — 탈퇴 탭에는 탈퇴 폼만 나와야 하고 비밀번호 변경 폼이 섞이면 안 된다.
+        $this->assertStringNotContainsString('name="current_password"', $html, '탈퇴 탭에 비밀번호 변경 폼이 함께 렌더링되면 안 된다');
     }
 
     public function testWithdrawTabAsksConfirmTextForSocialAccount(): void

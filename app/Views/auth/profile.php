@@ -111,7 +111,7 @@ $showInfoTab     = ! $showPasswordTab && ! $showWithdrawTab;
         </div>
     </div>
 
-    <?php else: ?>
+    <?php elseif ($showPasswordTab): ?>
     <!-- ── 비밀번호 변경 탭 ── -->
     <div class="card">
         <div class="card-body">
