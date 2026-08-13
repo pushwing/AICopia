@@ -21,6 +21,12 @@
     <?php /* 로컬 에셋에 파일 수정시각 기반 버전을 붙여 배포·수정 시 옛 브라우저 캐시를 무효화한다 */ ?>
     <?php $assetVer = static fn (string $p): string => is_file(FCPATH . $p) ? '?v=' . filemtime(FCPATH . $p) : ''; ?>
     <link rel="stylesheet" href="/themes/default/css/style.css<?= $assetVer('themes/default/css/style.css') ?>">
+    <?php /* 파생 테마 리틴트 — 활성 테마의 팔레트 오버라이드 CSS가 있으면 중립 default 위에 얹는다.
+             default 는 중립 캔버스로 남기고(Empty-Brand Rule), 색은 여기 파생 테마에서만 주입한다. */ ?>
+    <?php $themeCss = 'themes/' . ($settings['active_theme'] ?? 'default') . '/css/style.css'; ?>
+    <?php if (($settings['active_theme'] ?? 'default') !== 'default' && is_file(FCPATH . $themeCss)): ?>
+    <link rel="stylesheet" href="/<?= esc($themeCss) ?>?v=<?= filemtime(FCPATH . $themeCss) ?>">
+    <?php endif; ?>
 </head>
 <body>
 
