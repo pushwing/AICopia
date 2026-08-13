@@ -117,7 +117,7 @@ class DashboardController extends BaseController
         return $this->render('admin/dashboard/index', [
             'stats' => [
                 'total_posts'     => $postModel->countAllResults(),
-                'total_users'     => $userModel->countAllResults(),
+                'total_users'     => $userModel->activeBuilder()->countAllResults(),
                 'total_inquiries' => $inquiryModel->countAllResults(),
                 'unread_inquiries' => $inquiryModel->getUnreadCount(),
             ],
