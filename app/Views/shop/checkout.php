@@ -163,11 +163,11 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                             <span class="badge bg-secondary align-self-start">추가구성</span>
                             <?php endif; ?>
                             <?php if ($item['primary_image']): ?>
-                            <img src="<?= esc($item['primary_image']) ?>" alt=""
-                                 style="width:64px;height:64px;object-fit:cover;border-radius:6px;flex-shrink:0">
+                            <img src="<?= esc($item['primary_image']) ?>" alt="" class="checkout-item-img rounded flex-shrink-0"
+                                 style="width:64px;height:64px;object-fit:cover">
                             <?php else: ?>
-                            <div class="d-flex align-items-center justify-content-center text-muted flex-shrink-0"
-                                 style="width:64px;height:64px;background:#f1f3f5;border-radius:6px">
+                            <div class="d-flex align-items-center justify-content-center text-muted flex-shrink-0 rounded"
+                                 style="width:64px;height:64px;background:#f1f3f5">
                                 <i class="bi bi-image"></i>
                             </div>
                             <?php endif; ?>
@@ -175,7 +175,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                             <div class="flex-grow-1 min-w-0">
                                 <div class="fw-semibold small text-clamp-2 mb-1"><?= esc($item['name']) ?></div>
                                 <?php if (! empty($item['sku_label'])): ?>
-                                <div class="text-muted" style="font-size:.75rem;margin-bottom:.15rem">
+                                <div class="text-muted small" style="margin-bottom:.15rem">
                                     <i class="bi bi-tag me-1"></i><?= esc($item['sku_label']) ?>
                                 </div>
                                 <?php endif; ?>
@@ -295,7 +295,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                                 <dt class="col-4 text-muted fw-normal">예금주</dt>
                                 <dd class="col-8 mb-0"><?= esc($settings['bank_holder'] ?? '—') ?></dd>
                             </dl>
-                            <div class="text-muted mt-2" style="font-size:.75rem">
+                            <div class="text-muted small mt-2">
                                 주문 완료 후 안내되는 금액을 정확히 입금해 주세요.
                             </div>
                         </div>
@@ -337,10 +337,14 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                             <span class="fs-5 text-primary" id="displayPayable"><?= number_format($totalAmount) ?>원</span>
                         </div>
 
-                        <div class="text-muted small mb-3">
-                            <i class="bi bi-shield-check me-1"></i>
-                            주문 내용을 확인하였으며, 정보 제공 등에 동의합니다.
+                        <div class="form-check small mb-2">
+                            <input type="checkbox" class="form-check-input" id="agreeCheck">
+                            <label class="form-check-label" for="agreeCheck">
+                                <i class="bi bi-shield-check me-1"></i>주문 내용을 확인하였으며, 정보 제공 등에 동의합니다. <span class="text-danger">*</span>
+                            </label>
                         </div>
+
+                        <div id="checkoutError" class="text-danger small mb-2 d-none" role="alert" aria-live="assertive"></div>
 
                         <button type="button" id="btnOrder"
                                 class="btn btn-primary w-100 py-3 fw-bold fs-6">
@@ -357,6 +361,18 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
             </div>
 
         </div>
+
+        <!-- 모바일 스티키 결제 바 (요약이 5개 카드 아래로 밀려도 결제금액·결제가 항상 손닿게) -->
+        <div class="d-lg-none position-fixed bottom-0 start-0 end-0 bg-white border-top d-flex align-items-center gap-2 px-2 py-2" style="z-index:1040">
+            <div class="flex-shrink-0 ps-1">
+                <div class="text-muted" style="font-size:.8rem;line-height:1.1">최종 결제 금액</div>
+                <div class="fw-bold text-primary" id="stickyPayable"><?= number_format($totalAmount) ?>원</div>
+            </div>
+            <button type="button" id="btnOrderMobile" class="btn btn-primary flex-grow-1 py-2 fw-bold">
+                결제하기
+            </button>
+        </div>
+        <div class="d-lg-none" style="height:76px"></div>
 
         <!-- 결제용 hidden 필드 -->
         <input type="hidden" name="delivery_memo"   id="deliveryMemoFinal">
@@ -435,6 +451,14 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         // hidden 필드 동기화
         document.getElementById('hiddenPointUse').value   = pointUse;
         document.getElementById('hiddenUserCouponId').value = appliedCouponId || '';
+
+        // 모바일 스티키 결제 바 동기화
+        const sp = document.getElementById('stickyPayable');
+        if (sp) sp.textContent = payable.toLocaleString('ko-KR') + '원';
+        const bm = document.getElementById('btnOrderMobile');
+        if (bm && ! bm.disabled) {
+            bm.textContent = payable === 0 ? '0원 주문 완료하기' : payable.toLocaleString('ko-KR') + '원 결제하기';
+        }
     }
 
     // ─── 보유 쿠폰 선택 ───────────────────────────────────────────────────────
@@ -573,17 +597,69 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         if (info && checked?.value === 'bank_transfer') info.classList.remove('d-none');
     })();
 
+    // 체크아웃 상품 이미지 404 폴백 — 로드 실패 시 bi-image 플레이스홀더로 교체
+    document.querySelectorAll('.checkout-item-img').forEach(function (img) {
+        function fail() {
+            if (img.dataset.imgFallback) return;
+            img.dataset.imgFallback = '1';
+            const ph = document.createElement('div');
+            ph.className = 'd-flex align-items-center justify-content-center text-muted flex-shrink-0 rounded';
+            ph.style.cssText = 'width:64px;height:64px;background:#f1f3f5';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-image';
+            ph.appendChild(icon);
+            if (img.parentNode) img.parentNode.replaceChild(ph, img);
+        }
+        img.addEventListener('error', fail);
+        if (img.complete && img.naturalWidth === 0) fail();
+    });
+
     // ─── 폼 유효성 검사 ────────────────────────────────────────────────────────
+    // 네이티브 alert 대신 인라인 오류(is-invalid + #checkoutError)로 안내한다.
+    function showCheckoutError(msg) {
+        const box = document.getElementById('checkoutError');
+        if (box) { box.textContent = msg; box.classList.remove('d-none'); }
+    }
+    function clearCheckoutError() {
+        const box = document.getElementById('checkoutError');
+        if (box) { box.textContent = ''; box.classList.add('d-none'); }
+        document.querySelectorAll('#checkoutForm .is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+    }
+    // 입력·체크하면 해당 필드 오류 표시를 즉시 해제
+    ['receiver_name', 'receiver_phone', 'zipcode', 'address1'].forEach(function (name) {
+        document.querySelector('[name=' + name + ']')?.addEventListener('input', function () { this.classList.remove('is-invalid'); });
+    });
+    document.getElementById('agreeCheck')?.addEventListener('change', function () { this.classList.remove('is-invalid'); });
+
     function validate() {
+        clearCheckoutError();
+
+        // 필수 배송지 필드 — 인라인 is-invalid + 첫 오류로 스크롤/포커스(모두 표시)
         const required = ['receiver_name', 'receiver_phone', 'zipcode', 'address1'];
+        let firstInvalid = null;
         for (const name of required) {
             const el = document.querySelector('[name=' + name + ']');
             if (! el || ! el.value.trim()) {
-                el?.focus();
-                alert((el?.placeholder || name) + '을(를) 입력해주세요.');
-                return false;
+                if (el) { el.classList.add('is-invalid'); firstInvalid = firstInvalid || el; }
             }
         }
+        if (firstInvalid) {
+            showCheckoutError('배송지 필수 정보를 입력해주세요.');
+            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstInvalid.focus({ preventScroll: true });
+            return false;
+        }
+
+        // 약관 동의 게이트 — 수동 텍스트가 아닌 능동 체크로 수집
+        const agree = document.getElementById('agreeCheck');
+        if (agree && ! agree.checked) {
+            agree.classList.add('is-invalid');
+            showCheckoutError('주문 동의에 체크해주세요.');
+            agree.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            agree.focus({ preventScroll: true });
+            return false;
+        }
+
         // 결제 금액 검증 (서버 OrderModel::validatePayableAmount 와 동일한 규칙)
         const pointUse = parseInt(document.getElementById('hiddenPointUse').value) || 0;
         const payable  = Math.max(0, TOTAL_AMOUNT - couponDiscount - pointUse);
@@ -592,11 +668,12 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         if (payable === 0) return true;
 
         if (! document.querySelector('[name=pg_provider]:checked')) {
-            alert('결제 수단을 선택해주세요.');
+            showCheckoutError('결제 수단을 선택해주세요.');
+            document.getElementById('pgSection')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return false;
         }
         if (MIN_PAYABLE > 0 && payable < MIN_PAYABLE) {
-            alert('최소 결제 금액은 ' + MIN_PAYABLE.toLocaleString('ko-KR') + '원입니다.');
+            showCheckoutError('최소 결제 금액은 ' + MIN_PAYABLE.toLocaleString('ko-KR') + '원입니다.');
             return false;
         }
         return true;
@@ -629,6 +706,12 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
     document.getElementById('btnPaymentReload')?.addEventListener('click', function (e) {
         e.preventDefault();
         location.reload();
+    });
+
+    // 모바일 스티키 결제 버튼 → 데스크톱 결제 버튼과 동일 흐름 (중복 제출 가드)
+    document.getElementById('btnOrderMobile')?.addEventListener('click', function () {
+        const main = document.getElementById('btnOrder');
+        if (main && ! main.disabled) main.click();
     });
 
     // ─── 주문 생성 → PG 결제창 ────────────────────────────────────────────────
