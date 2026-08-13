@@ -29,7 +29,7 @@ final class AuthLoginRedirectTest extends CIUnitTestCase
         parent::tearDown();
     }
 
-    private function controllerWithReferer(?string $referer): AuthController
+    private function controllerWithReferer(?string $referer, ?string $host = null): AuthController
     {
         $appConfig = config('App');
         $request   = new IncomingRequest(
@@ -41,6 +41,10 @@ final class AuthLoginRedirectTest extends CIUnitTestCase
 
         if ($referer !== null) {
             $request->setHeader('Referer', $referer);
+        }
+
+        if ($host !== null) {
+            $request->setGlobal('server', ['HTTP_HOST' => $host]);
         }
 
         $controller = new AuthController();
@@ -87,5 +91,19 @@ final class AuthLoginRedirectTest extends CIUnitTestCase
         $this->controllerWithReferer(null)->login();
 
         $this->assertNull(session()->getTempdata('redirect_url'));
+    }
+
+    /**
+     * app.baseURL(예: copia.test)과 실제 접속 호스트(예: localhost:8420)가
+     * 다른 로컬 개발·포트포워딩 환경에서도 same-origin 판정이 base_url()이
+     * 아니라 실제 요청 Host를 기준으로 이루어져야 한다.
+     */
+    public function testLoginUsesActualRequestHostNotConfiguredBaseUrlForSameOriginCheck(): void
+    {
+        $referer = 'http://localhost:8420/shop';
+
+        $this->controllerWithReferer($referer, 'localhost:8420')->login();
+
+        $this->assertSame($referer, session()->getTempdata('redirect_url'));
     }
 }
