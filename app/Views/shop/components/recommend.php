@@ -40,7 +40,7 @@ $recoTitle = $recoTitle ?? '회원님을 위한 추천 상품';
                         <?php endif; ?>
                     </div>
                     <div class="card-body p-2">
-                        <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
+                        <div class="fw-semibold text-truncate fs-compact"><?= esc($p['name']) ?></div>
                         <div class="mt-1">
                             <?php if ($hasDiscount): ?>
                             <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>

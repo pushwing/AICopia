@@ -35,6 +35,12 @@ typography:
     fontWeight: 400
     lineHeight: 1.6
     letterSpacing: "normal"
+  compact:
+    fontFamily: "Noto Sans KR, -apple-system, sans-serif"
+    fontSize: "0.9rem"
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: "normal"
   label:
     fontFamily: "Noto Sans KR, -apple-system, sans-serif"
     fontSize: "0.8rem"
@@ -132,7 +138,8 @@ AICopia의 기본 테마는 자기 목소리를 일부러 낮춘다. 이것은 �
 - **Display / Brand** (700, 1.3rem): 사이트명 텍스트 로고(`.navbar-brand`). 로고 이미지가 있으면 이미지가 대신한다(높이 40px).
 - **Title** (600, ~1.1rem): 섹션 제목·상품명 강조.
 - **Body** (400, 1rem, line-height 1.6): 본문 기본. 게시글 본문은 line-height 1.8(`.post-content`)로 더 넉넉하다.
-- **Label / Meta** (500, 0.8~0.9rem): 내비 링크(.9rem)·표 셀(.875rem)·배지(.8rem). 전반적으로 작고 촘촘한 스케일.
+- **Compact** (500, 0.9rem): 상품 카드 제목·내비 링크 등 촘촘한 목록에서 쓰는 축약 본문 크기. `:root`의 `--fs-compact` 토큰과 `.fs-compact` 유틸로 관리하며, 인라인 `font-size:.9rem`을 쓰지 않는다.
+- **Label / Meta** (500, 0.8~0.875rem): 표 셀(.875rem)·배지(.8rem). 전반적으로 작고 촘촘한 스케일.
 
 ### Named Rules
 **The One-Typeface Rule.** 서체는 Noto Sans KR 하나로 통일한다. 위계는 서체 교체가 아니라 굵기(400/500/600/700)와 크기로만 만든다.

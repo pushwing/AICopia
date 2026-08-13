@@ -44,7 +44,7 @@
                         </div>
                         <div class="card-body p-2">
                             <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                            <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
+                            <div class="fw-semibold text-truncate fs-compact"><?= esc($p['name']) ?></div>
                             <div class="mt-1">
                                 <?php if ($hasDiscount): ?>
                                 <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
@@ -92,7 +92,7 @@
                         </div>
                         <div class="card-body p-2">
                             <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                            <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
+                            <div class="fw-semibold text-truncate fs-compact"><?= esc($p['name']) ?></div>
                             <div class="mt-1">
                                 <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
                                 <span class="text-danger fw-bold ms-1"><?= number_format($displayPrice) ?>원</span>

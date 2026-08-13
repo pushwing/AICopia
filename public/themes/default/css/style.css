@@ -2,7 +2,13 @@
 :root {
     --primary: #0d6efd;
     --dark:    #1e2a38;
+    /* 상품 카드 제목·네비 등 여러 화면에서 반복되던 축약 본문 크기(.9rem)를
+       토큰으로 승격. 인라인 style="font-size:.9rem" 대신 .fs-compact 유틸을 쓴다. */
+    --fs-compact: .9rem;
 }
+
+/* 축약 본문 크기 유틸 — 상품 카드 제목 등에서 반복되던 .9rem 을 한곳에서 관리 */
+.fs-compact { font-size: var(--fs-compact); }
 
 /* 세로 스크롤바 자리를 항상 비워 둔다. 내용이 짧아 스크롤바가 없는 화면
    (쿠폰·포인트 등)은 그만큼 뷰포트가 넓어져, 가운데 정렬된 본문이 스크롤바가
@@ -32,7 +38,7 @@ body {
 }
 .nav-link {
     font-weight: 500;
-    font-size: .9rem;
+    font-size: var(--fs-compact);
 }
 
 /* ─── 히어로 ─────────────────────────────────────── */
