@@ -131,10 +131,37 @@
                 </div>
             </div>
 
-            <?php if (empty($items)): ?>
+            <?php if (empty($items)):
+                // 빈 상태 유형 판별 — 필터/검색으로 0건인지, 카탈로그가 비었는지
+                $hasFilter = ($keyword ?? '') !== '' || ($priceMin ?? '') !== '' || ($priceMax ?? '') !== '' || ($onlyDiscount ?? false) || $curCat;
+            ?>
             <div class="text-center text-muted py-5">
                 <i class="bi bi-bag-x fs-1 d-block mb-2"></i>
-                <?= $keyword ? '검색 결과가 없습니다.' : '등록된 상품이 없습니다.' ?>
+                <p class="mb-3"><?= ($keyword ?? '') !== ''
+                    ? '‘' . esc($keyword) . '’ 검색 결과가 없습니다.'
+                    : ($hasFilter ? '조건에 맞는 상품이 없습니다.' : '등록된 상품이 없습니다.') ?></p>
+
+                <!-- 검색 0건일 때 AI 연관검색어를 여기서 대안으로 제시 -->
+                <?php if (! empty($expandedTerms ?? []) && ($keyword ?? '') !== ''): ?>
+                <div class="mb-3">
+                    <div class="small mb-2"><i class="bi bi-stars text-primary me-1"></i>이런 검색은 어때요?</div>
+                    <div class="d-flex flex-wrap justify-content-center gap-1">
+                        <?php foreach ($expandedTerms as $term): ?>
+                        <a href="/shop?keyword=<?= urlencode($term) ?>" class="badge bg-primary-subtle text-primary text-decoration-none border border-primary-subtle"><?= esc($term) ?></a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- 복구 CTA -->
+                <?php if ($hasFilter): ?>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <a href="/shop<?= $curCat ? '?category_id=' . $curCat : '' ?>" class="btn btn-sm btn-dark">필터·검색 초기화</a>
+                    <?php if ($curCat): ?>
+                    <a href="/shop" class="btn btn-sm btn-outline-secondary">전체 상품 보기</a>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
             </div>
             <?php else: ?>
 
