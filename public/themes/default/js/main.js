@@ -200,3 +200,20 @@ window.confirmDialog = function (opts) {
         modal.show();
     });
 };
+
+// ─── data-confirm 폼: 제출 전 공용 확인 모달로 게이트 ──────────────────────────
+// <form data-confirm="메시지" [data-confirm-title="제목"] [data-confirm-danger]> 를
+// confirmDialog 로 가로챈다. 네이티브 onsubmit="return confirm(...)" 대체.
+document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        confirmDialog({
+            title:   form.dataset.confirmTitle || '확인',
+            message: form.dataset.confirm,
+            danger:  form.hasAttribute('data-confirm-danger')
+        }).then(function (ok) {
+            // form.submit() 은 submit 이벤트를 다시 발생시키지 않아 재진입이 없다.
+            if (ok) form.submit();
+        });
+    });
+});

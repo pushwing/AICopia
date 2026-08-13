@@ -39,7 +39,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                     <label class="form-check-label fw-semibold" for="selectAll">전체 선택</label>
                 </div>
                 <form method="post" action="/cart/clear"
-                      onsubmit="return confirm('장바구니를 전체 비우시겠습니까?')">
+                      data-confirm="장바구니를 전체 비우시겠습니까?" data-confirm-danger>
                     <?= csrf_field() ?>
                     <button type="submit" class="btn btn-sm btn-outline-danger">전체 삭제</button>
                 </form>
@@ -145,7 +145,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                             <?php endif; ?>
 
                             <form method="post" action="/cart/delete" class="d-inline"
-                                  onsubmit="return confirm('이 상품을 장바구니에서 삭제하시겠습니까?')">
+                                  data-confirm="이 상품을 장바구니에서 삭제하시겠습니까?" data-confirm-danger>
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="product_id" value="<?= (int) $item['product_id'] ?>">
                                 <?php if (! empty($item['sku_id'])): ?>
