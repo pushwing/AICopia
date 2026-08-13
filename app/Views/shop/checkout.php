@@ -203,6 +203,8 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                             <i class="bi bi-info-circle me-1"></i>이 주문에 사용할 수 있는 쿠폰이 없습니다.
                         </p>
                         <?php else: ?>
+                        <?php // 이 주문에 가장 유리한 쿠폰 제안 — JS 가 보유 쿠폰별 예상 할인을 계산해 채운다. ?>
+                        <div id="bestCouponTip"></div>
                         <div>
                             <label class="form-label small fw-semibold" for="couponSelect">보유 쿠폰 선택</label>
                             <select class="form-select form-select-sm" id="couponSelect">
@@ -402,6 +404,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
     const POINT_BALANCE = <?= $pointBalance ?>;
     const POINT_RATE    = <?= $pointEarnRate ?>;
     const MIN_PAYABLE   = <?= $minPayable ?>;
+    const SHIPPING_FEE  = <?= $shippingFee ?>;
 
     let couponDiscount  = 0;
     let appliedCouponId = 0;   // user_coupon_id (0 = 미사용)
@@ -468,16 +471,28 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
     }
 
     // ─── 보유 쿠폰 선택 ───────────────────────────────────────────────────────
+    // 쿠폰 옵션 하나의 예상 할인액(서버 적용 규칙과 동일). 최소 주문금액 미달이면 null.
+    function couponDiscountFor(opt) {
+        const type = opt.dataset.type;
+        const val  = parseInt(opt.dataset.value) || 0;
+        const max  = parseInt(opt.dataset.max)   || 0;
+        const min  = parseInt(opt.dataset.min)   || 0;
+        if (TOTAL_AMOUNT < min) return null;
+
+        if (type === 'free_shipping') return SHIPPING_FEE;
+        if (type === 'fixed')         return Math.min(val, TOTAL_AMOUNT);
+        let d = Math.floor(TOTAL_AMOUNT * val / 100);
+        if (max > 0) d = Math.min(d, max);
+        return d;
+    }
+
     document.getElementById('couponSelect')?.addEventListener('change', function () {
         if (! this.value) {
             resetCoupon();
             return;
         }
-        const opt   = this.options[this.selectedIndex];
-        const type  = opt.dataset.type;
-        const val   = parseInt(opt.dataset.value) || 0;
-        const max   = parseInt(opt.dataset.max)   || 0;
-        const min   = parseInt(opt.dataset.min)   || 0;
+        const opt = this.options[this.selectedIndex];
+        const min = parseInt(opt.dataset.min) || 0;
 
         if (TOTAL_AMOUNT < min) {
             document.getElementById('couponMsg').innerHTML =
@@ -486,22 +501,57 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
             return;
         }
 
-        let discount = 0;
-        const SHIPPING_FEE = <?= $shippingFee ?>;
-        if (type === 'free_shipping') {
-            discount = SHIPPING_FEE;
-        } else if (type === 'fixed') {
-            discount = Math.min(val, TOTAL_AMOUNT);
-        } else {
-            discount = Math.floor(TOTAL_AMOUNT * val / 100);
-            if (max > 0) discount = Math.min(discount, max);
-        }
-
-        const discLabel = type === 'free_shipping'
+        const discount  = couponDiscountFor(opt);
+        const discLabel = opt.dataset.type === 'free_shipping'
             ? opt.dataset.name + ' (무료배송)'
             : opt.dataset.name + ' (' + discount.toLocaleString('ko-KR') + '원 할인)';
         applyCoupon(parseInt(this.value), discount, discLabel);
     });
+
+    // ─── 최선 쿠폰 제안 — 보유 쿠폰 중 예상 할인이 가장 큰 것을 안내한다 ────────────
+    function suggestBestCoupon() {
+        const select = document.getElementById('couponSelect');
+        const tip    = document.getElementById('bestCouponTip');
+        if (! select || ! tip) return;
+
+        let best = null;
+        let bestDiscount = 0;
+        Array.from(select.options).forEach(function (opt) {
+            if (! opt.value) return; // 플레이스홀더 제외
+            const d = couponDiscountFor(opt);
+            if (d !== null && d > bestDiscount) {
+                bestDiscount = d;
+                best = opt;
+            }
+        });
+
+        if (! best || bestDiscount <= 0) return; // 쓸 만한 쿠폰이 없으면 제안하지 않는다
+
+        // 안내 배너 구성(쿠폰 이름은 textContent 로 넣어 XSS 안전)
+        tip.className = 'alert alert-success py-2 px-3 small mb-2 d-flex align-items-center justify-content-between gap-2';
+        tip.setAttribute('role', 'status');
+
+        const span   = document.createElement('span');
+        span.innerHTML = '<i class="bi bi-stars me-1"></i>가장 큰 할인 쿠폰: ';
+        const strong = document.createElement('b');
+        strong.textContent = best.dataset.name;
+        span.appendChild(strong);
+        span.appendChild(document.createTextNode(' · ' + bestDiscount.toLocaleString('ko-KR') + '원'));
+
+        const applyBtn = document.createElement('button');
+        applyBtn.type      = 'button';
+        applyBtn.className  = 'btn btn-sm btn-success flex-shrink-0';
+        applyBtn.textContent = '적용';
+        applyBtn.addEventListener('click', function () {
+            select.value = best.value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            tip.remove();
+        });
+
+        tip.appendChild(span);
+        tip.appendChild(applyBtn);
+    }
+    suggestBestCoupon();
 
     function applyCoupon(userCouponId, discount, label) {
         couponDiscount  = discount;
