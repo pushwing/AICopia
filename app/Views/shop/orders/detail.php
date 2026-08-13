@@ -582,32 +582,38 @@ $showReceipt = $receipt !== null && $receipt->paidAt !== null;
 
     // 배송 완료 확인
     document.getElementById('btnConfirmDelivery')?.addEventListener('click', function () {
-        if (! confirm('배송이 완료되었나요?\n확인 후에는 되돌릴 수 없습니다.')) return;
+        const btn = this;
+        confirmDialog({
+            title: '배송 완료 확인',
+            message: '배송이 완료되었나요?\n확인 후에는 되돌릴 수 없습니다.',
+            confirmText: '확인'
+        }).then(function (ok) {
+            if (! ok) return;
 
-        const btn  = this;
-        const body = new FormData();
-        body.append(btn.dataset.csrf, btn.dataset.csrfVal);
-        body.append('order_id', btn.dataset.orderId);
+            const body = new FormData();
+            body.append(btn.dataset.csrf, btn.dataset.csrfVal);
+            body.append('order_id', btn.dataset.orderId);
 
-        btn.disabled    = true;
-        btn.textContent = '처리 중...';
+            btn.disabled    = true;
+            btn.textContent = '처리 중...';
 
-        fetch('/mypage/orders/confirm-delivery', { method: 'POST', body })
+            fetch('/mypage/orders/confirm-delivery', { method: 'POST', body })
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert(data.message || '처리에 실패했습니다.');
+                    toast(data.message || '처리에 실패했습니다.', 'error');
                     btn.disabled    = false;
                     btn.innerHTML   = '<i class="bi bi-check2-circle me-1"></i>배송 완료 확인';
                 }
             })
             .catch(() => {
-                alert('오류가 발생했습니다. 다시 시도해주세요.');
+                toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
                 btn.disabled    = false;
                 btn.innerHTML   = '<i class="bi bi-check2-circle me-1"></i>배송 완료 확인';
             });
+        });
     });
 
     // 반품 신청 — 사유 선택 시 택배비 안내 토글
@@ -636,7 +642,7 @@ $showReceipt = $receipt !== null && $receipt->paidAt !== null;
 
     document.getElementById('btnReturnSubmit')?.addEventListener('click', function () {
         const reasonCode = document.getElementById('returnReasonCode').value;
-        if (! reasonCode) { alert('반품 사유를 선택해주세요.'); return; }
+        if (! reasonCode) { toast('반품 사유를 선택해주세요.', 'warning'); return; }
 
         const note = document.getElementById('returnNote').value.trim();
         const btn  = this;
@@ -655,13 +661,13 @@ $showReceipt = $receipt !== null && $receipt->paidAt !== null;
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert(data.message || '처리에 실패했습니다.');
+                    toast(data.message || '처리에 실패했습니다.', 'error');
                     btn.disabled    = false;
                     btn.textContent = '반품 신청하기';
                 }
             })
             .catch(() => {
-                alert('오류가 발생했습니다. 다시 시도해주세요.');
+                toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
                 btn.disabled    = false;
                 btn.textContent = '반품 신청하기';
             });
@@ -693,7 +699,7 @@ $showReceipt = $receipt !== null && $receipt->paidAt !== null;
 
     document.getElementById('btnExchangeSubmit')?.addEventListener('click', function () {
         const reasonCode = document.getElementById('exchangeReasonCode').value;
-        if (! reasonCode) { alert('교환 사유를 선택해주세요.'); return; }
+        if (! reasonCode) { toast('교환 사유를 선택해주세요.', 'warning'); return; }
 
         const btn  = this;
         const body = new FormData();
@@ -712,45 +718,51 @@ $showReceipt = $receipt !== null && $receipt->paidAt !== null;
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert(data.message || '처리에 실패했습니다.');
+                    toast(data.message || '처리에 실패했습니다.', 'error');
                     btn.disabled    = false;
                     btn.textContent = '교환 신청하기';
                 }
             })
             .catch(() => {
-                alert('오류가 발생했습니다. 다시 시도해주세요.');
+                toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
                 btn.disabled    = false;
                 btn.textContent = '교환 신청하기';
             });
     });
 
     document.getElementById('btnCancel')?.addEventListener('click', function () {
-        if (! confirm('주문을 취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다.')) return;
+        const btn = this;
+        confirmDialog({
+            title: '주문 취소',
+            message: '주문을 취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다.',
+            confirmText: '주문 취소', danger: true
+        }).then(function (ok) {
+            if (! ok) return;
 
-        const btn     = this;
-        const body    = new FormData();
-        body.append(btn.dataset.csrf, btn.dataset.csrfVal);
-        body.append('order_id', btn.dataset.orderId);
+            const body = new FormData();
+            body.append(btn.dataset.csrf, btn.dataset.csrfVal);
+            body.append('order_id', btn.dataset.orderId);
 
-        btn.disabled    = true;
-        btn.textContent = '처리 중...';
+            btn.disabled    = true;
+            btn.textContent = '처리 중...';
 
-        fetch('/mypage/orders/cancel', { method: 'POST', body })
+            fetch('/mypage/orders/cancel', { method: 'POST', body })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.success) {
                     window.location.href = '/mypage/orders';
                 } else {
-                    alert(data.message || '취소에 실패했습니다.');
+                    toast(data.message || '취소에 실패했습니다.', 'error');
                     btn.disabled    = false;
                     btn.textContent = '주문 취소';
                 }
             })
             .catch(function () {
-                alert('오류가 발생했습니다. 다시 시도해주세요.');
+                toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
                 btn.disabled    = false;
                 btn.textContent = '주문 취소';
             });
+        });
     });
 })();
 </script>

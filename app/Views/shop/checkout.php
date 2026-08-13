@@ -738,7 +738,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
             if (res.headers.get('X-CSRF-TOKEN')) csrfHash = res.headers.get('X-CSRF-TOKEN');
 
             if (! data.success) {
-                alert(data.message || '주문 생성에 실패했습니다.');
+                toast(data.message || '주문 생성에 실패했습니다.', 'error');
                 return;   // 버튼 복구는 finally 가 처리한다
             }
 
@@ -747,7 +747,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         } catch (e) {
             // 결제창을 그냥 닫은 것은 오류가 아니다 — 경고창 없이 주문서로 되돌린다.
             if (! isPaymentCanceled(e)) {
-                alert(e?.message || '오류가 발생했습니다. 다시 시도해주세요.');
+                toast(e?.message || '오류가 발생했습니다. 다시 시도해주세요.', 'error');
             }
         } finally {
             // 결제창이 닫히거나 실패하면 다시 결제할 수 있어야 한다.
@@ -894,7 +894,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         if (pg === 'toss') {
             // 키 설정이 잘못되면 어댑터가 error 를 담아 보낸다.
             // 그대로 결제창을 열면 콘솔에 400 만 남아 원인을 알 수 없다.
-            if (p.error) { alert('토스페이먼츠 설정 오류: ' + p.error); return; }
+            if (p.error) { toast('토스페이먼츠 설정 오류: ' + p.error, 'error'); return; }
 
             const toss = TossPayments(p.clientKey);
             // successUrl·failUrl 은 어댑터가 만들어 넘긴다.
@@ -911,7 +911,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
         }
 
         if (pg === 'kakaopay') {
-            if (p.error) { alert('카카오페이 오류: ' + p.error); return; }
+            if (p.error) { toast('카카오페이 오류: ' + p.error, 'error'); return; }
             location.href = p.redirectUrl;
             return;
         }
@@ -951,7 +951,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
             // 키가 없으면 여기서 끊는다. 빈 mid 로 결제창을 태우면 이니시스가 결제창 대신
             // 안내 페이지를 오버레이 iframe 안에 그리고, 그 페이지는 부모를 closeUrl 로
             // 보내지 않아 아래 오버레이가 영영 남는다(= 주문서 먹통).
-            if (p.error) { alert('이니시스 설정 오류: ' + p.error); return; }
+            if (p.error) { toast('이니시스 설정 오류: ' + p.error, 'error'); return; }
 
             // INIStdPay 는 폼을 직접 전송하는 방식이 아니다.
             // SDK 를 로드한 뒤 파라미터를 담은 form 의 id 를 넘겨 호출해야 결제창이 열린다.
@@ -994,7 +994,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                 buyerTel:  p.buyerTel,
                 returnUrl: p.returnUrl,
                 fnError(result) {
-                    alert('결제에 실패했습니다: ' + (result && result.errorMsg ? result.errorMsg : '알 수 없는 오류'));
+                    toast('결제에 실패했습니다: ' + (result && result.errorMsg ? result.errorMsg : '알 수 없는 오류'), 'error');
                 },
             });
             return;
@@ -1006,7 +1006,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
             return;
         }
 
-        alert('지원하지 않는 PG입니다: ' + pg);
+        toast('지원하지 않는 PG입니다: ' + pg, 'error');
     }
 
     // 초기 요약 렌더
