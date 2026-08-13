@@ -66,6 +66,15 @@
 $featuredTitle  = $wcfg['welcome_featured_title']  ?? '기획전';
 $newTitle       = $wcfg['welcome_new_title']        ?? '신상품';
 $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
+
+// 세 밴드(기획전·신상품·할인)에 같은 상품이 중복 노출되지 않도록,
+// 위 밴드에서 이미 보여 준 상품을 아래 밴드에서 제외한다(slug 기준 — 모든 카드가 slug 를 쓴다).
+// 기획전은 큐레이션이므로 그대로 두고, 신상품 → 할인 순으로 걸러 낸다.
+// 걸러진 결과가 비면 아래의 `if (!empty(...))` 가드가 해당 밴드를 통째로 숨긴다.
+$shownSlugs         = array_column($featuredProducts ?? [], 'slug');
+$newProducts        = array_values(array_filter($newProducts ?? [], static fn ($p) => ! in_array($p['slug'], $shownSlugs, true)));
+$shownSlugs         = array_merge($shownSlugs, array_column($newProducts, 'slug'));
+$discountedProducts = array_values(array_filter($discountedProducts ?? [], static fn ($p) => ! in_array($p['slug'], $shownSlugs, true)));
 ?>
 <!-- ── 기획전 상품 ─────────────────────────────────────────────────────────── -->
 <?php if (!empty($featuredProducts)): ?>
@@ -110,7 +119,7 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                         </div>
                         <div class="card-body p-2">
                             <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                            <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
+                            <div class="fw-semibold text-truncate fs-compact"><?= esc($p['name']) ?></div>
                             <div class="mt-1">
                                 <?php if ($hasDiscount): ?>
                                 <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
@@ -171,7 +180,7 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                         </div>
                         <div class="card-body p-2">
                             <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                            <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
+                            <div class="fw-semibold text-truncate fs-compact"><?= esc($p['name']) ?></div>
                             <div class="mt-1">
                                 <?php if ($hasDiscount): ?>
                                 <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
@@ -222,7 +231,7 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                         </div>
                         <div class="card-body p-2">
                             <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                            <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
+                            <div class="fw-semibold text-truncate fs-compact"><?= esc($p['name']) ?></div>
                             <div class="mt-1">
                                 <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
                                 <span class="text-danger fw-bold ms-1"><?= number_format($displayPrice) ?>원</span>
