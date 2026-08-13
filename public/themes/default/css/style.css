@@ -10,6 +10,22 @@
 /* 축약 본문 크기 유틸 — 상품 카드 제목 등에서 반복되던 .9rem 을 한곳에서 관리 */
 .fs-compact { font-size: var(--fs-compact); }
 
+/* 결제수단 브랜드 식별 칩 — 구조만 정의하고, 배경/글자색은 각 PG 대표색을
+   뷰(checkout.php)에서 인라인으로 주입한다(중립 테마의 예외: 결제수단 식별용 기능 요소).
+   반경은 pill 토큰(원형), 글자는 label 스텝(0.8rem)으로 디자인 시스템에 맞춘다. */
+.pg-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 /* 세로 스크롤바 자리를 항상 비워 둔다. 내용이 짧아 스크롤바가 없는 화면
    (쿠폰·포인트 등)은 그만큼 뷰포트가 넓어져, 가운데 정렬된 본문이 스크롤바가
    있는 화면보다 스크롤바 폭의 절반만큼 밀린다. 마이페이지처럼 좌측 메뉴를
