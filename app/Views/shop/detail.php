@@ -124,8 +124,8 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
             <div class="mb-4 pb-4 border-bottom" id="optionArea">
                 <?php foreach ($options as $optGroup): ?>
                 <div class="d-flex gap-2 align-items-center mb-2">
-                    <span class="text-muted small" style="min-width:70px"><?= esc($optGroup['name']) ?></span>
-                    <select class="form-select form-select-sm option-select"
+                    <span class="text-muted small" style="min-width:70px"><?= esc($optGroup['name']) ?> <span class="text-danger" title="필수 선택">*</span></span>
+                    <select class="form-select form-select-sm option-select" aria-required="true"
                             data-option-id="<?= (int) $optGroup['id'] ?>"
                             onchange="onOptionChange()">
                         <option value="">선택하세요</option>
@@ -749,17 +749,35 @@ document.getElementById('selectedAddons')?.addEventListener('click', function (e
     renderSelectedAddons();
 });
 
+// 구매 버튼(담기·바로구매·스티키)을 일괄로 활성/비활성한다.
+function setBuyEnabled(enabled) {
+    ['btnAddCart', 'btnBuyNow', 'btnStickyCart'].forEach(function (id) {
+        const b = document.getElementById(id);
+        if (b) b.disabled = ! enabled;
+    });
+}
+
+// 옵션 안내 메시지와 톤(경고/보통)을 설정한다.
+function setSkuMsg(text, isWarn) {
+    const msg = document.getElementById('skuInfoMsg');
+    if (! msg) return;
+    msg.textContent = text;
+    msg.classList.toggle('text-danger', ! ! isWarn);
+    msg.classList.toggle('text-muted', ! isWarn);
+}
+
 function onOptionChange() {
     const selects = document.querySelectorAll('.option-select');
     const selected = Array.from(selects).map(function (s) { return parseInt(s.value) || 0; });
     const allPicked = selected.every(function (v) { return v > 0; });
 
     currentSkuId = null;
-    const msg = document.getElementById('skuInfoMsg');
 
     if (! allPicked) {
-        if (msg) msg.textContent = '';
+        // 필수 옵션 미선택 — 유효 조합 전까지 구매 버튼 비활성 + 인라인 안내
         updatePriceDisplay(basePrice, <?= (int) $product['stock'] ?>);
+        setBuyEnabled(false);
+        setSkuMsg('옵션을 선택해주세요.', true);
         return;
     }
 
@@ -770,18 +788,14 @@ function onOptionChange() {
     });
 
     if (! sku) {
-        if (msg) msg.textContent = '해당 조합은 준비 중입니다.';
+        setSkuMsg('해당 조합은 준비 중입니다.', true);
         updatePriceDisplay(basePrice, 0);
         return;
     }
 
     currentSkuId = sku.id;
     const finalPrice = basePrice + sku.price_diff;
-    if (msg) {
-        msg.textContent = sku.stock > 0
-            ? '재고 ' + sku.stock + '개'
-            : '품절';
-    }
+    setSkuMsg(sku.stock > 0 ? '재고 ' + sku.stock + '개' : '품절', sku.stock < 1);
     updatePriceDisplay(finalPrice, sku.stock);
 }
 
@@ -867,6 +881,27 @@ document.getElementById('productCarousel')?.addEventListener('slide.bs.carousel'
     });
 });
 
+// 갤러리 이미지 404 폴백 — 상세 캐러셀·썸네일은 .product-card 공통 폴백 대상이
+// 아니므로, 로드 실패 시 이미지 없음(빈 갤러리)과 동일한 bi-image 플레이스홀더로 교체한다.
+(function () {
+    document.querySelectorAll('.carousel-item img, .thumb-btn img').forEach(function (img) {
+        function fail() {
+            if (img.dataset.imgFallback) return;
+            img.dataset.imgFallback = '1';
+            var isThumb = ! ! img.closest('.thumb-btn');
+            var ph = document.createElement('div');
+            ph.className = 'd-flex align-items-center justify-content-center text-muted';
+            ph.style.cssText = 'background:#f1f3f5;aspect-ratio:1;width:100%';
+            var icon = document.createElement('i');
+            icon.className = 'bi bi-image ' + (isThumb ? 'fs-5' : 'fs-1');
+            ph.appendChild(icon);
+            if (img.parentNode) img.parentNode.replaceChild(ph, img);
+        }
+        img.addEventListener('error', fail);
+        if (img.complete && img.naturalWidth === 0) fail();
+    });
+})();
+
 // ─── 장바구니 담기 / 바로구매 ─────────────────────────────────────────────────
 function addToCart(btn, onSuccess) {
     // 옵션이 있는데 SKU를 선택하지 않았으면 안내
@@ -875,8 +910,8 @@ function addToCart(btn, onSuccess) {
         const selects = document.querySelectorAll('.option-select');
         const unselected = Array.from(selects).find(function (s) { return ! s.value; });
         if (unselected) {
-            const label = unselected.previousElementSibling?.textContent?.trim() || '옵션';
-            alert(label + '을(를) 선택해주세요.');
+            setSkuMsg('옵션을 선택해주세요.', true);
+            unselected.focus();
             return;
         }
     }
@@ -949,6 +984,14 @@ document.getElementById('btnStickyCart')?.addEventListener('click', function () 
         }, 1500);
     });
 });
+
+// 초기 상태: 옵션 있는 상품은 유효 조합을 고르기 전까지 담기/바로구매 비활성
+(function () {
+    if (typeof skuData !== 'undefined' && skuData.length > 0) {
+        setBuyEnabled(false);
+        setSkuMsg('옵션을 선택해주세요.', true);
+    }
+})();
 
 // ─── 리뷰 ─────────────────────────────────────────────────────────────────────
 // 별점 입력 인터랙션
