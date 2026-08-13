@@ -13,7 +13,7 @@
             <?php if ($curCat): ?>
             <input type="hidden" name="category_id" value="<?= $curCat ?>">
             <?php endif; ?>
-            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-search"></i></button>
+            <button type="submit" class="btn btn-sm btn-outline-secondary" aria-label="검색"><i class="bi bi-search"></i></button>
         </form>
     </div>
 
@@ -178,12 +178,14 @@
                         <!-- 찜 버튼 -->
                         <?php $isWishedItem = in_array((int) $p['id'], $wishedIds ?? [], true); ?>
                         <button class="btn-wish position-absolute btn btn-sm"
-                                style="top:6px;right:6px;z-index:2;padding:2px 6px;background:rgba(255,255,255,.85);border:none"
+                                style="top:6px;right:6px;z-index:2;padding:2px 6px;background:rgba(255,255,255,.92);border:none;box-shadow:0 1px 3px rgba(0,0,0,.18)"
                                 data-slug="<?= esc($p['slug']) ?>"
                                 data-csrf="<?= csrf_token() ?>"
                                 data-csrf-val="<?= csrf_hash() ?>"
                                 data-loggedin="<?= session()->get('user_id') ? 'true' : 'false' ?>"
-                                title="찜하기">
+                                aria-pressed="<?= $isWishedItem ? 'true' : 'false' ?>"
+                                aria-label="<?= $isWishedItem ? '찜 해제' : '찜하기' ?>"
+                                title="<?= $isWishedItem ? '찜 해제' : '찜하기' ?>">
                             <i class="bi <?= $isWishedItem ? 'bi-heart-fill' : 'bi-heart' ?> text-danger"></i>
                         </button>
                         <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
@@ -453,6 +455,11 @@ document.querySelectorAll('.btn-wish').forEach(function(btn) {
                 icon.classList.remove('bi-heart-fill');
                 icon.classList.add('bi-heart');
             }
+            // 접근성 상태 동기화
+            btn.setAttribute('aria-pressed', data.wished ? 'true' : 'false');
+            var label = data.wished ? '찜 해제' : '찜하기';
+            btn.setAttribute('aria-label', label);
+            btn.title = label;
             if (data.csrf_hash) btn.dataset.csrfVal = data.csrf_hash;
         })
         .catch(function() {});

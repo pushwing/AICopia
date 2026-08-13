@@ -91,6 +91,12 @@ body {
 .product-card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,.1);
 }
+/* 찜 버튼은 border:none 커스텀 칩이라 기본 포커스 링이 약하다 —
+   키보드 사용자를 위해 가시 포커스 링을 명시한다. */
+.btn-wish:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 .2rem rgba(220, 53, 69, .45);
+}
 
 /* ─── 푸터 ───────────────────────────────────────── */
 footer a {
