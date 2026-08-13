@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Controllers\Front;
 
 use App\Controllers\BaseController;
+use App\Exceptions\WithdrawalBlockedException;
 use App\Libraries\GradeService;
 use App\Libraries\Mailer;
+use App\Libraries\WithdrawalService;
 use App\Models\CartModel;
 use App\Models\ShippingAddressModel;
 use App\Models\UserModel;
@@ -247,9 +249,19 @@ class AuthController extends BaseController
 
     public function profile(): \CodeIgniter\HTTP\RedirectResponse|string
     {
-        $user      = $this->userModel->find(session()->get('user_id'));
+        $user      = $this->userModel->find((int) session()->get('user_id'));
         $activeTab = $this->request->getGet('tab') ?? 'info';
-        return $this->render('auth/profile', ['user' => $user, 'activeTab' => $activeTab]);
+
+        $data = ['user' => $user, 'activeTab' => $activeTab];
+
+        // 탈퇴 탭에서만 차단 판정·소멸자산을 계산한다 (기본 정보 탭의 불필요한 쿼리 방지)
+        if ($activeTab === 'withdraw' && is_array($user)) {
+            $service            = new WithdrawalService();
+            $data['withdrawal'] = $service->canWithdraw($user);
+            $data['forfeit']    = $service->forfeitSummary((int) $user['id']);
+        }
+
+        return $this->render('auth/profile', $data);
     }
 
     public function profileUpdate(): \CodeIgniter\HTTP\RedirectResponse
@@ -315,6 +327,56 @@ class AuthController extends BaseController
         }
 
         return redirect()->to('/auth/profile');
+    }
+
+    // ─── 회원탈퇴 ────────────────────────────────────────────────────────────────
+
+    public function withdrawProcess(): \CodeIgniter\HTTP\RedirectResponse
+    {
+        $userId = (int) session()->get('user_id');
+        $user   = $this->userModel->find($userId);
+
+        if (! is_array($user)) {
+            return redirect()->to('/auth/login');
+        }
+
+        $service = new WithdrawalService();
+
+        // 본인 확인 — 소셜 계정은 비밀번호가 랜덤이라 검증할 수 없어 확인 문구로 대체
+        if (empty($user['social_provider'])) {
+            $password = (string) $this->request->getPost('password');
+            if (! password_verify($password, $user['password'])) {
+                return redirect()->back()->withInput()
+                    ->with('errors', ['password' => '비밀번호가 일치하지 않습니다.']);
+            }
+        } elseif ($this->request->getPost('confirm_text') !== '탈퇴합니다') {
+            return redirect()->back()->withInput()
+                ->with('errors', ['confirm_text' => '확인 문구를 정확히 입력해 주세요.']);
+        }
+
+        $reasonCode = (string) $this->request->getPost('reason_code');
+        if (! array_key_exists($reasonCode, WithdrawalService::REASON_CODES) || $reasonCode === 'admin') {
+            $reasonCode = 'etc';
+        }
+
+        $reasonText = $this->request->getPost('reason_text');
+        $reasonText = is_string($reasonText) && trim($reasonText) !== '' ? mb_substr(trim($reasonText), 0, 500) : null;
+
+        try {
+            $service->withdraw($userId, $reasonCode, $reasonText);
+        } catch (WithdrawalBlockedException $e) {
+            return redirect()->to('/auth/profile?tab=withdraw')
+                ->with('error', implode(' ', $e->reasons));
+        } catch (\Throwable $e) {
+            log_message('error', '[withdraw] 탈퇴 처리 실패 user_id=' . $userId . ' — ' . $e->getMessage());
+
+            return redirect()->to('/auth/profile?tab=withdraw')
+                ->with('error', '탈퇴 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+        }
+
+        session()->destroy();
+
+        return redirect()->to('/')->with('success', '탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.');
     }
 
     // ─── 이메일 발송 (private) ────────────────────────────────────────────────────

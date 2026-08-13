@@ -12,13 +12,11 @@ $providerLabel = match($user['social_provider'] ?? null) {
 $grade = $user['grade'] ?? 'bronze';
 
 // 소셜 로그인 계정은 비밀번호가 없어 '비밀번호 변경' 탭을 제공하지 않는다.
-// 그러면 탭이 '기본 정보' 하나만 남는데, 탭 하나짜리 탭 바는 아무 정보도 주지
-// 못한 채 카드와 떨어진 빈 상자처럼 보이므로 탭 바 자체를 그리지 않는다.
 $canChangePassword = empty($user['social_provider']);
 
-// 소셜 계정이 /auth/profile?tab=password 로 직접 들어와도 쓸 수 없는 폼 대신
-// 기본 정보를 보여준다(POST 는 AuthController::profileUpdate() 에서 이미 차단).
 $showPasswordTab = $canChangePassword && $activeTab === 'password';
+$showWithdrawTab = $activeTab === 'withdraw';
+$showInfoTab     = ! $showPasswordTab && ! $showWithdrawTab;
 ?>
 
 <div class="container py-4" style="max-width:1100px">
@@ -36,18 +34,21 @@ $showPasswordTab = $canChangePassword && $activeTab === 'password';
         </span>
     </div>
 
-    <?php if ($canChangePassword): ?>
     <ul class="nav nav-tabs mb-4">
         <li class="nav-item">
-            <a class="nav-link <?= $showPasswordTab ? '' : 'active' ?>" href="/auth/profile">기본 정보</a>
+            <a class="nav-link <?= $showInfoTab ? 'active' : '' ?>" href="/auth/profile">기본 정보</a>
         </li>
+        <?php if ($canChangePassword): ?>
         <li class="nav-item">
             <a class="nav-link <?= $showPasswordTab ? 'active' : '' ?>" href="/auth/profile?tab=password">비밀번호 변경</a>
         </li>
+        <?php endif; ?>
+        <li class="nav-item">
+            <a class="nav-link text-danger <?= $showWithdrawTab ? 'active' : '' ?>" href="/auth/profile?tab=withdraw">회원 탈퇴</a>
+        </li>
     </ul>
-    <?php endif; ?>
 
-    <?php if (! $showPasswordTab): ?>
+    <?php if ($showInfoTab): ?>
     <!-- ── 기본 정보 탭 ── -->
     <div class="card">
         <div class="card-body">
@@ -141,6 +142,79 @@ $showPasswordTab = $canChangePassword && $activeTab === 'password';
                     <button type="submit" class="btn btn-primary btn-sm px-4">변경</button>
                 </div>
             </form>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($showWithdrawTab): ?>
+    <!-- ── 회원 탈퇴 탭 ── -->
+    <div class="card border-danger">
+        <div class="card-body">
+            <?php if (! ($withdrawal['allowed'] ?? false)): ?>
+                <div class="alert alert-warning mb-0">
+                    <h6 class="fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>지금은 탈퇴할 수 없습니다</h6>
+                    <ul class="mb-0 ps-3">
+                        <?php foreach (($withdrawal['reasons'] ?? []) as $reason): ?>
+                        <li><?= esc($reason) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php else: ?>
+                <div class="alert alert-danger">
+                    <h6 class="fw-bold"><i class="bi bi-exclamation-octagon me-2"></i>탈퇴 시 아래 항목이 소멸됩니다</h6>
+                    <ul class="mb-0 ps-3">
+                        <li>보유 포인트 <strong><?= esc(number_format($forfeit['point'])) ?>점</strong></li>
+                        <li>미사용 쿠폰 <strong><?= esc((string) $forfeit['coupon']) ?>장</strong></li>
+                        <li>장바구니 · 찜 목록 · 저장된 배송지</li>
+                    </ul>
+                    <hr>
+                    <p class="mb-0 small">
+                        주문 내역은 전자상거래법에 따라 5년간 보관되며, 회원정보는 일정 기간 후 파기됩니다.
+                        탈퇴 후에는 복구할 수 없습니다.
+                    </p>
+                </div>
+
+                <form method="post" action="/auth/withdraw">
+                    <?= csrf_field() ?>
+
+                    <div class="mb-3">
+                        <label class="form-label">탈퇴 사유</label>
+                        <?php foreach (\App\Libraries\WithdrawalService::REASON_CODES as $code => $label): ?>
+                            <?php if ($code === 'admin') { continue; } ?>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="reason_code"
+                                       id="reason_<?= esc($code) ?>" value="<?= esc($code) ?>"
+                                       <?= $code === 'unused' ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="reason_<?= esc($code) ?>"><?= esc($label) ?></label>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="reason_text">상세 사유 (선택)</label>
+                        <textarea class="form-control" id="reason_text" name="reason_text" rows="3"
+                                  maxlength="500" placeholder="개선에 참고하겠습니다."></textarea>
+                    </div>
+
+                    <?php if (empty($user['social_provider'])): ?>
+                    <div class="mb-3">
+                        <label class="form-label" for="withdraw_password">비밀번호 확인</label>
+                        <input type="password" class="form-control" id="withdraw_password" name="password" required>
+                    </div>
+                    <?php else: ?>
+                    <div class="mb-3">
+                        <label class="form-label" for="confirm_text">확인을 위해 <strong>탈퇴합니다</strong> 를 입력해 주세요</label>
+                        <input type="text" class="form-control" id="confirm_text" name="confirm_text" required>
+                    </div>
+                    <?php endif; ?>
+
+                    <button type="submit" class="btn btn-danger"
+                            onclick="return confirm('정말 탈퇴하시겠습니까? 복구할 수 없습니다.')">
+                        회원 탈퇴
+                    </button>
+                    <a href="/auth/profile" class="btn btn-outline-secondary">취소</a>
+                </form>
+            <?php endif; ?>
         </div>
     </div>
     <?php endif; ?>
