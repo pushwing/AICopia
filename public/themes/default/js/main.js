@@ -81,3 +81,36 @@
         });
     };
 })();
+
+// 상품 이미지 로드 실패(404 등) 시 플레이스홀더 아이콘으로 폴백한다.
+// 상품 URL 은 있으나 파일이 없는 경우(데모 데이터 등) 깨진 이미지 대신,
+// primary_image 가 비었을 때와 동일한 bi-image 플레이스홀더를 보여준다.
+// 목록·홈·상세·추천·장바구니 등 .product-card 가 쓰이는 모든 화면에 적용된다.
+(function () {
+    'use strict';
+
+    function toPlaceholder(img) {
+        if (img.dataset.imgFallback) {
+            return;
+        }
+        img.dataset.imgFallback = '1';
+        var ph = document.createElement('div');
+        ph.className = 'd-flex align-items-center justify-content-center h-100 text-muted';
+        var icon = document.createElement('i');
+        icon.className = 'bi bi-image fs-1';
+        ph.appendChild(icon);
+        if (img.parentNode) {
+            img.parentNode.replaceChild(ph, img);
+        }
+    }
+
+    document.querySelectorAll('.product-card img').forEach(function (img) {
+        img.addEventListener('error', function () {
+            toPlaceholder(img);
+        });
+        // 스크립트 실행 전 이미 로드에 실패한 이미지도 처리한다.
+        if (img.complete && img.naturalWidth === 0) {
+            toPlaceholder(img);
+        }
+    });
+})();

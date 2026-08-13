@@ -190,7 +190,7 @@
                                 title="<?= $isWishedItem ? '찜 해제' : '찜하기' ?>">
                             <i class="bi <?= $isWishedItem ? 'bi-heart-fill' : 'bi-heart' ?> text-danger"></i>
                         </button>
-                        <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
+                        <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark flex-grow-1">
                             <!-- 이미지 -->
                             <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
                                 <?php if ($p['primary_image']): ?>
@@ -212,7 +212,7 @@
                                 <?php if ($hasDiscount && ! $isSoldOut):
                                     $rate = round((1 - $p['discount_price'] / $p['price']) * 100);
                                 ?>
-                                <span class="badge bg-danger position-absolute" style="top:8px;right:8px"><?= $rate ?>%</span>
+                                <span class="badge bg-danger position-absolute" style="top:8px;left:8px"><?= $rate ?>%</span>
                                 <?php endif; ?>
                             </div>
                             <!-- 정보 -->
@@ -240,13 +240,13 @@
                             <?php if ($p['has_options']): ?>
                             <a href="/shop/<?= esc($p['slug']) ?>"
                                class="btn btn-sm btn-outline-secondary w-100 py-2"
-                               style="border-radius:0 0 calc(.375rem - 1px) calc(.375rem - 1px)">
+                               style="border-radius:0 0 calc(.75rem - 1px) calc(.75rem - 1px)">
                                 <i class="bi bi-bag"></i> 옵션 선택
                             </a>
                             <?php else: ?>
                             <button type="button"
                                     class="btn btn-sm btn-primary w-100 py-2 btn-quick-cart"
-                                    style="border-radius:0 0 calc(.375rem - 1px) calc(.375rem - 1px)"
+                                    style="border-radius:0 0 calc(.75rem - 1px) calc(.75rem - 1px)"
                                     data-product-id="<?= $p['id'] ?>"
                                     data-csrf="<?= csrf_token() ?>"
                                     data-csrf-val="<?= csrf_hash() ?>">
