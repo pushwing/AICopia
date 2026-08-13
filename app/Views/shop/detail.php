@@ -1091,7 +1091,10 @@ document.getElementById('btnReviewSubmit')?.addEventListener('click', function (
 
     fetch('/shop/<?= esc($product['slug']) ?>/review', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
-        .then(function (data) { toast(data.message, data.success ? 'success' : 'error'); if (data.success) location.reload(); })
+        .then(function (data) {
+            toast(data.message, data.success ? 'success' : 'error');
+            if (data.success) { window.location.hash = '#tabReviews'; location.reload(); }
+        })
         .catch(function () { toast('오류가 발생했습니다.', 'error'); });
 });
 
@@ -1109,7 +1112,7 @@ document.querySelectorAll('.btn-review-delete').forEach(function (btn) {
                   { method: 'POST', body: fd })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    if (data.success) location.reload();
+                    if (data.success) { window.location.hash = '#tabReviews'; location.reload(); }
                     else toast(data.message || '삭제에 실패했습니다.', 'error');
                 })
                 .catch(function () { toast('오류가 발생했습니다.', 'error'); });
@@ -1138,7 +1141,7 @@ document.getElementById('btnQnaSubmit')?.addEventListener('click', function () {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             toast(data.message, data.success ? 'success' : 'error');
-            if (data.success) location.reload();
+            if (data.success) { window.location.hash = '#tabQna'; location.reload(); }
         })
         .catch(function () { toast('오류가 발생했습니다.', 'error'); });
 });
@@ -1156,7 +1159,7 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
                   { method: 'POST', body: fd })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    if (data.success) location.reload();
+                    if (data.success) { window.location.hash = '#tabQna'; location.reload(); }
                     else toast(data.message || '삭제에 실패했습니다.', 'error');
                 })
                 .catch(function () { toast('오류가 발생했습니다.', 'error'); });
