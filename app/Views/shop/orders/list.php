@@ -118,10 +118,25 @@ $statusBadge = [
             <div class="card-body py-3">
                 <?php $orderName = $order['_name_summary'] ?? ''; ?>
                 <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="fw-semibold mb-1"><?= esc($orderName) ?></div>
-                        <div class="text-muted small">
-                            총 <?= number_format($order['payable_amount'] ?? $order['total_amount']) ?>원
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <?php // 대표 썸네일 — 주문 첫 상품의 대표 이미지(없으면 플레이스홀더). 클릭 시 주문 상세로. ?>
+                        <a href="/mypage/orders/<?= esc($order['order_number']) ?>" class="flex-shrink-0" aria-label="주문 상세 보기">
+                            <?php if (! empty($order['_thumbnail'])): ?>
+                            <?php // 이미지 로드 실패(파일 삭제·404) 시 아래 플레이스홀더로 교체 — main.js 의 .order-thumb-img 핸들러 ?>
+                            <img src="/<?= esc($order['_thumbnail']) ?>" alt="<?= esc($orderName) ?>"
+                                 class="rounded border order-thumb-img" style="width:56px;height:56px;object-fit:cover" loading="lazy">
+                            <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted order-thumb-ph"
+                                 style="width:56px;height:56px;display:none"><i class="bi bi-image fs-5"></i></div>
+                            <?php else: ?>
+                            <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted"
+                                 style="width:56px;height:56px"><i class="bi bi-image fs-5"></i></div>
+                            <?php endif; ?>
+                        </a>
+                        <div class="min-w-0">
+                            <div class="fw-semibold mb-1 text-truncate"><?= esc($orderName) ?></div>
+                            <div class="text-muted small">
+                                총 <?= number_format($order['payable_amount'] ?? $order['total_amount']) ?>원
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex gap-2 flex-wrap justify-content-end">
@@ -189,6 +204,19 @@ $statusBadge = [
 
 <?= $this->section('scripts') ?>
 <script>
+(function () {
+    // 대표 썸네일 로드 실패(파일 삭제·404) 시 형제 플레이스홀더로 교체한다.
+    document.querySelectorAll('.order-thumb-img').forEach(function (img) {
+        function fallback() {
+            img.style.display = 'none';
+            var ph = img.parentNode.querySelector('.order-thumb-ph');
+            if (ph) { ph.style.display = 'flex'; }
+        }
+        img.addEventListener('error', fallback);
+        // 스크립트 실행 전 이미 실패한 이미지도 처리한다.
+        if (img.complete && img.naturalWidth === 0) { fallback(); }
+    });
+})();
 (function () {
     document.querySelectorAll('.btn-cancel').forEach(function (btn) {
         btn.addEventListener('click', function () {
