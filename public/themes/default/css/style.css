@@ -88,6 +88,17 @@ body {
     overflow: hidden;
     transition: box-shadow .15s;
 }
+/* 품절 스크림 — 이미지 전체를 덮는 반투명 오버레이.
+   ⚠️ Bootstrap 5.3 에는 .inset-0 유틸이 없어 position-absolute 만으론
+   전체를 덮지 못한다. 목록·추천 카드가 공유하는 이 클래스로 통일한다. */
+.product-soldout-scrim {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, .4);
+}
 .product-card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,.1);
 }

@@ -202,8 +202,7 @@
                                 <?php endif; ?>
                                 <!-- 품절 배지 -->
                                 <?php if ($isSoldOut): ?>
-                                <div class="position-absolute inset-0 d-flex align-items-center justify-content-center"
-                                     style="background:rgba(0,0,0,.4)">
+                                <div class="product-soldout-scrim">
                                     <span class="badge bg-dark fs-6">품절</span>
                                 </div>
                                 <?php endif; ?>
