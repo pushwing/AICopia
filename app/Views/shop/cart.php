@@ -77,7 +77,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                         <!-- 이미지 -->
                         <a href="/shop/<?= esc($item['slug']) ?>" class="flex-shrink-0">
                             <?php if ($item['primary_image']): ?>
-                            <img src="<?= esc($item['primary_image']) ?>" alt="" class="cart-item-img rounded"
+                            <img src="<?= esc($item['primary_image']) ?>" alt="" loading="lazy" class="cart-item-img rounded"
                                  style="width:80px;height:80px;object-fit:cover">
                             <?php else: ?>
                             <div class="d-flex align-items-center justify-content-center text-muted rounded"

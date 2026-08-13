@@ -163,7 +163,7 @@ $available = \App\Libraries\AddonGrouping::order($available ?? []);
                             <span class="badge bg-secondary align-self-start">추가구성</span>
                             <?php endif; ?>
                             <?php if ($item['primary_image']): ?>
-                            <img src="<?= esc($item['primary_image']) ?>" alt="" class="checkout-item-img rounded flex-shrink-0"
+                            <img src="<?= esc($item['primary_image']) ?>" alt="" loading="lazy" class="checkout-item-img rounded flex-shrink-0"
                                  style="width:64px;height:64px;object-fit:cover">
                             <?php else: ?>
                             <div class="d-flex align-items-center justify-content-center text-muted flex-shrink-0 rounded"
