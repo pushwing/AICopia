@@ -212,7 +212,7 @@
                                 <?php if ($hasDiscount && ! $isSoldOut):
                                     $rate = round((1 - $p['discount_price'] / $p['price']) * 100);
                                 ?>
-                                <span class="badge bg-danger position-absolute" style="top:8px;right:8px"><?= $rate ?>%</span>
+                                <span class="badge bg-danger position-absolute" style="top:8px;left:8px"><?= $rate ?>%</span>
                                 <?php endif; ?>
                             </div>
                             <!-- 정보 -->
