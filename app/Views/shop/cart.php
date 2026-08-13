@@ -64,6 +64,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                         <!-- 체크박스 -->
                         <div class="pt-1 flex-shrink-0">
                             <input type="checkbox" class="form-check-input item-check"
+                                   aria-label="<?= esc($item['name']) ?> 선택"
                                    <?= $isSoldOut ? 'disabled data-soldout="1"' : 'checked' ?>>
                         </div>
 
@@ -74,11 +75,11 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                         <!-- 이미지 -->
                         <a href="/shop/<?= esc($item['slug']) ?>" class="flex-shrink-0">
                             <?php if ($item['primary_image']): ?>
-                            <img src="<?= esc($item['primary_image']) ?>" alt=""
-                                 style="width:80px;height:80px;object-fit:cover;border-radius:6px">
+                            <img src="<?= esc($item['primary_image']) ?>" alt="" class="cart-item-img rounded"
+                                 style="width:80px;height:80px;object-fit:cover">
                             <?php else: ?>
-                            <div class="d-flex align-items-center justify-content-center text-muted"
-                                 style="width:80px;height:80px;background:#f1f3f5;border-radius:6px">
+                            <div class="d-flex align-items-center justify-content-center text-muted rounded"
+                                 style="width:80px;height:80px;background:#f1f3f5">
                                 <i class="bi bi-image"></i>
                             </div>
                             <?php endif; ?>
@@ -124,21 +125,17 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                         <!-- 수량 + 삭제 -->
                         <div class="d-flex flex-column align-items-end gap-2 flex-shrink-0 ms-auto">
                             <?php if (! $isSoldOut): ?>
-                            <div class="d-flex align-items-center gap-1">
+                            <div class="d-flex align-items-center gap-2">
                                 <div class="input-group input-group-sm" style="width:108px">
-                                    <button type="button" class="btn btn-outline-secondary qty-minus">−</button>
-                                    <input type="number" class="form-control text-center qty-input"
+                                    <button type="button" class="btn btn-outline-secondary qty-minus" aria-label="수량 줄이기">−</button>
+                                    <input type="number" class="form-control text-center qty-input" aria-label="수량"
                                            value="<?= (int) $item['qty'] ?>"
                                            min="1" max="<?= (int) $item['stock'] ?>">
-                                    <button type="button" class="btn btn-outline-secondary qty-plus">+</button>
+                                    <button type="button" class="btn btn-outline-secondary qty-plus" aria-label="수량 늘리기">+</button>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary qty-update"
-                                        data-product-id="<?= (int) $item['product_id'] ?>"
-                                        data-sku-id="<?= (int) ($item['sku_id'] ?? 0) ?>"
-                                        data-csrf="<?= csrf_token() ?>"
-                                        data-csrf-val="<?= csrf_hash() ?>">
-                                    수정
-                                </button>
+                                <span class="qty-status text-success small d-none" role="status" aria-live="polite">
+                                    <i class="bi bi-check2"></i> 저장됨
+                                </span>
                             </div>
                             <div class="fw-bold small line-total">
                                 <?= number_format($item['display_price'] * $item['qty']) ?>원
@@ -147,7 +144,8 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                             <div class="text-muted small">수량 <?= (int) $item['qty'] ?>개</div>
                             <?php endif; ?>
 
-                            <form method="post" action="/cart/delete" class="d-inline">
+                            <form method="post" action="/cart/delete" class="d-inline"
+                                  onsubmit="return confirm('이 상품을 장바구니에서 삭제하시겠습니까?')">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="product_id" value="<?= (int) $item['product_id'] ?>">
                                 <?php if (! empty($item['sku_id'])): ?>
@@ -197,6 +195,19 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
         </div>
 
     </div>
+
+    <!-- 모바일 스티키 결제 바 (요약이 상품 아래로 밀려도 주문하기가 항상 손닿게) -->
+    <div class="d-lg-none position-fixed bottom-0 start-0 end-0 bg-white border-top d-flex align-items-center gap-2 px-2 py-2"
+         id="cartStickyBar" style="z-index:1040">
+        <div class="flex-shrink-0 ps-1">
+            <div class="text-muted" style="font-size:.8rem;line-height:1.1"><span id="stickyCount">0개</span> 선택</div>
+            <div class="fw-bold" id="stickyTotal">0원</div>
+        </div>
+        <button type="submit" form="checkoutForm" id="btnStickyCheckout" class="btn btn-primary flex-grow-1 py-2" disabled>
+            주문하기
+        </button>
+    </div>
+    <div class="d-lg-none" style="height:76px"></div>
     <?php endif; ?>
 
 </div>
@@ -206,6 +217,9 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
 <?= $this->section('scripts') ?>
 <script>
 (function () {
+    // 자동 저장 AJAX 용 CSRF (regenerate=false 라 한 토큰을 반복 사용 가능)
+    const CART_CSRF = { name: '<?= csrf_token() ?>', hash: '<?= csrf_hash() ?>' };
+
     function updateSummary() {
         const countEl = document.getElementById('selectedCount');
         if (! countEl) return; // 장바구니가 비어있으면 요약 영역 자체가 렌더링되지 않는다.
@@ -221,10 +235,19 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
             total += price * qty;
         });
         countEl.textContent = count + '개';
-        document.getElementById('selectedTotal').textContent = total.toLocaleString('ko-KR') + '원';
+        const totalStr = total.toLocaleString('ko-KR') + '원';
+        document.getElementById('selectedTotal').textContent = totalStr;
 
         const btn = document.getElementById('btnCheckout');
         if (btn) btn.disabled = (count === 0);
+
+        // 모바일 스티키 결제 바 동기화
+        const sc = document.getElementById('stickyCount');
+        const st = document.getElementById('stickyTotal');
+        const sb = document.getElementById('btnStickyCheckout');
+        if (sc) sc.textContent = count + '개';
+        if (st) st.textContent = totalStr;
+        if (sb) sb.disabled = (count === 0);
     }
 
     // 주문 폼 제출 — 체크된 카드의 cart id 를 hidden 으로 실어 보낸다.
@@ -292,14 +315,18 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
         });
     });
 
-    // 수량 +/− / input → 행 합계 + 주문 요약 갱신
+    // 수량 +/− / input → 행 합계·요약 갱신 + 서버 자동 저장(디바운스)
+    // '보이는 수량 = 주문 수량' 불변식 유지 — 별도 '수정' 버튼 없이 변경 즉시 영속한다.
     document.querySelectorAll('.cart-item').forEach(function (card) {
         const input     = card.querySelector('.qty-input');
         const minus     = card.querySelector('.qty-minus');
         const plus      = card.querySelector('.qty-plus');
-        const updateBtn = card.querySelector('.qty-update');
         const lineTotal = card.querySelector('.line-total');
+        const status    = card.querySelector('.qty-status');
         const price     = parseInt(card.dataset.price || 0);
+        const productId = card.dataset.productId;
+        const skuId     = card.dataset.skuId || '0';
+        let persistTimer = null;
 
         if (! input) return;
 
@@ -309,46 +336,66 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
             updateSummary();
         }
 
-        minus?.addEventListener('click', function () {
-            input.value = Math.max(1, parseInt(input.value) - 1);
-            refreshLine();
-        });
-        plus?.addEventListener('click', function () {
-            input.value = Math.min(parseInt(input.max || 999), parseInt(input.value) + 1);
-            refreshLine();
-        });
-        input.addEventListener('input', refreshLine);
+        function showSaved() {
+            if (! status) return;
+            status.classList.remove('d-none');
+            clearTimeout(status._t);
+            status._t = setTimeout(function () { status.classList.add('d-none'); }, 1500);
+        }
 
-        // 수정 버튼 — Ajax
-        updateBtn?.addEventListener('click', function () {
-            const btn       = this;
-            const productId = btn.dataset.productId;
-            const skuId     = btn.dataset.skuId || '0';
-            const qty       = parseInt(input.value) || 1;
-            const body      = new FormData();
-            body.append(btn.dataset.csrf, btn.dataset.csrfVal);
+        function persist() {
+            const qty  = parseInt(input.value) || 1;
+            const body = new FormData();
+            body.append(CART_CSRF.name, CART_CSRF.hash);
             body.append('product_id', productId);
             body.append('qty', qty);
             if (skuId !== '0') body.append('sku_id', skuId);
 
-            btn.disabled    = true;
-            btn.textContent = '저장 중';
-
             fetch('/cart/update', { method: 'POST', body })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    if (data.success) {
-                        input.value = data.qty;
-                        refreshLine();
+                    if (data && data.success) {
+                        // 서버가 재고로 클램프한 실제 수량으로 동기화
+                        if (parseInt(input.value) !== data.qty) { input.value = data.qty; refreshLine(); }
+                        showSaved();
                     }
-                    btn.textContent = '수정';
-                    btn.disabled    = false;
                 })
-                .catch(function () {
-                    btn.textContent = '수정';
-                    btn.disabled    = false;
-                });
+                .catch(function () {});
+        }
+        function schedulePersist() {
+            clearTimeout(persistTimer);
+            persistTimer = setTimeout(persist, 500);
+        }
+
+        minus?.addEventListener('click', function () {
+            input.value = Math.max(1, parseInt(input.value) - 1);
+            refreshLine();
+            schedulePersist();
         });
+        plus?.addEventListener('click', function () {
+            input.value = Math.min(parseInt(input.max || 999), parseInt(input.value) + 1);
+            refreshLine();
+            schedulePersist();
+        });
+        input.addEventListener('input', function () { refreshLine(); schedulePersist(); });
+        input.addEventListener('blur', persist);
+    });
+
+    // 장바구니 썸네일 404 폴백 — 로드 실패 시 bi-image 플레이스홀더로 교체
+    document.querySelectorAll('.cart-item-img').forEach(function (img) {
+        function fail() {
+            if (img.dataset.imgFallback) return;
+            img.dataset.imgFallback = '1';
+            const ph = document.createElement('div');
+            ph.className = 'd-flex align-items-center justify-content-center text-muted rounded';
+            ph.style.cssText = 'width:80px;height:80px;background:#f1f3f5';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-image';
+            ph.appendChild(icon);
+            if (img.parentNode) img.parentNode.replaceChild(ph, img);
+        }
+        img.addEventListener('error', fail);
+        if (img.complete && img.naturalWidth === 0) fail();
     });
 
     // 로드 시점에 본품 체크 상태에 따라 애드온 잠금 상태를 먼저 맞추고,
