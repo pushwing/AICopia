@@ -128,7 +128,7 @@ class BoardController extends BaseController
         }
 
         if (! $this->checkPermission($board['write_permission'])) {
-            session()->setTempdata('redirect_url', current_url(), 300);
+            session()->setFlashdata('redirect_url', current_url());
             return redirect()->to('/auth/login')->with('error', '글쓰기 권한이 없습니다.');
         }
 

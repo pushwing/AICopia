@@ -32,6 +32,10 @@ class SocialAuthController extends BaseController
      */
     public function redirect(string $provider): \CodeIgniter\HTTP\RedirectResponse
     {
+        // 로그인 화면에서 세팅된 redirect_url flashdata가 제공자 왕복(외부 리다이렉트)
+        // 뒤 콜백까지 살아있도록 이 서버를 거치는 요청마다 수명을 연장한다.
+        session()->keepFlashdata('redirect_url');
+
         if (! in_array($provider, OAuthFactory::supported())) {
             return redirect()->to('/auth/login')->with('error', '지원하지 않는 로그인 방식입니다.');
         }
@@ -78,6 +82,8 @@ class SocialAuthController extends BaseController
      */
     public function callback(string $provider): \CodeIgniter\HTTP\RedirectResponse
     {
+        session()->keepFlashdata('redirect_url');
+
         $code  = $this->request->getGet('code');
         $state = $this->request->getGet('state');
         $error = $this->request->getGet('error');
@@ -159,7 +165,7 @@ class SocialAuthController extends BaseController
         // 비로그인 세션 카트를 DB 카트로 병합
         new CartModel()->mergeAndClear((int) $user['id']);
 
-        return redirect()->to(session()->getTempdata('redirect_url') ?? '/');
+        return redirect()->to(session()->getFlashdata('redirect_url') ?? '/');
     }
 
     /**

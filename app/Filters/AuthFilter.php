@@ -30,7 +30,7 @@ class AuthFilter implements FilterInterface
                 return service('response')->setBody(FrameBridge::render((string) current_url(true)));
             }
 
-            session()->setTempdata('redirect_url', current_url(), 300);
+            session()->setFlashdata('redirect_url', current_url());
             return redirect()->to('/auth/login')->with('error', '로그인이 필요합니다.');
         }
 
