@@ -33,12 +33,13 @@
     <?php endif; ?>
 </div>
 <?php else: ?>
-<!-- 배너 없을 때 기본 Hero -->
-<div class="bg-dark text-white py-5" style="background: linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%) !important;">
+<!-- 배너 없을 때 기본 Hero — 중립 서피스(브랜드 드라마는 클라이언트 주입 배너의 몫,
+     Flat-By-Default·Empty-Brand 규칙에 따라 default 는 장식 그라디언트를 쓰지 않는다) -->
+<div class="bg-light border-bottom py-5">
     <div class="container py-4 text-center">
         <h1 class="display-5 fw-bold mb-3">새로운 컬렉션</h1>
-        <p class="lead text-white-50 mb-4">트렌디한 스타일을 합리적인 가격으로 만나보세요</p>
-        <a href="/shop" class="btn btn-light btn-lg px-5">쇼핑 시작하기</a>
+        <p class="lead text-muted mb-4">트렌디한 스타일을 합리적인 가격으로 만나보세요</p>
+        <a href="/shop" class="btn btn-primary btn-lg px-5">쇼핑 시작하기</a>
     </div>
 </div>
 <?php endif; ?>
@@ -49,17 +50,12 @@
     <div class="container">
         <div class="d-flex flex-wrap gap-2 justify-content-center">
             <a href="/shop" class="btn btn-sm btn-outline-dark rounded-pill px-4">전체</a>
+            <?php /* 레일에는 상위 카테고리만 — 하위는 /shop 목록에서 좁힌다(플랫 나열 인지부하 방지) */ ?>
             <?php foreach ($categories as $cat): ?>
             <a href="/shop?category_id=<?= $cat['id'] ?>"
                class="btn btn-sm btn-outline-secondary rounded-pill px-4">
                 <?= esc($cat['name']) ?>
             </a>
-            <?php foreach ($cat['children'] as $child): ?>
-            <a href="/shop?category_id=<?= $child['id'] ?>"
-               class="btn btn-sm btn-outline-secondary rounded-pill px-3">
-                <?= esc($child['name']) ?>
-            </a>
-            <?php endforeach; ?>
             <?php endforeach; ?>
         </div>
     </div>
@@ -70,6 +66,15 @@
 $featuredTitle  = $wcfg['welcome_featured_title']  ?? '기획전';
 $newTitle       = $wcfg['welcome_new_title']        ?? '신상품';
 $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
+
+// 세 밴드(기획전·신상품·할인)에 같은 상품이 중복 노출되지 않도록,
+// 위 밴드에서 이미 보여 준 상품을 아래 밴드에서 제외한다(slug 기준 — 모든 카드가 slug 를 쓴다).
+// 기획전은 큐레이션이므로 그대로 두고, 신상품 → 할인 순으로 걸러 낸다.
+// 걸러진 결과가 비면 아래의 `if (!empty(...))` 가드가 해당 밴드를 통째로 숨긴다.
+$shownSlugs         = array_column($featuredProducts ?? [], 'slug');
+$newProducts        = array_values(array_filter($newProducts ?? [], static fn ($p) => ! in_array($p['slug'], $shownSlugs, true)));
+$shownSlugs         = array_merge($shownSlugs, array_column($newProducts, 'slug'));
+$discountedProducts = array_values(array_filter($discountedProducts ?? [], static fn ($p) => ! in_array($p['slug'], $shownSlugs, true)));
 ?>
 <!-- ── 기획전 상품 ─────────────────────────────────────────────────────────── -->
 <?php if (!empty($featuredProducts)): ?>
@@ -83,51 +88,8 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
             <a href="/shop" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
         </div>
         <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
-            <?php foreach ($featuredProducts as $p):
-                $isSoldOut    = $p['status'] === 'sold_out' || $p['stock'] == 0;
-                $displayPrice = $p['discount_price'] ?? $p['price'];
-                $hasDiscount  = $p['discount_price'] !== null;
-            ?>
-            <div class="col">
-                <div class="card h-100 product-card border-danger position-relative">
-                    <span class="badge bg-danger position-absolute" style="top:8px;left:8px;z-index:1">PICK</span>
-                    <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
-                        <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
-                            <?php if ($p['primary_image']): ?>
-                            <img src="<?= esc($p['primary_image']) ?>" alt="<?= esc($p['name']) ?>"
-                                 style="width:100%;height:100%;object-fit:cover" loading="lazy">
-                            <?php else: ?>
-                            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
-                                <i class="bi bi-image fs-1"></i>
-                            </div>
-                            <?php endif; ?>
-                            <?php if ($isSoldOut): ?>
-                            <div class="position-absolute inset-0 d-flex align-items-center justify-content-center"
-                                 style="background:rgba(0,0,0,.4)">
-                                <span class="badge bg-dark fs-6">품절</span>
-                            </div>
-                            <?php endif; ?>
-                            <?php if ($hasDiscount && !$isSoldOut):
-                                $rate = round((1 - $p['discount_price'] / $p['price']) * 100);
-                            ?>
-                            <span class="badge bg-danger position-absolute" style="top:8px;right:8px"><?= $rate ?>%</span>
-                            <?php endif; ?>
-                        </div>
-                        <div class="card-body p-2">
-                            <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                            <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
-                            <div class="mt-1">
-                                <?php if ($hasDiscount): ?>
-                                <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
-                                <span class="text-danger fw-bold ms-1"><?= number_format($displayPrice) ?>원</span>
-                                <?php else: ?>
-                                <span class="fw-bold"><?= number_format($displayPrice) ?>원</span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-            </div>
+            <?php foreach ($featuredProducts as $p): ?>
+            <?= view('shop/components/product_card', ['p' => $p, 'card_pick' => true, 'card_category' => true]) ?>
             <?php endforeach; ?>
         </div>
     </div>
@@ -143,53 +105,11 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                 <span class="badge bg-dark me-2">NEW</span>
                 <span class="fw-bold fs-5"><?= esc($newTitle) ?></span>
             </div>
-            <a href="/shop" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
+            <a href="/shop?sort=latest" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
         </div>
         <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
-            <?php foreach ($newProducts as $p):
-                $isSoldOut    = $p['status'] === 'sold_out' || $p['stock'] == 0;
-                $displayPrice = $p['discount_price'] ?? $p['price'];
-                $hasDiscount  = $p['discount_price'] !== null;
-            ?>
-            <div class="col">
-                <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
-                    <div class="card h-100 product-card">
-                        <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
-                            <?php if ($p['primary_image']): ?>
-                            <img src="<?= esc($p['primary_image']) ?>" alt="<?= esc($p['name']) ?>"
-                                 style="width:100%;height:100%;object-fit:cover" loading="lazy">
-                            <?php else: ?>
-                            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
-                                <i class="bi bi-image fs-1"></i>
-                            </div>
-                            <?php endif; ?>
-                            <?php if ($isSoldOut): ?>
-                            <div class="position-absolute inset-0 d-flex align-items-center justify-content-center"
-                                 style="background:rgba(0,0,0,.4)">
-                                <span class="badge bg-dark fs-6">품절</span>
-                            </div>
-                            <?php endif; ?>
-                            <?php if ($hasDiscount && !$isSoldOut):
-                                $rate = round((1 - $p['discount_price'] / $p['price']) * 100);
-                            ?>
-                            <span class="badge bg-danger position-absolute" style="top:8px;right:8px"><?= $rate ?>%</span>
-                            <?php endif; ?>
-                        </div>
-                        <div class="card-body p-2">
-                            <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                            <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
-                            <div class="mt-1">
-                                <?php if ($hasDiscount): ?>
-                                <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
-                                <span class="text-danger fw-bold ms-1"><?= number_format($displayPrice) ?>원</span>
-                                <?php else: ?>
-                                <span class="fw-bold"><?= number_format($displayPrice) ?>원</span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-            </div>
+            <?php foreach ($newProducts as $p): ?>
+            <?= view('shop/components/product_card', ['p' => $p, 'card_category' => true]) ?>
             <?php endforeach; ?>
         </div>
     </div>
@@ -205,38 +125,12 @@ $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
                 <span class="badge bg-danger me-2">SALE</span>
                 <span class="fw-bold fs-5"><?= esc($discountTitle) ?></span>
             </div>
-            <a href="/shop" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
+            <a href="/shop?only_discount=1" class="text-decoration-none small text-muted">전체보기 <i class="bi bi-chevron-right"></i></a>
         </div>
         <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
-            <?php foreach ($discountedProducts as $p):
-                $displayPrice = $p['discount_price'];
-                $rate         = round((1 - $p['discount_price'] / $p['price']) * 100);
-            ?>
-            <div class="col">
-                <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
-                    <div class="card h-100 product-card">
-                        <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
-                            <?php if ($p['primary_image']): ?>
-                            <img src="<?= esc($p['primary_image']) ?>" alt="<?= esc($p['name']) ?>"
-                                 style="width:100%;height:100%;object-fit:cover" loading="lazy">
-                            <?php else: ?>
-                            <div class="d-flex align-items-center justify-content-center h-100 text-muted">
-                                <i class="bi bi-image fs-1"></i>
-                            </div>
-                            <?php endif; ?>
-                            <span class="badge bg-danger position-absolute" style="top:8px;right:8px"><?= $rate ?>%</span>
-                        </div>
-                        <div class="card-body p-2">
-                            <div class="small text-muted mb-1"><?= esc($p['category_name'] ?? '') ?></div>
-                            <div class="fw-semibold text-truncate" style="font-size:.9rem"><?= esc($p['name']) ?></div>
-                            <div class="mt-1">
-                                <span class="text-muted text-decoration-line-through small"><?= number_format($p['price']) ?>원</span>
-                                <span class="text-danger fw-bold ms-1"><?= number_format($displayPrice) ?>원</span>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-            </div>
+            <?php foreach ($discountedProducts as $p): ?>
+            <?php /* 할인 밴드는 전부 재고 있는 할인 상품 — 품절 스크림 없이 할인율 배지를 항상 노출 */ ?>
+            <?= view('shop/components/product_card', ['p' => $p, 'card_category' => true, 'card_scrim' => false]) ?>
             <?php endforeach; ?>
         </div>
     </div>

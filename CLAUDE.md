@@ -23,7 +23,7 @@ php spark migrate:rollback   # 마지막 마이그레이션 배치 롤백
 php spark db:seed <Seeder>   # 시더 실행 (예: ProductSeeder, PostSeeder)
 
 composer test                # PHPUnit
-composer analyse             # PHPStan (레벨 5)
+composer analyse             # PHPStan (레벨 6)
 composer cs                  # 코드 스타일 검사 (PHP-CS-Fixer, dry-run)
 composer cs-fix              # 코드 스타일 자동 수정
 composer rector              # 리팩토링 미리보기 (dry-run)
@@ -141,12 +141,13 @@ echo esc(date('Y년 n월 j일', strtotime($uc['expires_at'])));
 
 ### 컨트롤러
 
-- `Controllers/Front/` — `Home`, `Shop`, `Cart`, `Order`, `Payment`, `MyPage`, `Coupon`, `Promotion`, `Board`, `Page`, `Auth`, `SocialAuth`.
+- `Controllers/Front/` — `Home`, `Shop`, `Cart`, `Order`, `Payment`, `MyPage`, `Promotion`, `Board`, `Page`, `Auth`, `SocialAuth`, `Seo`(robots.txt·sitemap.xml 동적 생성). (쿠폰은 프런트 전용 컨트롤러 없이 `Admin\Coupon`에서만 관리)
 - `Controllers/Admin/` — `Dashboard`, `Product`, `Inventory`, `Order`, `Sales`, `Stats`, `Coupon`, `Point`, `Grade`, `Promotion`, `Supplier`, `Review`, `Qna`, `Inquiry`, `Notification`, `User`, `Banner`, `Popup`, `Menu`, `PageManager/PostManager`, `BoardManager`, `Media`, `Schedule`, `Setting`, `Welcome`.
 
 일부 관리자 컨트롤러는 기본 CRUD 외에 다음 고급 기능을 포함한다:
 - `Product` — 상품 복제·일괄 작업·엑셀 임포트/내보내기, 카테고리 관리(계층), 미분류 상품 정리, 이미지 배경 제거, 네이버 상품 검색/임포트, AI 보조(설명 생성·이미지 정보 추출·카테고리 추천).
 - `Order` — 무통장입금 확인, 반품/교환 승인·거부, 주문 메모, **배송추적 일괄 업로드**(`tracking_upload`), **AI 이상주문 탐지**(`anomalies`, `OrderAnomalyService`).
+- `OrderAttempt` — 결제 시도 추적(`order_attempts` 테이블). 결제창을 열고 이탈한 시도를 기록해 포인트 선점·환급 허수를 정리한다.
 - `Inventory` — **AI 재입고 제안**(`suggestions`). `Sales` — AI 매출 분석 리포트. `Setting` — 탭 그룹: general/mail/theme/oauth/**api**.
 
 > 화면·URL·작업 단위 사용 흐름은 [docs/manual.md](docs/manual.md)(고객+관리자 통합 매뉴얼) 참조.
@@ -260,6 +261,7 @@ categories           — 상품 카테고리 (parent_id 계층)
 products             — price, discount_price, stock, status, shipping_*, supplier_fk, is_featured
 product_images       — 상품별 다중 이미지, is_primary 플래그
 product_options / product_skus                — 옵션 조합 & SKU
+product_addons       — 상품 추가옵션(별매 부가상품)
 product_reviews      — 리뷰 (is_hidden, is_negative); AI 요약
 product_qnas         — 상품 Q&A
 cart_items           — user_id 또는 session_id (비회원 장바구니)
@@ -268,6 +270,7 @@ orders               — 헤더, status, 배송 스냅샷, delivered_at, 반품/
 order_items          — 주문 시점 상품 스냅샷
 order_status_logs    — 상태 변경 감사 (admin/member/system)
 order_memos          — 관리자 내부 메모
+order_attempts       — 결제 시도 추적(결제창 이탈 시 포인트 선점·환급 허수 정리)
 exchange_items       — 교환 라인 아이템
 shipping_addresses   — 회원별 저장 주소
 payments             — pg_tid UNIQUE, PG 원응답 JSON 저장

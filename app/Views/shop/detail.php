@@ -41,11 +41,13 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                     <?php endforeach; ?>
                 </div>
                 <?php if (count($allImages) > 1): ?>
-                <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
-                    <span class="carousel-control-prev-icon"></span>
+                <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev" aria-label="이전 이미지">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">이전 이미지</span>
                 </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
-                    <span class="carousel-control-next-icon"></span>
+                <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next" aria-label="다음 이미지">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">다음 이미지</span>
                 </button>
                 <?php endif; ?>
             </div>
@@ -79,13 +81,32 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
         <!-- 구매 정보 영역 -->
         <div class="col-lg-6">
 
-            <!-- 카테고리 브레드크럼 -->
-            <?php if (! empty($product['category_name'])): ?>
-            <div class="text-muted small mb-2"><?= esc($product['category_name']) ?></div>
-            <?php endif; ?>
+            <!-- 브레드크럼 (홈·쇼핑 네비게이블 + 카테고리 맥락) -->
+            <nav aria-label="breadcrumb" class="mb-2">
+                <ol class="breadcrumb small mb-0">
+                    <li class="breadcrumb-item"><a href="/" class="text-muted text-decoration-none">홈</a></li>
+                    <li class="breadcrumb-item"><a href="/shop" class="text-muted text-decoration-none">쇼핑</a></li>
+                    <?php if (! empty($product['category_name'])): ?>
+                    <li class="breadcrumb-item active" aria-current="page"><?= esc($product['category_name']) ?></li>
+                    <?php endif; ?>
+                </ol>
+            </nav>
 
             <!-- 상품명 -->
-            <h2 class="fw-bold mb-3"><?= esc($product['name']) ?></h2>
+            <h2 class="fw-bold mb-2"><?= esc($product['name']) ?></h2>
+
+            <!-- 평점 요약 (결정 순간에 신뢰 신호를 노출; 리뷰 탭으로 이동) -->
+            <?php $rSumTop = $ratingSummary ?? ['count' => 0, 'average' => 0]; ?>
+            <?php if (($rSumTop['count'] ?? 0) > 0): $rrTop = (int) round((float) $rSumTop['average']); ?>
+            <a href="#detailTabs" data-goto-tab="#tabReviews"
+               class="d-inline-flex align-items-center gap-1 text-decoration-none mb-3">
+                <span class="text-warning lh-1">
+                    <?php for ($s = 1; $s <= 5; $s++): ?><i class="bi bi-star<?= $s <= $rrTop ? '-fill' : '' ?>"></i><?php endfor; ?>
+                </span>
+                <span class="fw-semibold text-dark"><?= esc(number_format((float) $rSumTop['average'], 1)) ?></span>
+                <span class="text-muted small">리뷰 <?= (int) $rSumTop['count'] ?>개</span>
+            </a>
+            <?php endif; ?>
 
             <!-- 가격 -->
             <div class="mb-4">
@@ -124,8 +145,8 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
             <div class="mb-4 pb-4 border-bottom" id="optionArea">
                 <?php foreach ($options as $optGroup): ?>
                 <div class="d-flex gap-2 align-items-center mb-2">
-                    <span class="text-muted small" style="min-width:70px"><?= esc($optGroup['name']) ?></span>
-                    <select class="form-select form-select-sm option-select"
+                    <span class="text-muted small" style="min-width:70px"><?= esc($optGroup['name']) ?> <span class="text-danger" title="필수 선택">*</span></span>
+                    <select class="form-select form-select-sm option-select" aria-required="true"
                             data-option-id="<?= (int) $optGroup['id'] ?>"
                             onchange="onOptionChange()">
                         <option value="">선택하세요</option>
@@ -249,7 +270,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                         data-csrf-val="<?= csrf_hash() ?>">
                     <i class="bi bi-bag-plus me-1"></i>장바구니 담기
                 </button>
-                <button class="btn btn-dark btn-lg" id="btnBuyNow"
+                <button class="btn btn-outline-dark btn-lg" id="btnBuyNow"
                         data-product-id="<?= (int) $product['id'] ?>"
                         data-csrf="<?= csrf_token() ?>"
                         data-csrf-val="<?= csrf_hash() ?>">
@@ -267,8 +288,33 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                 </button>
             </div>
 
+            <!-- 결정 순간 신뢰 신호: 배송·교환·반품 안내로 바로가기 -->
+            <div class="text-center mt-3">
+                <a href="#detailTabs" data-goto-tab="#tabShipping" class="text-muted small text-decoration-none">
+                    <i class="bi bi-truck me-1"></i>배송·교환·반품 안내
+                </a>
+            </div>
+
         </div>
     </div>
+
+    <?php if (! $isSoldOut): ?>
+    <!-- 모바일 스티키 구매 바 (스크롤해도 담기/합계가 항상 손닿는 곳에) -->
+    <div class="d-lg-none position-fixed bottom-0 start-0 end-0 bg-white border-top d-flex align-items-center gap-2 px-2 py-2"
+         id="stickyBuyBar" style="z-index:1040">
+        <div class="flex-shrink-0 ps-1">
+            <div class="text-muted" style="font-size:.8rem;line-height:1.1">합계</div>
+            <div class="fw-bold" id="stickyTotal"><?= number_format($displayPrice) ?>원</div>
+        </div>
+        <button class="btn btn-primary flex-grow-1 py-2" id="btnStickyCart"
+                data-product-id="<?= (int) $product['id'] ?>"
+                data-csrf="<?= csrf_token() ?>" data-csrf-val="<?= csrf_hash() ?>">
+            <i class="bi bi-bag-plus me-1"></i>장바구니 담기
+        </button>
+    </div>
+    <!-- 고정 바가 본문 하단을 가리지 않도록 확보하는 여백 -->
+    <div class="d-lg-none" style="height:76px"></div>
+    <?php endif; ?>
 
     <!-- 하단: 상세정보 탭 -->
     <div class="row">
@@ -332,9 +378,11 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                         <div class="card-body">
                             <div class="mb-2">
                                 <label class="form-label small text-muted mb-1 d-block">별점</label>
-                                <div id="reviewStarInput" class="fs-4 text-warning lh-1" style="cursor:pointer">
+                                <div id="reviewStarInput" class="fs-4 text-warning lh-1" style="cursor:pointer"
+                                     role="radiogroup" aria-label="별점 선택 (1~5점)">
                                     <?php for ($s = 1; $s <= 5; $s++): ?>
-                                    <i class="bi bi-star" data-value="<?= $s ?>"></i>
+                                    <i class="bi bi-star" data-value="<?= $s ?>" role="radio" tabindex="0"
+                                       aria-label="<?= $s ?>점" aria-checked="false"></i>
                                     <?php endfor; ?>
                                 </div>
                                 <input type="hidden" id="reviewRating" value="0">
@@ -398,7 +446,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                                 </div>
                                 <?php endif; ?>
                             </div>
-                            <div class="text-muted mt-3" style="font-size:.72rem">AI가 구매자 리뷰를 분석한 요약입니다.</div>
+                            <div class="text-muted small mt-3">AI가 구매자 리뷰를 분석한 요약입니다.</div>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -438,7 +486,7 @@ $allImages = $primaryImage ? array_merge([$primaryImage], $extraImages) : [];
                                 <?php foreach ($review['images'] as $img): ?>
                                 <a href="<?= esc($img['image_path']) ?>" target="_blank">
                                     <img src="<?= esc($img['image_path']) ?>" alt=""
-                                         style="width:80px;height:80px;object-fit:cover;border-radius:4px">
+                                         class="rounded" style="width:80px;height:80px;object-fit:cover">
                                 </a>
                                 <?php endforeach; ?>
                             </div>
@@ -673,7 +721,7 @@ document.getElementById('addonListArea')?.addEventListener('click', function (e)
         const selected = Array.from(selects).map(function (s) { return parseInt(s.value) || 0; });
 
         if (selected.length === 0 || selected.some(function (v) { return v === 0; })) {
-            alert('옵션을 선택해주세요.');
+            toast('옵션을 선택해주세요.', 'warning');
             return;
         }
 
@@ -683,11 +731,11 @@ document.getElementById('addonListArea')?.addEventListener('click', function (e)
         });
 
         if (! sku) {
-            alert('해당 옵션 조합은 준비 중입니다.');
+            toast('해당 옵션 조합은 준비 중입니다.', 'warning');
             return;
         }
         if (sku.stock < 1) {
-            alert('품절된 옵션입니다.');
+            toast('품절된 옵션입니다.', 'warning');
             return;
         }
 
@@ -731,17 +779,35 @@ document.getElementById('selectedAddons')?.addEventListener('click', function (e
     renderSelectedAddons();
 });
 
+// 구매 버튼(담기·바로구매·스티키)을 일괄로 활성/비활성한다.
+function setBuyEnabled(enabled) {
+    ['btnAddCart', 'btnBuyNow', 'btnStickyCart'].forEach(function (id) {
+        const b = document.getElementById(id);
+        if (b) b.disabled = ! enabled;
+    });
+}
+
+// 옵션 안내 메시지와 톤(경고/보통)을 설정한다.
+function setSkuMsg(text, isWarn) {
+    const msg = document.getElementById('skuInfoMsg');
+    if (! msg) return;
+    msg.textContent = text;
+    msg.classList.toggle('text-danger', ! ! isWarn);
+    msg.classList.toggle('text-muted', ! isWarn);
+}
+
 function onOptionChange() {
     const selects = document.querySelectorAll('.option-select');
     const selected = Array.from(selects).map(function (s) { return parseInt(s.value) || 0; });
     const allPicked = selected.every(function (v) { return v > 0; });
 
     currentSkuId = null;
-    const msg = document.getElementById('skuInfoMsg');
 
     if (! allPicked) {
-        if (msg) msg.textContent = '';
+        // 필수 옵션 미선택 — 유효 조합 전까지 구매 버튼 비활성 + 인라인 안내
         updatePriceDisplay(basePrice, <?= (int) $product['stock'] ?>);
+        setBuyEnabled(false);
+        setSkuMsg('옵션을 선택해주세요.', true);
         return;
     }
 
@@ -752,18 +818,14 @@ function onOptionChange() {
     });
 
     if (! sku) {
-        if (msg) msg.textContent = '해당 조합은 준비 중입니다.';
+        setSkuMsg('해당 조합은 준비 중입니다.', true);
         updatePriceDisplay(basePrice, 0);
         return;
     }
 
     currentSkuId = sku.id;
     const finalPrice = basePrice + sku.price_diff;
-    if (msg) {
-        msg.textContent = sku.stock > 0
-            ? '재고 ' + sku.stock + '개'
-            : '품절';
-    }
+    setSkuMsg(sku.stock > 0 ? '재고 ' + sku.stock + '개' : '품절', sku.stock < 1);
     updatePriceDisplay(finalPrice, sku.stock);
 }
 
@@ -774,6 +836,7 @@ function updatePriceDisplay(price, stock) {
     const qtyPlus  = document.getElementById('qtyPlus');
     const btnCart  = document.getElementById('btnAddCart');
     const btnBuy   = document.getElementById('btnBuyNow');
+    const btnSticky = document.getElementById('btnStickyCart');
     const soldOutMsg = document.querySelector('.alert.alert-secondary');
 
     const isSoldOut = stock < 1;
@@ -787,9 +850,12 @@ function updatePriceDisplay(price, stock) {
     if (qtyPlus)  qtyPlus.disabled  = isSoldOut;
     if (btnCart)  btnCart.disabled   = isSoldOut;
     if (btnBuy)   btnBuy.disabled    = isSoldOut;
+    if (btnSticky) btnSticky.disabled = isSoldOut;
     if (totalEl) {
         const qty = parseInt(qtyInput?.value || 1);
         totalEl.textContent = (price * qty).toLocaleString('ko-KR') + '원';
+        const stickyEl = document.getElementById('stickyTotal');
+        if (stickyEl) stickyEl.textContent = totalEl.textContent;
     }
 
     // 현재 unitPrice 업데이트 (수량 변경 핸들러가 참조)
@@ -810,6 +876,8 @@ function updatePriceDisplay(price, stock) {
         const qty    = Math.max(1, Math.min(parseInt(qtyInput.value) || 1, maxQty || 9999));
         qtyInput.value = qty;
         totalEl.textContent = ((window._currentUnitPrice || basePrice) * qty).toLocaleString('ko-KR') + '원';
+        const stickyEl = document.getElementById('stickyTotal');
+        if (stickyEl) stickyEl.textContent = totalEl.textContent;
     }
 
     document.getElementById('qtyMinus')?.addEventListener('click', function () {
@@ -843,6 +911,27 @@ document.getElementById('productCarousel')?.addEventListener('slide.bs.carousel'
     });
 });
 
+// 갤러리 이미지 404 폴백 — 상세 캐러셀·썸네일은 .product-card 공통 폴백 대상이
+// 아니므로, 로드 실패 시 이미지 없음(빈 갤러리)과 동일한 bi-image 플레이스홀더로 교체한다.
+(function () {
+    document.querySelectorAll('.carousel-item img, .thumb-btn img').forEach(function (img) {
+        function fail() {
+            if (img.dataset.imgFallback) return;
+            img.dataset.imgFallback = '1';
+            var isThumb = ! ! img.closest('.thumb-btn');
+            var ph = document.createElement('div');
+            ph.className = 'd-flex align-items-center justify-content-center text-muted';
+            ph.style.cssText = 'background:#f1f3f5;aspect-ratio:1;width:100%';
+            var icon = document.createElement('i');
+            icon.className = 'bi bi-image ' + (isThumb ? 'fs-5' : 'fs-1');
+            ph.appendChild(icon);
+            if (img.parentNode) img.parentNode.replaceChild(ph, img);
+        }
+        img.addEventListener('error', fail);
+        if (img.complete && img.naturalWidth === 0) fail();
+    });
+})();
+
 // ─── 장바구니 담기 / 바로구매 ─────────────────────────────────────────────────
 function addToCart(btn, onSuccess) {
     // 옵션이 있는데 SKU를 선택하지 않았으면 안내
@@ -851,8 +940,8 @@ function addToCart(btn, onSuccess) {
         const selects = document.querySelectorAll('.option-select');
         const unselected = Array.from(selects).find(function (s) { return ! s.value; });
         if (unselected) {
-            const label = unselected.previousElementSibling?.textContent?.trim() || '옵션';
-            alert(label + '을(를) 선택해주세요.');
+            setSkuMsg('옵션을 선택해주세요.', true);
+            unselected.focus();
             return;
         }
     }
@@ -874,7 +963,7 @@ function addToCart(btn, onSuccess) {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.skipped && data.skipped.length > 0) {
-                alert(data.skipped.join('\n'));
+                toast(data.skipped.join('\n'), 'warning');
             }
             if (data.success) {
                 // 네비바 장바구니 뱃지 업데이트
@@ -887,12 +976,12 @@ function addToCart(btn, onSuccess) {
                 renderSelectedAddons();
                 onSuccess(data);
             } else {
-                alert(data.message);
+                toast(data.message, 'error');
                 btn.disabled = false;
             }
         })
         .catch(function () {
-            alert('오류가 발생했습니다. 다시 시도해주세요.');
+            toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
             btn.disabled = false;
         });
 }
@@ -914,13 +1003,46 @@ document.getElementById('btnBuyNow')?.addEventListener('click', function () {
     });
 });
 
+// 모바일 스티키 바 담기 — 메인 담기와 동일 동작(옵션·추가구성 전역 상태 재사용)
+document.getElementById('btnStickyCart')?.addEventListener('click', function () {
+    const btn = this;
+    addToCart(btn, function () {
+        btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>담기 완료';
+        setTimeout(function () {
+            btn.innerHTML = '<i class="bi bi-bag-plus me-1"></i>장바구니 담기';
+            btn.disabled  = false;
+        }, 1500);
+    });
+});
+
+// 초기 상태: 옵션 있는 상품은 유효 조합을 고르기 전까지 담기/바로구매 비활성
+(function () {
+    if (typeof skuData !== 'undefined' && skuData.length > 0) {
+        setBuyEnabled(false);
+        setSkuMsg('옵션을 선택해주세요.', true);
+    }
+})();
+
+// 평점 요약·안내 링크 클릭 시 해당 상세 탭으로 전환하고 스크롤한다.
+document.querySelectorAll('[data-goto-tab]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+        const target = el.getAttribute('data-goto-tab');
+        const tabBtn = document.querySelector('#detailTabs [data-bs-target="' + target + '"]');
+        if (tabBtn) {
+            e.preventDefault();
+            tabBtn.click();
+            document.getElementById('detailTabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+});
+
 // ─── 리뷰 ─────────────────────────────────────────────────────────────────────
 // 별점 입력 인터랙션
 (function () {
     const wrap = document.getElementById('reviewStarInput');
     if (! wrap) return;
     const hidden = document.getElementById('reviewRating');
-    const stars  = wrap.querySelectorAll('i');
+    const stars  = Array.from(wrap.querySelectorAll('i'));
     const paint  = function (val) {
         stars.forEach(function (st) {
             const v = parseInt(st.dataset.value, 10);
@@ -928,11 +1050,24 @@ document.getElementById('btnBuyNow')?.addEventListener('click', function () {
             st.classList.toggle('bi-star', v > val);
         });
     };
+    // 별점 확정 — hidden 값·칠·aria-checked 갱신
+    const select = function (val) {
+        val = Math.max(1, Math.min(5, val));
+        hidden.value = val;
+        paint(val);
+        stars.forEach(function (st) {
+            st.setAttribute('aria-checked', parseInt(st.dataset.value, 10) === val ? 'true' : 'false');
+        });
+    };
     stars.forEach(function (st) {
-        st.addEventListener('mouseenter', function () { paint(parseInt(st.dataset.value, 10)); });
-        st.addEventListener('click', function () {
-            hidden.value = st.dataset.value;
-            paint(parseInt(st.dataset.value, 10));
+        const v = parseInt(st.dataset.value, 10);
+        st.addEventListener('mouseenter', function () { paint(v); });
+        st.addEventListener('click', function () { select(v); });
+        // 키보드: Enter/Space 선택, 화살표로 이동+선택 (radiogroup 표준 동작)
+        st.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(v); }
+            else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); select(v + 1); stars[Math.min(4, v)].focus(); }
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); select(v - 1); stars[Math.max(0, v - 2)].focus(); }
         });
     });
     wrap.addEventListener('mouseleave', function () { paint(parseInt(hidden.value, 10) || 0); });
@@ -940,13 +1075,13 @@ document.getElementById('btnBuyNow')?.addEventListener('click', function () {
 
 document.getElementById('btnReviewSubmit')?.addEventListener('click', function () {
     const rating = parseInt(document.getElementById('reviewRating')?.value ?? '0', 10) || 0;
-    if (rating < 1 || rating > 5) { alert('별점을 선택해주세요.'); return; }
+    if (rating < 1 || rating > 5) { toast('별점을 선택해주세요.', 'warning'); return; }
 
     const content = (document.getElementById('reviewContent')?.value ?? '').trim();
-    if (! content) { alert('리뷰 내용을 입력해주세요.'); return; }
+    if (! content) { toast('리뷰 내용을 입력해주세요.', 'warning'); return; }
 
     const files = document.getElementById('reviewImages')?.files ?? [];
-    if (files.length > 3) { alert('이미지는 최대 3장까지 첨부할 수 있습니다.'); return; }
+    if (files.length > 3) { toast('이미지는 최대 3장까지 첨부할 수 있습니다.', 'warning'); return; }
 
     const fd = new FormData();
     fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
@@ -956,23 +1091,29 @@ document.getElementById('btnReviewSubmit')?.addEventListener('click', function (
 
     fetch('/shop/<?= esc($product['slug']) ?>/review', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
-        .then(function (data) { alert(data.message); if (data.success) location.reload(); })
-        .catch(function () { alert('오류가 발생했습니다.'); });
+        .then(function (data) { toast(data.message, data.success ? 'success' : 'error'); if (data.success) location.reload(); })
+        .catch(function () { toast('오류가 발생했습니다.', 'error'); });
 });
 
 document.querySelectorAll('.btn-review-delete').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (! confirm('리뷰를 삭제하시겠습니까? 지급된 포인트도 회수됩니다.')) return;
-        const fd = new FormData();
-        fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
-        fetch('/shop/<?= esc($product['slug']) ?>/review/' + btn.dataset.id + '/delete',
-              { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.success) location.reload();
-                else alert(data.message || '삭제에 실패했습니다.');
-            })
-            .catch(function () { alert('오류가 발생했습니다.'); });
+        confirmDialog({
+            title: '리뷰 삭제',
+            message: '리뷰를 삭제하시겠습니까?\n지급된 포인트도 회수됩니다.',
+            confirmText: '삭제', danger: true
+        }).then(function (ok) {
+            if (! ok) return;
+            const fd = new FormData();
+            fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+            fetch('/shop/<?= esc($product['slug']) ?>/review/' + btn.dataset.id + '/delete',
+                  { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) location.reload();
+                    else toast(data.message || '삭제에 실패했습니다.', 'error');
+                })
+                .catch(function () { toast('오류가 발생했습니다.', 'error'); });
+        });
     });
 });
 
@@ -983,7 +1124,7 @@ document.getElementById('btnQnaSubmit')?.addEventListener('click', function () {
     const secret  = document.getElementById('qnaSecret')?.checked ? 1 : 0;
 
     if (! title || ! content) {
-        alert('제목과 내용을 입력해주세요.');
+        toast('제목과 내용을 입력해주세요.', 'warning');
         return;
     }
 
@@ -996,25 +1137,30 @@ document.getElementById('btnQnaSubmit')?.addEventListener('click', function () {
     fetch('/shop/<?= esc($product['slug']) ?>/qna', { method: 'POST', body: fd })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            alert(data.message);
+            toast(data.message, data.success ? 'success' : 'error');
             if (data.success) location.reload();
         })
-        .catch(function () { alert('오류가 발생했습니다.'); });
+        .catch(function () { toast('오류가 발생했습니다.', 'error'); });
 });
 
 document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (! confirm('문의를 삭제하시겠습니까?')) return;
-        const fd = new FormData();
-        fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
-        fetch('/shop/<?= esc($product['slug']) ?>/qna/' + btn.dataset.id + '/delete',
-              { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.success) location.reload();
-                else alert(data.message || '삭제에 실패했습니다.');
-            })
-            .catch(function () { alert('오류가 발생했습니다.'); });
+        confirmDialog({
+            title: '문의 삭제', message: '문의를 삭제하시겠습니까?',
+            confirmText: '삭제', danger: true
+        }).then(function (ok) {
+            if (! ok) return;
+            const fd = new FormData();
+            fd.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+            fetch('/shop/<?= esc($product['slug']) ?>/qna/' + btn.dataset.id + '/delete',
+                  { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.success) location.reload();
+                    else toast(data.message || '삭제에 실패했습니다.', 'error');
+                })
+                .catch(function () { toast('오류가 발생했습니다.', 'error'); });
+        });
     });
 });
 
@@ -1036,9 +1182,9 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
             var email      = '';
             if (emailInput) {
                 email = emailInput.value.trim();
-                if (! email) { alert('이메일을 입력해주세요.'); emailInput.focus(); return; }
+                if (! email) { toast('이메일을 입력해주세요.', 'warning'); emailInput.focus(); return; }
                 if (! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                    alert('올바른 이메일 형식을 입력해주세요.'); return;
+                    toast('올바른 이메일 형식을 입력해주세요.', 'warning'); return;
                 }
             }
             var fd = new FormData();
@@ -1048,7 +1194,7 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
             fetch('/shop/' + slug + '/restock-alert', { method: 'POST', body: fd })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
-                    alert(data.message);
+                    toast(data.message, data.success ? 'success' : 'error');
                     if (data.success && ! data.already) {
                         btn.innerHTML = '<i class="bi bi-bell-fill me-1"></i>알림 신청 완료';
                     } else {
@@ -1056,7 +1202,7 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
                     }
                 })
                 .catch(function () {
-                    alert('오류가 발생했습니다. 다시 시도해주세요.');
+                    toast('오류가 발생했습니다. 다시 시도해주세요.', 'error');
                     btn.disabled = false;
                 });
         });
@@ -1069,9 +1215,11 @@ document.querySelectorAll('.btn-qna-delete').forEach(function (btn) {
     if (! btn) return;
     btn.addEventListener('click', function () {
         if (btn.dataset.loggedin !== 'true') {
-            if (confirm('로그인이 필요합니다. 로그인 페이지로 이동할까요?')) {
-                window.location.href = '/auth/login';
-            }
+            confirmDialog({
+                title: '로그인 필요',
+                message: '로그인이 필요합니다. 로그인 페이지로 이동할까요?',
+                confirmText: '로그인'
+            }).then(function (ok) { if (ok) window.location.href = '/auth/login'; });
             return;
         }
         var fd = new FormData();

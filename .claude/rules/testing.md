@@ -52,10 +52,10 @@ composer cs-fix   # 자동 수정
 composer analyse
 ```
 
-- 레벨 **5**(`phpstan.neon`), CI4 확장(`codeigniter/phpstan-codeigniter`) 사용. 대상은 `app/` 코드 디렉토리(Views 제외).
+- 레벨 **6**(`phpstan.neon`), CI4 확장(`codeigniter/phpstan-codeigniter`) 사용. 대상은 `app/` 코드 디렉토리(Views 제외).
 - 기존 억제는 `phpstan-baseline.neon`. 새 코드는 `@phpstan-ignore`로 덮지 말고 원인 수정.
 - 새 클래스·메서드에는 제네릭 타입(`array<string, mixed>` 등) 명시.
-- 점진적 상향 목표: 5 → 6 → 8 (baseline으로 단계적 적용).
+- 점진적 상향 목표: 6 → 8 (baseline으로 단계적 적용).
 
 ## 3. 자동 현대화 — Rector
 

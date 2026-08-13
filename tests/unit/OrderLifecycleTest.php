@@ -687,8 +687,8 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $this->assertNotContains($orderId, $ids);
     }
 
-    /** E-07: getByUser "취소/환불" 탭 조회에는 만료 주문이 계속 노출된다 */
-    public function testGetByUser_cancelTab_includesExpiredOrders(): void
+    /** E-07: getByUser "취소·반품·교환"(closed) 탭 조회에는 만료 주문이 계속 노출된다 */
+    public function testGetByUser_closedTab_includesExpiredOrders(): void
     {
         $userId  = $this->insertUser();
         $product = $this->insertProduct();
@@ -696,7 +696,7 @@ final class OrderLifecycleTest extends CIUnitTestCase
         $this->ageOrder($orderId, 40);
         $this->model->expirePending(30);
 
-        $result = $this->model->getByUser($userId, ['status' => 'cancel']);
+        $result = $this->model->getByUser($userId, ['status' => 'closed']);
 
         $ids = array_map('intval', array_column($result['items'], 'id'));
         $this->assertContains($orderId, $ids);

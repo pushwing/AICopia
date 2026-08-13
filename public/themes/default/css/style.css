@@ -2,7 +2,13 @@
 :root {
     --primary: #0d6efd;
     --dark:    #1e2a38;
+    /* 상품 카드 제목·네비 등 여러 화면에서 반복되던 축약 본문 크기(.9rem)를
+       토큰으로 승격. 인라인 style="font-size:.9rem" 대신 .fs-compact 유틸을 쓴다. */
+    --fs-compact: .9rem;
 }
+
+/* 축약 본문 크기 유틸 — 상품 카드 제목 등에서 반복되던 .9rem 을 한곳에서 관리 */
+.fs-compact { font-size: var(--fs-compact); }
 
 /* 세로 스크롤바 자리를 항상 비워 둔다. 내용이 짧아 스크롤바가 없는 화면
    (쿠폰·포인트 등)은 그만큼 뷰포트가 넓어져, 가운데 정렬된 본문이 스크롤바가
@@ -32,7 +38,7 @@ body {
 }
 .nav-link {
     font-weight: 500;
-    font-size: .9rem;
+    font-size: var(--fs-compact);
 }
 
 /* ─── 히어로 ─────────────────────────────────────── */
@@ -88,8 +94,25 @@ body {
     overflow: hidden;
     transition: box-shadow .15s;
 }
+/* 품절 스크림 — 이미지 전체를 덮는 반투명 오버레이.
+   ⚠️ Bootstrap 5.3 에는 .inset-0 유틸이 없어 position-absolute 만으론
+   전체를 덮지 못한다. 목록·추천 카드가 공유하는 이 클래스로 통일한다. */
+.product-soldout-scrim {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, .4);
+}
 .product-card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,.1);
+}
+/* 찜 버튼은 border:none 커스텀 칩이라 기본 포커스 링이 약하다 —
+   키보드 사용자를 위해 가시 포커스 링을 명시한다. */
+.btn-wish:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 .2rem rgba(220, 53, 69, .45);
 }
 
 /* ─── 푸터 ───────────────────────────────────────── */

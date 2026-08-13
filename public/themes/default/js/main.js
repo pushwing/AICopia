@@ -81,3 +81,139 @@
         });
     };
 })();
+
+// 상품 이미지 로드 실패(404 등) 시 플레이스홀더 아이콘으로 폴백한다.
+// 상품 URL 은 있으나 파일이 없는 경우(데모 데이터 등) 깨진 이미지 대신,
+// primary_image 가 비었을 때와 동일한 bi-image 플레이스홀더를 보여준다.
+// 목록·홈·상세·추천·장바구니 등 .product-card 가 쓰이는 모든 화면에 적용된다.
+(function () {
+    'use strict';
+
+    function toPlaceholder(img) {
+        if (img.dataset.imgFallback) {
+            return;
+        }
+        img.dataset.imgFallback = '1';
+        var ph = document.createElement('div');
+        ph.className = 'd-flex align-items-center justify-content-center h-100 text-muted';
+        var icon = document.createElement('i');
+        icon.className = 'bi bi-image fs-1';
+        ph.appendChild(icon);
+        if (img.parentNode) {
+            img.parentNode.replaceChild(ph, img);
+        }
+    }
+
+    document.querySelectorAll('.product-card img').forEach(function (img) {
+        img.addEventListener('error', function () {
+            toPlaceholder(img);
+        });
+        // 스크립트 실행 전 이미 로드에 실패한 이미지도 처리한다.
+        if (img.complete && img.naturalWidth === 0) {
+            toPlaceholder(img);
+        }
+    });
+})();
+
+// ─── 공용 토스트 (네이티브 alert 대체) ──────────────────────────────────────
+// window.toast(message, type) — type: success | error/danger | warning | info(기본)
+// 우하단 컨테이너(#toastContainer)에 Bootstrap Toast 를 띄운다.
+// 메시지는 textContent 로 넣어 XSS 안전. 컨테이너/Bootstrap 이 없으면 alert 폴백.
+window.toast = function (message, type) {
+    var container = document.getElementById('toastContainer');
+    if (! container || typeof bootstrap === 'undefined') { alert(message); return; }
+
+    var clsMap = {
+        success: 'text-bg-success',
+        error:   'text-bg-danger',
+        danger:  'text-bg-danger',
+        warning: 'text-bg-warning',
+        info:    'text-bg-dark'
+    };
+    var cls = clsMap[type] || 'text-bg-dark';
+
+    var el = document.createElement('div');
+    el.className = 'toast align-items-center border-0 ' + cls;
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-atomic', 'true');
+
+    var flex = document.createElement('div');
+    flex.className = 'd-flex';
+
+    var body = document.createElement('div');
+    body.className = 'toast-body';
+    body.textContent = message;
+
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'btn-close me-2 m-auto' + (cls === 'text-bg-warning' ? '' : ' btn-close-white');
+    close.setAttribute('data-bs-dismiss', 'toast');
+    close.setAttribute('aria-label', '닫기');
+
+    flex.appendChild(body);
+    flex.appendChild(close);
+    el.appendChild(flex);
+    container.appendChild(el);
+
+    var t = new bootstrap.Toast(el, { delay: 3000 });
+    el.addEventListener('hidden.bs.toast', function () { el.remove(); });
+    t.show();
+};
+
+// ─── 공용 확인 모달 (네이티브 confirm 대체, Promise<boolean> 반환) ────────────
+// window.confirmDialog({ title, message, confirmText, cancelText, danger }).then(ok => ...)
+// #confirmModal 스켈레톤(레이아웃)을 재사용. 없으면 window.confirm 폴백.
+window.confirmDialog = function (opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+        var modalEl = document.getElementById('confirmModal');
+        if (! modalEl || typeof bootstrap === 'undefined') {
+            resolve(window.confirm(opts.message || '진행하시겠습니까?'));
+            return;
+        }
+
+        modalEl.querySelector('[data-confirm-title]').textContent   = opts.title   || '확인';
+        modalEl.querySelector('[data-confirm-message]').textContent = opts.message || '';
+
+        var okBtn     = modalEl.querySelector('[data-confirm-ok]');
+        var cancelBtn = modalEl.querySelector('[data-confirm-cancel]');
+        okBtn.textContent     = opts.confirmText || '확인';
+        cancelBtn.textContent = opts.cancelText || '취소';
+        okBtn.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-primary');
+
+        var modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+        var settled = false;
+
+        function finish(result) {
+            if (settled) return;
+            settled = true;
+            okBtn.removeEventListener('click', onOk);
+            modalEl.removeEventListener('hidden.bs.modal', onHidden);
+            resolve(result);
+        }
+        function onOk()     { modal.hide(); finish(true); }
+        function onHidden() { finish(false); }
+
+        okBtn.addEventListener('click', onOk);
+        modalEl.addEventListener('hidden.bs.modal', onHidden);
+        modal.show();
+    });
+};
+
+// ─── data-confirm 폼: 제출 전 공용 확인 모달로 게이트 ──────────────────────────
+// <form data-confirm="메시지" [data-confirm-title="제목"] [data-confirm-danger]> 를
+// confirmDialog 로 가로챈다. 네이티브 onsubmit="return confirm(...)" 대체.
+document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        confirmDialog({
+            title:   form.dataset.confirmTitle || '확인',
+            message: form.dataset.confirm,
+            danger:  form.hasAttribute('data-confirm-danger')
+        }).then(function (ok) {
+            // form.submit() 은 submit 이벤트를 다시 발생시키지 않아 재진입이 없다.
+            if (ok) form.submit();
+        });
+    });
+});

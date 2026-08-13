@@ -20,14 +20,14 @@ class MyPageController extends BaseController
     private readonly WishlistModel        $wishlistModel;
 
     // 상태 탭 정의 — key: 쿼리 파라미터 값, label: 표시명
+    // 주문 목록 상태 탭 — 고객이 인지하는 라이프사이클 5단계로 묶는다.
+    // 키는 OrderModel::STATUS_GROUPS 와 일치(전체는 빈 문자열). 세부 상태는 카드 배지로 구분한다.
     private const array STATUS_TABS = [
-        ''                  => '전체',
-        'awaiting_payment'  => '입금대기',
-        'paid'              => '결제완료',
-        'preparing'         => '배송준비',
-        'shipped'           => '배송중',
-        'delivered'         => '배송완료',
-        'cancel'            => '취소/환불',
+        ''          => '전체',
+        'ready'     => '준비중',
+        'shipped'   => '배송중',
+        'delivered' => '배송완료',
+        'closed'    => '취소·반품·교환',
     ];
 
     public function __construct()
@@ -64,6 +64,7 @@ class MyPageController extends BaseController
         $db       = \Config\Database::connect();
         $orderIds = array_column($result['items'], 'id');
         $nameMap  = [];
+        $thumbMap = [];
         if ($orderIds !== []) {
             $rows = $db->table('order_items')
                 ->select('order_id, product_name')
@@ -73,11 +74,29 @@ class MyPageController extends BaseController
             foreach ($rows as $row) {
                 $nameMap[(int) $row['order_id']][] = $row['product_name'];
             }
+
+            // 목록 카드용 대표 썸네일 — 각 주문 첫 상품의 대표 이미지를 한 번에 조회 (N+1 제거).
+            // 상품명 요약(위)과 분리해 is_primary 중복이 요약 건수를 부풀리지 않게 한다.
+            $thumbRows = $db->table('order_items oi')
+                ->select('oi.order_id, m.file_path AS thumbnail')
+                ->join('product_images pi', 'pi.product_id = oi.product_id AND pi.is_primary = 1', 'left')
+                ->join('media m', 'm.id = pi.media_id', 'left')
+                ->whereIn('oi.order_id', $orderIds)
+                ->orderBy('oi.order_id', 'ASC')->orderBy('oi.id', 'ASC')
+                ->get()->getResultArray();
+            foreach ($thumbRows as $row) {
+                $oid = (int) $row['order_id'];
+                // 첫 상품을 우선하되, 첫 상품에 이미지가 없으면 이미지 있는 다음 상품으로 채운다.
+                if (! array_key_exists($oid, $thumbMap) || ($thumbMap[$oid] === null && ! empty($row['thumbnail']))) {
+                    $thumbMap[$oid] = $row['thumbnail'] !== '' ? $row['thumbnail'] : null;
+                }
+            }
         }
         foreach ($result['items'] as &$order) {
             $names = $nameMap[$order['id']] ?? [];
             $extra = count($names) - 1;
             $order['_name_summary'] = ($names[0] ?? '') . ($extra > 0 ? ' 외 ' . $extra . '건' : '');
+            $order['_thumbnail']    = $thumbMap[$order['id']] ?? null;
         }
         unset($order);
 
