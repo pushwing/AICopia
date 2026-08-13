@@ -173,7 +173,14 @@ class UserController extends BaseController
         try {
             new WithdrawalService()->withdraw($id, 'admin', '관리자 처리', 'admin');
         } catch (WithdrawalBlockedException $e) {
-            return redirect()->back()->with('error', implode(' ', $e->reasons));
+            // 대상이 관리자 role 이라 canWithdraw() 가 막은 경우, 원본 사유
+            // ("관리자 계정은 탈퇴할 수 없습니다.")는 셀프 탈퇴 안내라 관리자 화면
+            // 맥락에는 맞지 않는다 — 우회 로직 없이 안내 메시지만 바꿔준다.
+            $message = str_contains(implode(' ', $e->reasons), '관리자')
+                ? '관리자 계정은 먼저 역할을 일반회원으로 변경한 뒤 탈퇴 처리할 수 있습니다.'
+                : implode(' ', $e->reasons);
+
+            return redirect()->back()->with('error', $message);
         } catch (\Throwable $e) {
             log_message('error', '[admin withdraw] 실패 user_id=' . $id . ' — ' . $e->getMessage());
 
