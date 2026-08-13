@@ -190,7 +190,7 @@
                                 title="<?= $isWishedItem ? '찜 해제' : '찜하기' ?>">
                             <i class="bi <?= $isWishedItem ? 'bi-heart-fill' : 'bi-heart' ?> text-danger"></i>
                         </button>
-                        <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark">
+                        <a href="/shop/<?= esc($p['slug']) ?>" class="text-decoration-none text-dark flex-grow-1">
                             <!-- 이미지 -->
                             <div class="position-relative" style="aspect-ratio:1;overflow:hidden;background:#f8f9fa">
                                 <?php if ($p['primary_image']): ?>
