@@ -240,13 +240,13 @@
                             <?php if ($p['has_options']): ?>
                             <a href="/shop/<?= esc($p['slug']) ?>"
                                class="btn btn-sm btn-outline-secondary w-100 py-2"
-                               style="border-radius:0 0 calc(.375rem - 1px) calc(.375rem - 1px)">
+                               style="border-radius:0 0 calc(.75rem - 1px) calc(.75rem - 1px)">
                                 <i class="bi bi-bag"></i> 옵션 선택
                             </a>
                             <?php else: ?>
                             <button type="button"
                                     class="btn btn-sm btn-primary w-100 py-2 btn-quick-cart"
-                                    style="border-radius:0 0 calc(.375rem - 1px) calc(.375rem - 1px)"
+                                    style="border-radius:0 0 calc(.75rem - 1px) calc(.75rem - 1px)"
                                     data-product-id="<?= $p['id'] ?>"
                                     data-csrf="<?= csrf_token() ?>"
                                     data-csrf-val="<?= csrf_hash() ?>">
