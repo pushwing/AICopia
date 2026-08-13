@@ -18,7 +18,7 @@
             <a href="<?= esc($b['link_url']) ?>" target="<?= esc($b['link_target']) ?>">
             <?php endif; ?>
             <img src="/<?= esc($b['image_path']) ?>" class="d-block w-100"
-                 style="max-height:520px;object-fit:cover" alt="">
+                 style="max-height:520px;object-fit:cover" alt="<?= esc($b['title'] ?? '') ?>">
             <?php if ($b['link_url']): ?></a><?php endif; ?>
         </div>
         <?php endforeach; ?>

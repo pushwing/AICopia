@@ -11,6 +11,8 @@
     <?php if (!empty($settings['favicon'])): ?>
     <link rel="icon" href="/<?= esc($settings['favicon']) ?>">
     <?php endif; ?>
+    <?php /* CDN(부트스트랩·아이콘) 연결을 미리 열어 초기 렌더 지연을 줄인다 */ ?>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <?php /* 로컬 에셋에 파일 수정시각 기반 버전을 붙여 배포·수정 시 옛 브라우저 캐시를 무효화한다 */ ?>
