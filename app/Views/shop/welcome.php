@@ -17,8 +17,10 @@
             <?php if ($b['link_url']): ?>
             <a href="<?= esc($b['link_url']) ?>" target="<?= esc($b['link_target']) ?>">
             <?php endif; ?>
+            <?php // 첫 슬라이드는 LCP 후보 → fetchpriority=high, 나머지는 지연 로드 ?>
             <img src="/<?= esc($b['image_path']) ?>" class="d-block w-100"
-                 style="max-height:520px;object-fit:cover" alt="<?= esc($b['title'] ?? '') ?>">
+                 style="max-height:520px;object-fit:cover" alt="<?= esc($b['title'] ?? '') ?>"
+                 <?= $i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>>
             <?php if ($b['link_url']): ?></a><?php endif; ?>
         </div>
         <?php endforeach; ?>
