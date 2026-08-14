@@ -83,6 +83,7 @@ $routes->group('admin', ['filter' => 'auth:admin'], function ($routes) {
 
     // 미디어 라이브러리
     $routes->get('media', 'Admin\MediaController::index');
+    $routes->get('media/picker', 'Admin\MediaController::picker');
     $routes->post('media/upload', 'Admin\MediaController::upload');
     $routes->post('media/(:num)/alt', 'Admin\MediaController::updateAlt/$1');
     $routes->post('media/(:num)/delete', 'Admin\MediaController::delete/$1');
