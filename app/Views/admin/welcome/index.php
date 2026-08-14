@@ -78,7 +78,7 @@
                             <span class="hp-rows"><span></span><span></span><span></span></span>
                         </span>
                         <span class="homepage-option-title">Welcome 페이지</span>
-                        <span class="homepage-option-desc">Hero 배너·카테고리·기획전·신상품·할인 섹션으로 구성됩니다.<br>아래에서 세부 구성을 편집할 수 있습니다.</span>
+                        <span class="homepage-option-desc">Hero 배너·카테고리·PICK 상품·신상품·할인 섹션으로 구성됩니다.<br>아래에서 세부 구성을 편집할 수 있습니다.</span>
                     </label>
                 </div>
             </div>
@@ -100,7 +100,7 @@
                 $toggles = [
                     'welcome_show_hero'          => 'Hero 배너',
                     'welcome_show_categories'    => '카테고리 바로가기',
-                    'welcome_show_featured'      => '기획전 섹션',
+                    'welcome_show_featured'      => 'PICK 상품 섹션',
                     'welcome_show_new'           => '신상품 섹션',
                     'welcome_show_discount'      => '할인 상품 섹션',
                     'welcome_show_bottom_banner' => '하단 배너',
@@ -131,7 +131,7 @@
             <div class="row g-3">
                 <?php
                 $sections = [
-                    '기획전'    => ['welcome_featured_title', 'welcome_featured_count'],
+                    'PICK 상품' => ['welcome_featured_title', 'welcome_featured_count'],
                     '신상품'    => ['welcome_new_title',      'welcome_new_count'],
                     '할인 상품' => ['welcome_discount_title', 'welcome_discount_count'],
                 ];
@@ -160,10 +160,13 @@
     </div>
     </div>
 
-    <!-- 기획전 상품 관리 안내 -->
+    <!-- PICK 상품 관리 안내 -->
     <div class="alert alert-info d-flex align-items-center gap-2 py-2">
         <i class="bi bi-info-circle-fill"></i>
-        <span>기획전 노출 상품은 <a href="/admin/products" class="alert-link">상품 관리</a>에서 ⭐ 버튼으로 지정합니다.</span>
+        <span>
+            PICK 상품 노출 상품은 <a href="/admin/products" class="alert-link">상품 관리</a>에서 ⭐ 버튼으로 지정합니다.
+            <a href="/admin/promotions" class="alert-link">프로모션 캠페인</a>(별도 랜딩페이지)과는 다른 기능이며, 프로모션에 등록한 상품이 자동으로 여기 나오지는 않습니다.
+        </span>
     </div>
 
     <div class="text-end">
