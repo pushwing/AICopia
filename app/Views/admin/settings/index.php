@@ -89,6 +89,17 @@
                 <?php else: ?>
                     <input type="text" name="<?= esc($s['key']) ?>" class="form-control form-control-sm" value="<?= esc($s['value']) ?>">
                 <?php endif; ?>
+                <?php
+                $hint = match ($s['key']) {
+                    'ga_id'        => 'GA4 관리 > 데이터 스트림 > 웹 스트림 세부정보에서 확인하는 "측정 ID"입니다. 형식: G-XXXXXXXXXX. GA4만 쓸 경우 이 필드만 입력하면 됩니다.',
+                    'gtm_id'       => 'GA4가 아니라 별도 서비스인 Google Tag Manager(tagmanager.google.com)에서 컨테이너를 새로 만들어야 발급되는 ID입니다. 형식: GTM-XXXXXXX. 태그를 코드 수정 없이 여러 개(GA4, 광고 픽셀 등) 한 곳에서 관리하고 싶을 때만 입력하세요 — 없으면 비워둬도 됩니다.',
+                    'naver_verify' => '네이버 서치어드바이저(searchadvisor.naver.com)에서 사이트 소유 확인 시 "HTML 태그" 방식으로 발급되는 인증 코드의 content 값만 입력합니다.',
+                    default        => null,
+                };
+                ?>
+                <?php if ($hint !== null): ?>
+                <div class="form-text"><?= esc($hint) ?></div>
+                <?php endif; ?>
             </div>
             <?php endforeach; ?>
             <div class="text-end">
