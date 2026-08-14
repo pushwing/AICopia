@@ -127,11 +127,9 @@ $statusBadge = [
                         <?php // 대표 썸네일 — 주문 첫 상품의 대표 이미지(없으면 플레이스홀더). 클릭 시 주문 상세로. ?>
                         <a href="/mypage/orders/<?= esc($order['order_number']) ?>" class="flex-shrink-0" aria-label="주문 상세 보기">
                             <?php if (! empty($order['_thumbnail'])): ?>
-                            <?php // 이미지 로드 실패(파일 삭제·404) 시 아래 플레이스홀더로 교체 — main.js 의 .order-thumb-img 핸들러 ?>
+                            <?php // 이미지 로드 실패(파일 삭제·404) 시 아래 스크립트가 플레이스홀더로 교체 ?>
                             <img src="/<?= esc($order['_thumbnail']) ?>" alt="<?= esc($orderName) ?>"
                                  class="rounded border order-thumb-img" style="width:56px;height:56px;object-fit:cover" loading="lazy">
-                            <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted order-thumb-ph"
-                                 style="width:56px;height:56px;display:none"><i class="bi bi-image fs-5"></i></div>
                             <?php else: ?>
                             <div class="rounded border bg-light d-flex align-items-center justify-content-center text-muted"
                                  style="width:56px;height:56px"><i class="bi bi-image fs-5"></i></div>
@@ -210,12 +208,21 @@ $statusBadge = [
 <?= $this->section('scripts') ?>
 <script>
 (function () {
-    // 대표 썸네일 로드 실패(파일 삭제·404) 시 형제 플레이스홀더로 교체한다.
+    // 대표 썸네일 로드 실패(파일 삭제·404) 시 플레이스홀더로 교체한다.
+    // 미리 렌더된 숨김 플레이스홀더 대신 실패 시점에 생성해 삽입한다 — display:none 인라인
+    // 스타일은 Bootstrap 유틸리티 클래스(.d-flex 등)의 !important 에 의해 항상 무시되므로
+    // 두 요소를 동시에 렌더해두면 이미지 로드 성공 여부와 무관하게 둘 다 보이는 문제가 있었다.
     document.querySelectorAll('.order-thumb-img').forEach(function (img) {
         function fallback() {
-            img.style.display = 'none';
-            var ph = img.parentNode.querySelector('.order-thumb-ph');
-            if (ph) { ph.style.display = 'flex'; }
+            if (img.dataset.imgFallback) return;
+            img.dataset.imgFallback = '1';
+            var ph = document.createElement('div');
+            ph.className = 'rounded border bg-light d-flex align-items-center justify-content-center text-muted';
+            ph.style.cssText = 'width:56px;height:56px';
+            var icon = document.createElement('i');
+            icon.className = 'bi bi-image fs-5';
+            ph.appendChild(icon);
+            if (img.parentNode) { img.parentNode.replaceChild(ph, img); }
         }
         img.addEventListener('error', fallback);
         // 스크립트 실행 전 이미 실패한 이미지도 처리한다.
