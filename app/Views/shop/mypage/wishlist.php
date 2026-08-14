@@ -31,7 +31,7 @@
             'card_shipping'     => 'free',
             'card_wish'         => 'remove',
             'card_colId'        => 'wish-item-' . (int) $p['id'],
-        ]) ?>
+        ], ['saveData' => false]) ?>
         <?php endforeach; ?>
     </div>
 

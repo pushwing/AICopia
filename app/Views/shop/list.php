@@ -179,7 +179,7 @@
                     'card_wish'     => 'toggle',
                     'card_wishedIds' => $wishedIds ?? [],
                     'card_action'   => 'quick',
-                ]) ?>
+                ], ['saveData' => false]) ?>
                 <?php endforeach; ?>
             </div>
 

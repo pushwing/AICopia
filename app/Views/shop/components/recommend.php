@@ -17,7 +17,7 @@ $recoTitle = $recoTitle ?? '회원님을 위한 추천 상품';
     <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
         <?php foreach ($recommended as $p): ?>
         <?php /* 추천 블록은 할인율 배지·카테고리 없이 이미지+이름+가격만 보여 준다 */ ?>
-        <?= view('shop/components/product_card', ['p' => $p, 'card_discountBadge' => false]) ?>
+        <?= view('shop/components/product_card', ['p' => $p, 'card_discountBadge' => false], ['saveData' => false]) ?>
         <?php endforeach; ?>
     </div>
 </div>
