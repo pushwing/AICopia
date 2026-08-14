@@ -201,6 +201,24 @@ window.confirmDialog = function (opts) {
     });
 };
 
+// ─── 로그인 폼: 입력창에서 Enter 로 제출 ──────────────────────────────────────
+// 네이티브 암묵적 제출(단일 submit 버튼 폼에서 Enter → 제출)이 표준 동작이지만
+// 브라우저 확장(비밀번호 관리자 등)이 Enter 를 가로채는 환경이 있어 명시적으로 보강한다.
+// requestSubmit() 은 click 과 동일하게 HTML5 유효성 검사를 거치므로 submit() 대신 사용한다.
+(function () {
+    'use strict';
+    var loginForm = document.getElementById('loginForm');
+    if (! loginForm) return;
+
+    loginForm.querySelectorAll('input').forEach(function (input) {
+        input.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || e.isComposing) return;
+            e.preventDefault();
+            loginForm.requestSubmit();
+        });
+    });
+})();
+
 // ─── data-confirm 폼: 제출 전 공용 확인 모달로 게이트 ──────────────────────────
 // <form data-confirm="메시지" [data-confirm-title="제목"] [data-confirm-danger]> 를
 // confirmDialog 로 가로챈다. 네이티브 onsubmit="return confirm(...)" 대체.

@@ -19,7 +19,7 @@
                 <?php endif; ?>
 
                 <!-- 일반 로그인 -->
-                <form method="post" action="/auth/login">
+                <form method="post" action="/auth/login" id="loginForm">
                     <?= csrf_field() ?>
                     <div class="mb-3">
                         <input type="email" name="email" class="form-control" placeholder="이메일"
