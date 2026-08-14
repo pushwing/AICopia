@@ -78,12 +78,12 @@ class SeoHelper
     }
 
     /**
-     * Google Analytics 스크립트
+     * Google Analytics(GA4) 스크립트
      */
     public function gaScript(): string
     {
-        $gaId = $this->settings['ga_id'] ?? '';
-        if (! $gaId) {
+        $gaId = trim((string) ($this->settings['ga_id'] ?? ''));
+        if ($gaId === '' || ! preg_match('/^[A-Za-z0-9-]+$/', $gaId)) {
             return '';
         }
 
@@ -96,6 +96,55 @@ class SeoHelper
   gtag('config', '{$gaId}');
 </script>
 HTML;
+    }
+
+    /**
+     * Google Tag Manager — <head> 스니펫 (문서 상단에 삽입)
+     */
+    public function gtmHeadScript(): string
+    {
+        $gtmId = $this->gtmId();
+        if ($gtmId === '') {
+            return '';
+        }
+
+        return <<<HTML
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','{$gtmId}');</script>
+HTML;
+    }
+
+    /**
+     * Google Tag Manager — <body> 시작 직후 noscript 스니펫
+     */
+    public function gtmBodyScript(): string
+    {
+        $gtmId = $this->gtmId();
+        if ($gtmId === '') {
+            return '';
+        }
+
+        return <<<HTML
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id={$gtmId}"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+HTML;
+    }
+
+    /**
+     * settings['gtm_id']를 GTM-XXXXXXX 형식으로 검증해 반환(형식이 아니면 빈 문자열 —
+     * heredoc에 그대로 삽입되므로 스크립트 컨텍스트 이탈을 막는 화이트리스트 검증).
+     */
+    private function gtmId(): string
+    {
+        $gtmId = trim((string) ($this->settings['gtm_id'] ?? ''));
+        if ($gtmId === '' || ! preg_match('/^GTM-[A-Za-z0-9]+$/', $gtmId)) {
+            return '';
+        }
+
+        return $gtmId;
     }
 
     // ─── 스키마 빌더 ────────────────────────────────────────────────────────

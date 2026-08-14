@@ -154,4 +154,60 @@ final class SeoHelperTest extends CIUnitTestCase
         $this->assertArrayHasKey('datePublished', $schema);
         $this->assertArrayHasKey('dateModified', $schema);
     }
+
+    public function testGaScriptEmptyWhenIdMissing(): void
+    {
+        $this->assertSame('', (new SeoHelper(['ga_id' => '']))->gaScript());
+        $this->assertSame('', (new SeoHelper([]))->gaScript());
+    }
+
+    public function testGaScriptRendersWhenIdValid(): void
+    {
+        $script = (new SeoHelper(['ga_id' => 'G-ABC1234567']))->gaScript();
+
+        $this->assertStringContainsString("gtag('config', 'G-ABC1234567');", $script);
+        $this->assertStringContainsString('id=G-ABC1234567', $script);
+    }
+
+    public function testGaScriptEmptyWhenIdHasInvalidCharacters(): void
+    {
+        // 스크립트 컨텍스트를 이탈하려는 값은 화이트리스트 검증에서 걸러져야 함
+        $script = (new SeoHelper(['ga_id' => "G-1');alert(1);//"]))->gaScript();
+
+        $this->assertSame('', $script);
+    }
+
+    public function testGtmHeadScriptEmptyWhenIdMissing(): void
+    {
+        $this->assertSame('', (new SeoHelper(['gtm_id' => '']))->gtmHeadScript());
+        $this->assertSame('', (new SeoHelper([]))->gtmHeadScript());
+    }
+
+    public function testGtmHeadScriptRendersWhenIdValid(): void
+    {
+        $script = (new SeoHelper(['gtm_id' => 'GTM-ABCD123']))->gtmHeadScript();
+
+        $this->assertStringContainsString("'GTM-ABCD123'", $script);
+        $this->assertStringContainsString('googletagmanager.com/gtm.js', $script);
+    }
+
+    public function testGtmHeadScriptEmptyWhenIdHasWrongFormat(): void
+    {
+        // GTM 컨테이너 ID는 반드시 'GTM-' 접두어여야 함
+        $this->assertSame('', (new SeoHelper(['gtm_id' => 'ABCD123']))->gtmHeadScript());
+        $this->assertSame('', (new SeoHelper(['gtm_id' => "GTM-1');alert(1);//"]))->gtmHeadScript());
+    }
+
+    public function testGtmBodyScriptRendersWhenIdValid(): void
+    {
+        $script = (new SeoHelper(['gtm_id' => 'GTM-ABCD123']))->gtmBodyScript();
+
+        $this->assertStringContainsString('ns.html?id=GTM-ABCD123', $script);
+        $this->assertStringStartsWith('<noscript>', $script);
+    }
+
+    public function testGtmBodyScriptEmptyWhenIdMissing(): void
+    {
+        $this->assertSame('', (new SeoHelper(['gtm_id' => '']))->gtmBodyScript());
+    }
 }
