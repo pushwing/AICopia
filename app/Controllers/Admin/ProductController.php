@@ -267,6 +267,10 @@ class ProductController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
+        if ($discountPriceError = $this->discountPriceError()) {
+            return redirect()->back()->withInput()->with('errors', $discountPriceError);
+        }
+
         $data = $this->collectData();
         $id   = $this->productModel->insert($data);
 
@@ -307,6 +311,10 @@ class ProductController extends BaseController
 
         if (! $this->validate($this->validationRules($id))) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        if ($discountPriceError = $this->discountPriceError()) {
+            return redirect()->back()->withInput()->with('errors', $discountPriceError);
         }
 
         $wasOutOfStock = (int) $product['stock'] === 0 || $product['status'] === 'sold_out';
@@ -982,6 +990,26 @@ class ProductController extends BaseController
     }
 
     // ── private 헬퍼 ─────────────────────────────────────────────────────────
+
+    /**
+     * 할인가가 정가보다 낮은지 검증. 위반 시 폼에 그대로 표시할 에러 배열 반환, 정상이면 null.
+     *
+     * @return array<string, string>|null
+     */
+    private function discountPriceError(): ?array
+    {
+        $price             = (int) $this->request->getPost('price');
+        $discountPriceRaw  = $this->request->getPost('discount_price');
+        $discountPrice     = $discountPriceRaw !== null && $discountPriceRaw !== ''
+            ? (int) $discountPriceRaw
+            : null;
+
+        if (ProductModel::isDiscountPriceValid($price, $discountPrice)) {
+            return null;
+        }
+
+        return ['discount_price' => '할인가는 정가보다 낮아야 합니다.'];
+    }
 
     /** @return array<string, string> */
     private function validationRules(?int $excludeId = null): array

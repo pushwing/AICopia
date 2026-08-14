@@ -87,14 +87,14 @@
                     <div class="row g-3">
                         <div class="col-sm-6">
                             <label class="form-label">정가 (원) <span class="text-danger">*</span></label>
-                            <input type="number" name="price" class="form-control" min="0"
+                            <input type="number" name="price" id="priceInput" class="form-control" min="0"
                                    value="<?= esc(old('price', $product['price'] ?? 0)) ?>" required>
                         </div>
                         <div class="col-sm-6">
                             <label class="form-label">할인가 (원)</label>
-                            <input type="number" name="discount_price" class="form-control" min="0"
+                            <input type="number" name="discount_price" id="discountPriceInput" class="form-control" min="0"
                                    value="<?= esc(old('discount_price', $product['discount_price'] ?? '')) ?>">
-                            <div class="form-text">비워두면 할인 없음</div>
+                            <div class="form-text">비워두면 할인 없음. 정가보다 낮아야 합니다.</div>
                         </div>
                         <div class="col-sm-6">
                             <label class="form-label">재고 수량 <span class="text-danger">*</span></label>
@@ -429,6 +429,23 @@ function toggleShippingFields() {
     document.getElementById('freeThresholdField').style.display  = type === 'conditional' ? '' : 'none';
 }
 
+// 할인가는 정가보다 낮아야 함 (같아도 불가) — 위반 시 경고 후 할인가 비움
+function validateDiscountPrice() {
+    const discountInput = document.getElementById('discountPriceInput');
+    if (discountInput.value === '') return true;
+
+    const price    = parseInt(document.getElementById('priceInput').value, 10) || 0;
+    const discount = parseInt(discountInput.value, 10);
+    if (! isNaN(discount) && discount >= price) {
+        alert('할인가는 정가보다 낮아야 합니다.');
+        discountInput.value = '';
+        return false;
+    }
+    return true;
+}
+document.getElementById('discountPriceInput').addEventListener('change', validateDiscountPrice);
+document.getElementById('priceInput').addEventListener('change', validateDiscountPrice);
+
 function autoSlug(name) {
     const slug = name.toLowerCase()
         .replace(/[^\w가-힣\s-]/g, '')
@@ -662,7 +679,12 @@ function generateSkus() {
 }
 
 // 폼 제출 전 options_json 직렬화
-document.getElementById('productForm').addEventListener('submit', function () {
+document.getElementById('productForm').addEventListener('submit', function (e) {
+    if (! validateDiscountPrice()) {
+        e.preventDefault();
+        return;
+    }
+
     const data = {
         options: optionGroups.map(function (g) {
             return {
