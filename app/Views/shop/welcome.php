@@ -91,7 +91,7 @@ $discountedProducts = array_values(array_filter($discountedProducts ?? [], stati
         </div>
         <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
             <?php foreach ($featuredProducts as $p): ?>
-            <?= view('shop/components/product_card', ['p' => $p, 'card_pick' => true, 'card_category' => true]) ?>
+            <?= view('shop/components/product_card', ['p' => $p, 'card_pick' => true, 'card_category' => true], ['saveData' => false]) ?>
             <?php endforeach; ?>
         </div>
     </div>
@@ -111,7 +111,7 @@ $discountedProducts = array_values(array_filter($discountedProducts ?? [], stati
         </div>
         <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
             <?php foreach ($newProducts as $p): ?>
-            <?= view('shop/components/product_card', ['p' => $p, 'card_category' => true]) ?>
+            <?= view('shop/components/product_card', ['p' => $p, 'card_category' => true], ['saveData' => false]) ?>
             <?php endforeach; ?>
         </div>
     </div>
@@ -132,7 +132,7 @@ $discountedProducts = array_values(array_filter($discountedProducts ?? [], stati
         <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-4 g-3">
             <?php foreach ($discountedProducts as $p): ?>
             <?php /* 할인 밴드는 전부 재고 있는 할인 상품 — 품절 스크림 없이 할인율 배지를 항상 노출 */ ?>
-            <?= view('shop/components/product_card', ['p' => $p, 'card_category' => true, 'card_scrim' => false]) ?>
+            <?= view('shop/components/product_card', ['p' => $p, 'card_category' => true, 'card_scrim' => false], ['saveData' => false]) ?>
             <?php endforeach; ?>
         </div>
     </div>
