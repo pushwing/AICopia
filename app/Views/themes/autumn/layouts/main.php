@@ -7,6 +7,7 @@
     $seo = new \App\Libraries\SeoHelper($settings);
     echo $seo->render($page ?? null);
     echo $seo->gaScript();
+    echo $seo->gtmHeadScript();
     ?>
     <?php if (!empty($settings['favicon'])): ?>
     <link rel="icon" href="/<?= esc($settings['favicon']) ?>">
@@ -29,6 +30,7 @@
     <?php endif; ?>
 </head>
 <body>
+<?= $seo->gtmBodyScript() ?>
 
 <?= $this->include('components/navbar') ?>
 

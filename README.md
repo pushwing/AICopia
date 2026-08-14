@@ -21,11 +21,12 @@
 | 상품 목록 | 카테고리 필터, 가격 범위·할인 필터, 키워드 검색, 정렬 (인기·신상·가격순) |
 | 상품 상세 | 다중 이미지, 옵션(SKU), 재고 확인, 상품 문의(QnA), 리뷰, 찜하기 |
 | 빠른 장바구니 | 상품 목록에서 바로 담기 (모달 팝업, 옵션 있는 상품도 지원) |
-| 장바구니 | 게스트(세션) · 회원 공용, 수량 변경, 삭제, 쿠폰 적용, 포인트 사용 |
-| 주문 | 배송지 선택·입력 (카카오 주소 API), 배송 요청사항, 쿠폰·포인트 최종 적용 |
-| 결제 | 5개 PG사 + 무통장입금 지원 |
-| 기획전 | 기획전 목록·상세, 기간·할인 설정, 어드민 관리 |
-| 재입고 알림 | 품절 상품 재입고 시 이메일 알림 신청 |
+| 장바구니 | 게스트(세션) · 회원 공용, 수량 변경, 삭제, 쿠폰 적용, 포인트 사용, 조건부 무료배송 기준 안내("○○원 더 담으면 무료배송") |
+| 추가구성상품(애드온) | 상품 상세에서 함께 구매할 부가상품 선택(단독/옵션(SKU) 상품 지원), 본품 담기·해제에 연동해 장바구니에서 자동 잠금·해제 |
+| 주문 | 배송지 선택·입력 (카카오 주소 API), 배송 요청사항, 쿠폰·포인트 최종 적용, 보유 쿠폰 중 최대 할인 쿠폰 자동 제안, 결제수단별 브랜드 식별 칩 |
+| 결제 | 5개 PG사 + 무통장입금 지원, 결제창 이탈 시 실패 화면 대신 주문서로 복귀 |
+| 기획전(PICK 상품) | 관리자가 지정한 PICK 상품·기획전(프로모션 캠페인) 목록·상세, 기간·할인 설정, 어드민 관리 |
+| 재입고 알림 | 품절 상품 재입고 시 이메일 알림 신청 (AI로 개인화된 알림 메일) |
 
 ### 마이페이지
 | 기능 | 설명 |
@@ -45,6 +46,7 @@
 | 회원 정보 | 휴대폰번호(필수) · 성별 · 생일 · 주소 (카카오 주소 API) |
 | 회원 등급 | 구매 실적 기반 자동 등급 산정, 등급별 포인트 적립률 차등 |
 | 인증 대기 화면 | `auth/verify-pending` — 인증 메일 발송 안내 + 재발송 버튼 |
+| 회원 탈퇴 | `auth/profile` 화면의 탈퇴 탭 → 탈퇴 가능 조건(진행중 주문 등) 검증 후 처리. 개인정보는 스냅샷·마스킹되어 `withdrawn_users`에 보관되고, 보관기간 경과 시 배치(`users:purge-withdrawn`)가 자동 파기 |
 
 ### 게시판 / 커뮤니티
 | 기능 | 설명 |
@@ -61,7 +63,7 @@
 | 메뉴 | 기능 |
 |------|------|
 | 대시보드 | 매출·주문·회원·상품 통계 위젯, 미읽음 문의 알림 |
-| 상품 관리 | AG Grid 목록, CRUD, 다중 이미지, 옵션(SKU), 상품 복사, 일괄 편집, 기획전 상품 지정 |
+| 상품 관리 | AG Grid 목록, CRUD, 다중 이미지, 옵션(SKU), 추가구성상품(애드온) 연결, 상품 복사, 일괄 편집, PICK 상품 지정, 이미지 배경 자동 제거(Clipdrop), 네이버 쇼핑 검색으로 상품정보 임포트 |
 | 카테고리 | 계층형 카테고리 (parent_id) |
 | 재고 관리 | 재고 부족 필터, 인라인 재고 수정, 재입고 알림 발송 |
 | 주문 관리 | AG Grid 목록, 상태 변경, 상태 일괄 변경, 내부 메모, 반품/교환 승인·거부 |
@@ -72,11 +74,14 @@
 | 쿠폰 관리 | AG Grid 목록, 쿠폰 CRUD, 회원별 수동 발급 |
 | 포인트 관리 | 회원별 포인트 수동 조정, 내역 조회 |
 | 회원 등급 | 등급 기준·적립률·이름 설정 |
-| 회원 관리 | AG Grid 목록, 닉네임·이메일·역할·활성 상태 수정, 이메일 인증 수동 처리 |
+| 회원 관리 | AG Grid 목록, 닉네임·이메일·역할·활성 상태 수정, 이메일 인증 수동 처리, 강제 탈퇴 처리 |
+| 탈퇴회원 관리 | `/admin/users/withdrawn` — 탈퇴회원 목록·보관기간 조회 (개인정보는 마스킹된 상태) |
+| 결제시도 로그 | `/admin/order-attempts` — 결제창을 열고 이탈한 미완료 결제 시도 추적(포인트 선점·환급 허수 정리) |
 | 매입처 관리 | 공급업체(Supplier) CRUD, 상품 매입단가·영업이익 계산 |
 | 기획전 관리 | 기획전 CRUD, 상품 검색·연결 |
-| Welcome 설정 | 섹션별 ON/OFF, 제목, 표시 수량, 기획전 상품 토글 |
+| Welcome 설정 | 섹션별 ON/OFF, 제목, 표시 수량, PICK 상품 토글 (프로모션 캠페인과는 별개 기능) |
 | 통계 | 일별·월별 접속자·매출 차트, 인기 상품, 유입 경로 |
+| 스케줄 관리 | `/admin/schedule` — 주문 만료·등급 재계산·생일 쿠폰·접속로그 정리·AI 작업·탈퇴회원 파기 등 배치 잡 활성화/주기 설정 |
 | 리뷰 관리 | AG Grid 목록, 리뷰 삭제 |
 | 상품 문의 | QnA 목록, 답변 입력, 삭제 |
 | 게시판 관리 | 게시판 생성·수정, 권한·첨부 허용 설정 |
@@ -86,7 +91,7 @@
 | 메뉴 관리 | GNB 메뉴 추가·수정·삭제, 2단계 드롭다운 |
 | 미디어 라이브러리 | 드래그 업로드, 이미지 경로 복사 |
 | 문의 수신함 | 문의 목록·상세, 이메일 바로 답장 |
-| 사이트 설정 | 기본·연락처·SNS·SEO·푸터·배송비·결제·SMTP 설정 |
+| 사이트 설정 | 기본·연락처·SNS·SEO·푸터·배송비·결제·SMTP 설정, 로고/파비콘을 미디어 라이브러리에서 선택하거나 즉시 업로드 |
 | 테마 관리 | ZIP 업로드 설치, 설치된 테마 목록, 클릭 한 번으로 전환 |
 
 ---
@@ -112,6 +117,7 @@
 | 상품 카테고리 추천 | 상품명·설명으로 적합 카테고리 자동 추천 |
 | 상품 설명 생성 | 상품명·기존 설명 기반 HTML 상세설명 생성 |
 | 이미지 → 상품정보 (Vision) | 상품 이미지 업로드만으로 상품명·설명 자동 작성 (Claude 멀티모달) |
+| 상품 이미지 배경 제거 | 업로드한 상품 이미지의 배경을 자동 제거 (Clipdrop API — Groq/Claude/OpenRouter 제공자와 별개) |
 | 상품 문의 답변 초안 | QnA 문의에 대한 답변 초안 1클릭 생성 |
 | 문의 자동 분류 + 답변 초안 | 수신 문의를 카테고리·우선순위·감성으로 자동 분류, 답변 초안 생성 |
 | 리뷰 AI 요약 + 부정 리뷰 감지 | 상품 리뷰 요약·장단점·감성 분석, 부정 리뷰 자동 표시·알림 |
@@ -133,10 +139,10 @@
 
 | 영역 | 선택 |
 |------|------|
-| 백엔드 | CodeIgniter 4 (PHP 8.1+) |
+| 백엔드 | CodeIgniter 4 (PHP 8.5+) |
 | 프론트 | Bootstrap 5 · Bootstrap Icons |
 | 관리자 그리드 | AG Grid (CDN, Community Edition) |
-| 에디터 | TinyMCE 6 (CDN, API 키 `.env` 관리) |
+| 에디터 | TinyMCE 6 (자체 호스팅, API 키 불필요 — `.env`에 키를 넣으면 클라우드 버전으로 전환) |
 | DB | MySQL / MariaDB |
 | 인증 | CI4 Session 기반 (+ OAuth2 소셜 로그인) |
 | 캐시 | CI4 File Cache (설정·메뉴·배너·팝업) |
@@ -156,8 +162,8 @@ app/
 │   ├── Services.php        # ThemeView를 기본 렌더러로 등록
 │   ├── OAuth.php           # 소셜 로그인 설정
 │   ├── PG.php              # PG사 키 설정 (.env 참조)
-│   ├── Editor.php          # TinyMCE API 키
-│   └── Scheduler.php       # orders:expire 5분 주기 스케줄
+│   ├── Editor.php          # TinyMCE 자체 호스팅 설정
+│   └── Tasks.php           # settings 테이블 기반 배치 잡 스케줄 (php spark tasks:run)
 ├── Controllers/
 │   ├── BaseController.php  # 설정·메뉴·세션·카트수량 전역 주입
 │   ├── Front/
@@ -197,8 +203,10 @@ app/
 │       ├── MenuController.php
 │       ├── MediaController.php
 │       ├── SettingController.php
-│       └── InquiryController.php
-├── Models/                 # 30개 도메인 모델
+│       ├── InquiryController.php
+│       ├── OrderAttemptController.php # 결제시도 로그
+│       └── ScheduleController.php     # 배치 잡 스케줄 관리
+├── Models/                 # 34개 도메인 모델
 ├── Filters/AuthFilter.php
 ├── Libraries/
 │   ├── ThemeView.php       # 테마 경로 우선 해석 렌더러
@@ -212,13 +220,15 @@ app/
 │   ├── OAuth/              # Google·Naver·Kakao 프로바이더
 │   └── PG/                 # PG 어댑터 7종
 ├── Database/
-│   ├── Migrations/         # 40+ 마이그레이션
+│   ├── Migrations/         # 80+ 마이그레이션
 │   └── Seeds/              # 상품·게시물·문의 샘플 데이터 시더
 └── Views/
     ├── themes/             # 멀티 테마 폴더
-    │   └── default/
-    │       ├── layouts/main.php
-    │       └── components/  # navbar / footer / contact_form
+    │   ├── default/
+    │   │   ├── layouts/main.php     # 활성 테마 CSS 자동 로드
+    │   │   └── components/          # navbar / footer / contact_form
+    │   ├── autumn/layouts/main.php  # 리틴트 파생 테마
+    │   └── winter/layouts/main.php  # 리틴트 파생 테마
     ├── layouts/admin.php
     ├── shop/               # 상품 목록 / 상세 / welcome
     ├── cart/
@@ -231,9 +241,9 @@ app/
 public/
 └── themes/
     ├── default/            # 기본 테마 CSS / JS
-    ├── dark/
-    ├── violet/
-    └── spring/             # 좌측 배너 사이드바 레이아웃
+    ├── autumn/             # 리틴트 style.css
+    └── winter/             # 리틴트 style.css
+    # dark·violet·spring·autumn·winter는 themes/*.zip으로도 배포(관리자 업로드 설치용)
 ```
 
 ---
@@ -242,7 +252,8 @@ public/
 
 | 테이블 | 설명 |
 |--------|------|
-| `users` | 회원 (admin·member 역할, 소셜 로그인, 포인트잔액, 등급) |
+| `users` | 회원 (admin·member 역할, 소셜 로그인, 포인트잔액, 등급, `withdrawn_at`) |
+| `withdrawn_users` | 탈퇴회원 개인정보 스냅샷 (보관기간 경과 시 개인정보 컬럼만 파기) |
 | `settings` | 사이트 전역 설정 (key-value, active_theme, PG·SMTP·배송비 등) |
 | `pages` | 동적 페이지 |
 | `menus` | 네비게이션 메뉴 (2단계) |
@@ -257,12 +268,14 @@ public/
 | `product_skus` | 상품 옵션 조합 (SKU별 재고·가격) |
 | `product_qnas` | 상품 문의 |
 | `product_reviews` | 상품 리뷰 (평점·이미지) |
+| `product_addons` | 상품별 추가구성상품(애드온) 연결 |
 | `wishlists` | 찜 목록 |
 | `cart_items` | 장바구니 (user_id 또는 session_id 게스트 지원) |
 | `orders` | 주문 헤더 (상태·배송 스냅샷·쿠폰·포인트·교환·반품) |
 | `order_items` | 주문 시점 상품 스냅샷 (이름·가격·수량) |
 | `order_status_logs` | 주문 상태 변경 이력 |
 | `order_memos` | 주문 내부 메모 |
+| `order_attempts` | 결제 시도 추적 (결제창 이탈 등 미완료 시도 — 포인트 선점·환급 허수 정리) |
 | `shipping_addresses` | 회원 저장 배송지 |
 | `payments` | PG 결제 정보 (pg_tid UNIQUE, 응답 JSON) |
 | `stock_logs` | 재고 변동 감사 로그 |
@@ -325,36 +338,45 @@ flowchart TD
 
     B -->|코드 변경| C["feature 브랜치 생성<br/>dev에서 분기"]
     C --> D["TDD 구현<br/>Red → Green → Refactor"]
-    D --> E["로컬 품질 게이트<br/>pre-push: cs·analyse·test"]
-    E --> F["PR 생성<br/>feature → dev"]
-    F --> G["CI 실행<br/>static + test"]
-    G --> H["리뷰 후 Squash 머지<br/>feature 브랜치 자동 삭제"]
+    D --> E["로컬 품질 게이트(pre-push 훅)<br/>cs·analyse·test — 실질적 CI 역할"]
+    E --> F["PR 생성 · 코드 리뷰<br/>feature → dev (CI 없음)"]
+    F --> H["리뷰 후 Squash 머지<br/>feature 브랜치 자동 삭제"]
 
     B -->|문서만 변경| I["문서만 변경 확인<br/>app/·설정 변경 없음"]
     I --> J["dev에 직접 커밋<br/>feature·PR 생략"]
 
     H --> K["dev → main PR<br/>merge commit"]
     J --> K
-    K --> L["배포 승인<br/>production 환경 Required reviewer"]
-    L --> M["자동 배포<br/>reset --hard → composer install → cache:clear"]
+    K --> G["CI 실행(self-hosted 러너)<br/>static + test — main 대상 PR에서만"]
+    G --> L["머지 즉시 자동 배포<br/>승인 게이트 없음(2026-08 기준)"]
+    L --> M["reset --hard → composer install<br/>→ 스켈레톤 복원 → cache:clear"]
 
     style E fill:#f5c26b,stroke:#7a5b1e,color:#1a1a1a
     style G fill:#f5c26b,stroke:#7a5b1e,color:#1a1a1a
     style M fill:#8fce8f,stroke:#2f6b2f,color:#1a1a1a
 ```
 
-- **코드 변경**: `feature/*` 브랜치 → TDD → 로컬 품질 게이트(pre-push 훅) → PR → CI(GitHub Actions) 통과 후 `dev`로 **Squash merge**(브랜치 자동 삭제)
+- **코드 변경**: `feature/*` 브랜치 → TDD → 로컬 품질 게이트(pre-push 훅: cs·analyse·test) 통과 후 `dev`로 **Squash merge**(브랜치 자동 삭제). **`feature → dev` PR에는 CI가 돌지 않는다** — 로컬 pre-push 훅이 실질적 게이트, PR은 코드 리뷰만
 - **문서 전용 예외**: `*.md`·`.claude/rules/**`·`docs/**` 등 문서만 바뀌고 `app/`·설정·마이그레이션이 섞이지 않았다면 feature/PR 절차 없이 `dev`에 직접 커밋
-- **배포**: `dev → main`은 **merge commit**(Squash 금지), `production` 환경 Required reviewer 승인 후 SSH로 자동 배포
+- **CI**: `dev → main` 배포 PR에서만 GitHub Actions(정적분석 + 테스트)가 self-hosted 러너에서 실행
+- **배포**: `dev → main`은 **merge commit**(Squash 금지). `production` 환경(Environments)은 만들어져 있으나 **승인 게이트는 설정돼 있지 않아**, 머지 즉시 SSH로 자동 배포된다 — 머지 자체를 신중히 판단할 것
 
 ---
 
 ## 설치 방법
 
-### 1. 환경 설정
+### 1. 의존성 설치 + 표준 CI4 스켈레톤 복원
+표준 CI4 스켈레톤(`app/Config`의 프레임워크 기본 파일·`system/`·`spark`·`public/index.php`·`env`)은 **gitignore** 되어 있어 클론 직후엔 존재하지 않습니다. `composer install` 후 vendor에서 복원합니다(이미 있는 커스텀 파일은 덮어쓰지 않음):
 ```bash
-cp env .env
+composer install
+for src in vendor/codeigniter4/framework/app/Config/*; do
+  dest="app/Config/$(basename "$src")"; [ -e "$dest" ] || cp -r "$src" "$dest"
+done
+[ -e system ] || ln -s vendor/codeigniter4/framework/system system
+cp vendor/codeigniter4/framework/env .env
 ```
+
+### 2. 환경 설정
 `.env` 파일에서 DB 정보 및 필수 설정 입력:
 ```
 CI_ENVIRONMENT = development
@@ -362,53 +384,64 @@ database.default.hostname = localhost
 database.default.database = your_db_name
 database.default.username = your_db_user
 database.default.password = your_db_password
-database.default.DBDriver = MySQLi
+# ⚠️ database.default.DBDriver 줄은 추가하지 않는다 — 이 줄이 있으면 Registrar가 등록한
+#    타임존 인식 드라이버(App\Database\MySQLiTimezone)가 무시되어 DB↔앱 KST 변환이 깨진다.
 
-# TinyMCE API 키 (https://www.tiny.cloud)
-editor.tinymce_api_key = your-tinymce-api-key
+# TinyMCE는 기본적으로 자체 호스팅(API 키 불필요) — 클라우드 버전을 쓰려면만 설정
+# editor.tinymce_api_key = your-tinymce-api-key
 
 # PG 키 (사용할 PG사만 설정)
 pg.toss.client_key    = ...
 pg.toss.secret_key    = ...
 ```
 
-### 2. 마이그레이션 실행
+### 3. 마이그레이션 실행
 ```bash
 php spark migrate
 ```
 테이블 생성 + 기본 데이터(게시판·관리자 계정·기본 설정)가 한 번에 처리됩니다.
 
-### 3. (선택) 샘플 데이터 시더
+### 4. (선택) 샘플 데이터 시더
 ```bash
 php spark db:seed ProductSeeder
 php spark db:seed PostSeeder
 php spark db:seed InquirySeeder
 ```
 
-### 4. 업로드 폴더 권한 (Linux)
+### 5. 업로드 폴더 권한 (Linux)
 ```bash
 chmod -R 755 public/uploads writable
 ```
 
-### 5. 개발 서버 실행
+### 6. 개발 서버 실행
 ```bash
 php spark serve
 ```
 
-### 6. Cron 등록 (운영 서버 — 주문 만료 처리)
+### 7. Cron 등록 (운영 서버 — 배치 작업 실행)
 ```bash
 crontab -e
 ```
-아래 줄 추가 (`/path/to/shop` 을 실제 경로로 교체):
+아래 한 줄만 추가 (`/path/to/AICopia` 를 실제 경로로 교체):
 ```
-* * * * * cd /path/to/shop && php spark schedule:run >> /dev/null 2>&1
+* * * * * cd /path/to/AICopia && php spark tasks:run >> /dev/null 2>&1
 ```
-CI4 스케줄러가 `orders:expire` 커맨드를 **5분 간격**으로 실행합니다.
+`Config/Tasks.php`가 `settings` 테이블에서 **활성화된 잡만** 읽어 스케줄러에 등록합니다. 어떤 잡을 몇 분 간격으로 돌릴지는 크론 파일을 건드리지 않고 관리자 화면 **`/admin/schedule`**에서 켜고 끕니다.
 
-수동 실행:
+| 잡 | 명령 | 용도 |
+|---|------|------|
+| `schedule_orders_expire` | `orders:expire [분]` | N분(기본 30분) 초과한 `pending` 주문 만료 처리 |
+| `schedule_grades_upgrade` | `grades:upgrade` | 회원 등급 재계산 |
+| `schedule_coupons_birthday` | `coupons:birthday` | 생일 쿠폰 발급 |
+| `schedule_stats_purge_logs` | `stats:purge-logs` | 오래된 접속 로그 정리 |
+| `schedule_ai_work` | `ai:work` | 대기 중인 AI 작업 처리 (`ai_jobs` 테이블) |
+| `schedule_users_purge_withdrawn` | `users:purge-withdrawn [일수]` | 보관기간 경과 탈퇴회원 개인정보 파기 |
+
+수동 실행 예시:
 ```bash
 php spark orders:expire        # 기본 30분 초과 만료
 php spark orders:expire 60     # 60분 초과로 기준 변경
+php spark users:purge-withdrawn
 ```
 
 ---
@@ -446,6 +479,7 @@ php spark orders:expire 60     # 60분 초과로 기준 변경
 | `/board/notice` | 공지사항 |
 | `/auth/login` | 로그인 |
 | `/auth/register` | 회원가입 |
+| `/auth/profile` | 회원정보 수정 + 회원 탈퇴 탭 |
 
 ### 관리자
 | URL | 설명 |
@@ -453,9 +487,12 @@ php spark orders:expire 60     # 60분 초과로 기준 변경
 | `/admin` | 대시보드 |
 | `/admin/products` | 상품 관리 |
 | `/admin/orders` | 주문 관리 |
+| `/admin/order-attempts` | 결제시도 로그 |
 | `/admin/coupons` | 쿠폰 관리 |
 | `/admin/points` | 포인트 관리 |
 | `/admin/grades` | 회원 등급 설정 |
+| `/admin/users/withdrawn` | 탈퇴회원 관리 |
+| `/admin/schedule` | 배치 잡 스케줄 관리 |
 | `/admin/users` | 회원 관리 |
 | `/admin/suppliers` | 매입처 관리 |
 | `/admin/promotions` | 기획전 관리 |
@@ -484,20 +521,65 @@ php spark orders:expire 60     # 60분 초과로 기준 변경
 ZIP 업로드 또는 직접 폴더 배치 방식 모두 지원합니다.  
 테마 추가는 `app/Views/themes/{name}/`와 `public/themes/{name}/`에 파일을 두고 `default`와 다른 부분만 오버라이드하면 됩니다. 활성 테마는 `settings.active_theme`에 저장됩니다.
 
-저장소에 포함된 샘플 테마:
+**리틴트(retint) 파생 테마**: `default` 레이아웃이 활성 테마의 `public/themes/{active}/css/style.css`가 존재하면 `default` CSS 뒤에 자동으로 이어 로드합니다. 구조·컴포넌트·JS는 `default`를 그대로 상속하고 색상 팔레트(CSS 변수)만 얹으면 새 테마가 성립하므로, 파생 테마는 `style.css` 한 장만으로도 만들 수 있습니다.
+
+저장소에 **폴더로** 포함된 테마(바로 사용 가능):
 
 | 테마 | 특징 |
 |------|------|
 | `default` | Bootstrap 기본 스타일 |
-| `dark` | 다크 네이비 + 인디고 포인트 |
-| `violet` | 바이올렛 브랜드, 풀 라운드 버튼 |
-| `spring` | 핑크-그린 파스텔, **좌측 배너 사이드바** 레이아웃 |
+| `autumn` | 번트오렌지 브랜드 + 크림 배경 웜톤 리틴트 |
+| `winter` | 겨울 톤 리틴트 |
+
+그 외 **ZIP 설치용**으로 저장소 루트 `themes/`에 포함된 테마(관리자 `/admin/settings/theme`에서 업로드 설치):
+
+| 테마 | 특징 |
+|------|------|
+| `dark.zip` | 다크 네이비 + 인디고 포인트 |
+| `violet.zip` | 바이올렛 브랜드, 풀 라운드 버튼 |
+| `spring.zip` | 핑크-그린 파스텔, **좌측 배너 사이드바** 레이아웃 |
+| `autumn.zip` / `winter.zip` | 위 두 리틴트 테마의 배포용 압축본 |
 
 ---
 
 ## 변경 이력
 
-### 2026-06-28 (최신) — AI 효율화 로드맵 적용
+### 2026-08-13 ~ 14 (최신) — 회원 탈퇴, 신규 테마, PICK 상품 개편
+
+| 항목 | 변경 내용 |
+|------|----------|
+| **회원 탈퇴** | 계정정보 화면(`auth/profile`)에 탈퇴 탭 추가 — 탈퇴 가능 조건(진행중 주문 등) 검증 → 개인정보 스냅샷·마스킹 → 보관기간 경과 시 배치(`users:purge-withdrawn`)로 자동 파기. 관리자 탈퇴회원 목록·강제 탈퇴, 탈퇴 시 세션 무효화 포함 |
+| **가을·겨울 테마** | `autumn`·`winter` 리틴트 테마 추가. `default` 레이아웃이 활성 테마 CSS를 자동 로드해 파생 테마는 `style.css` 한 장만으로 성립 |
+| **PICK 상품 개편** | 홈페이지 "기획전" 섹션명을 "PICK 상품"으로 변경 — 별도 기능인 프로모션 캠페인과의 명칭 혼동 해소 |
+| **로고/파비콘 업로드** | 사이트 설정에서 미디어 라이브러리 선택 또는 즉시 업로드 지원 |
+
+### 2026-08-10 ~ 13 — UX 개편 시리즈, 애드온, 결제 안정화
+
+| 항목 | 변경 내용 |
+|------|----------|
+| **추가구성상품(애드온)** | 상품 상세에서 부가상품(단독/옵션 SKU) 선택 구매, 본품 해제 시 장바구니 자동 잠금·해제 |
+| **UX 크리틱 개선** | 상품 목록·상세, 장바구니, 체크아웃, 마이페이지 주문내역, 메인화면을 모바일·접근성·검증 기준으로 전면 점검·개선 |
+| **공용 토스트·확인 모달** | 네이티브 `alert`/`confirm`을 테마 공용 컴포넌트(토스트 + 중앙 확인 모달)로 전면 교체 |
+| **결제수단 브랜드 칩** | 체크아웃 결제수단 버튼에 PG별 색상·이니셜 칩 추가 |
+| **최선 쿠폰 제안 · 무료배송 안내** | 보유 쿠폰 중 최대 할인 쿠폰 자동 추천 배너, 조건부 무료배송 기준까지 남은 금액 안내(장바구니·체크아웃) |
+| **결제 시도 추적** | `order_attempts` 도입 — 결제창 이탈 등 미완료 결제를 별도 추적해 주문내역엔 결제 확정 건만 표시, 관리자 결제시도 로그 페이지 추가 |
+| **타임존 규약 전환** | DB는 UTC 저장 / 앱·화면은 KST — 커넥션 세션 타임존(`+09:00`) + `TIMESTAMP` 컬럼으로 통일, 애플리케이션 코드는 변환 불필요 |
+| **쿠폰 적용 방식 일원화** | 코드 직접 입력 대신 보유 쿠폰 목록에서 선택하는 방식으로 통일 |
+
+### 2026-07 — PG 결제 안정화, 소셜 로그인·SEO 강화
+
+| 항목 | 변경 내용 |
+|------|----------|
+| **네이버페이 실 SDK 연동** | 샌드박스 대응, CSP `frame-src` 도메인 정정 포함 |
+| **PG 어댑터 안정화** | 카카오페이·이니시스·나이스페이 각종 오류 원인 노출 개선, 5개 PG 어댑터에 curl 타임아웃 5초 일괄 적용 |
+| **결제창 이탈 UX** | 이니시스·카카오페이·PAYCO·네이버페이·토스 결제창을 닫으면 실패 화면 대신 주문서로 복귀 |
+| **소셜 로그인 프로필 확장** | 카카오·네이버 로그인에서 휴대폰번호·성별·생년월일 매핑, 앱 키 미설정·비활성 제공자 가드 추가 |
+| **상품 리뷰 별점** | 리뷰에 평점(rating) 추가, AggregateRating/Review 구조화 데이터 연동 |
+| **SEO/GEO 강화** | robots·sitemap·구조화 데이터(FAQPage·Article), 카테고리 랜딩 FAQ 블록 |
+| **TinyMCE 자체 호스팅** | 클라우드 API 키 없이 동작하도록 전환 |
+| **상품 이미지 배경 제거** | Clipdrop API로 상품 이미지 배경 자동 제거 |
+
+### 2026-06-28 — AI 효율화 로드맵 적용
 
 | 항목 | 변경 내용 |
 |------|----------|
