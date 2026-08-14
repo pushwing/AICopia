@@ -37,7 +37,7 @@ class WelcomeController extends BaseController
             $post[$k] ??= '0';
         }
 
-        $this->settingModel->saveSettings($post);
+        $this->settingModel->saveSettings($post, 'welcome');
 
         return redirect()->to('/admin/welcome')->with('success', 'Welcome 페이지 설정이 저장되었습니다.');
     }
