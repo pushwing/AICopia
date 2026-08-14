@@ -18,7 +18,7 @@
  * @var bool   $card_category      카테고리 라벨 줄 노출 (기본 false)
  * @var bool   $card_discountBadge 이미지 위 할인율(%) 배지 노출 (기본 true)
  * @var string $card_badgePos      할인율 배지 위치 'left'|'right' (기본 'right')
- * @var bool   $card_pick          PICK 배지(기획전) (기본 false)
+ * @var bool   $card_pick          PICK 배지(PICK 상품) (기본 false)
  * @var bool   $card_scrim         품절 스크림 노출 (기본 true)
  * @var string $card_shipping      배송 배지 'none'|'free'|'full' (기본 'none'; full=무료+조건부)
  * @var string $card_wish          찜 버튼 'none'|'toggle'|'remove' (기본 'none')

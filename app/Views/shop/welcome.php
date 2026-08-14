@@ -65,20 +65,20 @@
 <?php endif; ?>
 
 <?php
-$featuredTitle  = $wcfg['welcome_featured_title']  ?? '기획전';
+$featuredTitle  = $wcfg['welcome_featured_title']  ?? 'PICK 상품';
 $newTitle       = $wcfg['welcome_new_title']        ?? '신상품';
 $discountTitle  = $wcfg['welcome_discount_title']   ?? '할인 상품';
 
-// 세 밴드(기획전·신상품·할인)에 같은 상품이 중복 노출되지 않도록,
+// 세 밴드(PICK 상품·신상품·할인)에 같은 상품이 중복 노출되지 않도록,
 // 위 밴드에서 이미 보여 준 상품을 아래 밴드에서 제외한다(slug 기준 — 모든 카드가 slug 를 쓴다).
-// 기획전은 큐레이션이므로 그대로 두고, 신상품 → 할인 순으로 걸러 낸다.
+// PICK 상품은 큐레이션이므로 그대로 두고, 신상품 → 할인 순으로 걸러 낸다.
 // 걸러진 결과가 비면 아래의 `if (!empty(...))` 가드가 해당 밴드를 통째로 숨긴다.
 $shownSlugs         = array_column($featuredProducts ?? [], 'slug');
 $newProducts        = array_values(array_filter($newProducts ?? [], static fn ($p) => ! in_array($p['slug'], $shownSlugs, true)));
 $shownSlugs         = array_merge($shownSlugs, array_column($newProducts, 'slug'));
 $discountedProducts = array_values(array_filter($discountedProducts ?? [], static fn ($p) => ! in_array($p['slug'], $shownSlugs, true)));
 ?>
-<!-- ── 기획전 상품 ─────────────────────────────────────────────────────────── -->
+<!-- ── PICK 상품 ────────────────────────────────────────────────────────── -->
 <?php if (!empty($featuredProducts)): ?>
 <section class="py-5">
     <div class="container">

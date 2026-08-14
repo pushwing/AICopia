@@ -193,12 +193,12 @@
                        + new Date(p.value.replace(' ', 'T')).toLocaleDateString('ko-KR') + '</span>';
               },
               comparator: function(a, b) { return a < b ? -1 : a > b ? 1 : 0; }},
-            { headerName: '기획전', field: 'is_featured', width: 90, sortable: true, filter: false, resizable: false,
+            { headerName: 'PICK', field: 'is_featured', width: 90, sortable: true, filter: false, resizable: false,
               cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
               cellRenderer: function(p) {
                   var on = p.value == 1;
                   return '<button class="btn btn-sm ' + (on ? 'btn-danger' : 'btn-outline-secondary') + '"'
-                       + ' onclick="toggleFeatured(' + p.data.id + ', this)" title="기획전 토글">'
+                       + ' onclick="toggleFeatured(' + p.data.id + ', this)" title="PICK 상품 토글 — 홈페이지 PICK 상품 섹션 노출 여부">'
                        + (on ? '<i class=\'bi bi-star-fill\'></i>' : '<i class=\'bi bi-star\'></i>') + '</button>';
               }},
             { headerName: '', width: 155, sortable: false, filter: false, resizable: false,
