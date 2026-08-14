@@ -40,12 +40,13 @@ composer check               # cs + analyse + test 일괄
 | `php spark coupons:birthday` | `IssueBirthdayCoupons` | 생일 쿠폰 발급 |
 | `php spark stats:purge-logs` | `PurgeAccessLogs` | 오래된 접속 로그 정리 |
 | `php spark ai:work` | `WorkAiJobs` | 대기 중인 AI 작업 처리 (`ai_jobs` 테이블) |
+| `php spark users:purge-withdrawn [일수]` | `PurgeWithdrawnUsers` | 보관 기간 경과 탈퇴회원 개인정보 파기 |
 
 **크론 (운영 환경 — 단 1줄 등록):**
 ```
 * * * * * cd /path/to/AICopia && php spark tasks:run >> /dev/null 2>&1
 ```
-`Config/Tasks.php`가 `settings` 테이블에서 활성화된 잡을 읽어 스케줄러에 등록합니다. 잡→명령 매핑(`schedule_orders_expire`, `schedule_grades_upgrade`, `schedule_coupons_birthday`, `schedule_stats_purge_logs`, `schedule_ai_work`)은 **`/admin/schedule`**에서 관리합니다(활성화·주기 설정).
+`Config/Tasks.php`가 `settings` 테이블에서 활성화된 잡을 읽어 스케줄러에 등록합니다. 잡→명령 매핑(`schedule_orders_expire`, `schedule_grades_upgrade`, `schedule_coupons_birthday`, `schedule_stats_purge_logs`, `schedule_ai_work`, `schedule_users_purge_withdrawn`)은 **`/admin/schedule`**에서 관리합니다(활성화·주기 설정).
 
 ## 초기 설정
 
@@ -249,7 +250,8 @@ CI4 파일 캐시를 다음에 사용합니다:
 ### DB 스키마 요약
 
 ```
-users                — 회원/관리자 role, 소셜 로그인 필드, 등급, point_balance
+users                — 회원/관리자 role, 소셜 로그인 필드, 등급, point_balance, withdrawn_at
+withdrawn_users      — 탈퇴회원 개인정보 스냅샷 (보관기간 경과 시 개인정보 컬럼만 NULL 파기)
 settings             — 키-값 사이트 설정 (active_theme, ai_provider, smtp, schedule_* 등)
 menus                — 2단계 내비게이션 트리
 pages                — slug 기반 동적 페이지

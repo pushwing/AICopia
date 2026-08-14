@@ -262,7 +262,8 @@ class GradeService
                 WHERE o.status IN ('paid','preparing','shipped','delivered')
                 GROUP BY o.user_id
             ) s", 's.user_id = u.id', 'left')
-            ->where('u.grade', 'gold');
+            ->where('u.grade', 'gold')
+            ->where('u.withdrawn_at IS NULL');
 
         if ($keyword !== '') {
             $builder->groupStart()

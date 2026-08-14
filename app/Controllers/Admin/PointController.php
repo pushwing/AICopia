@@ -25,7 +25,8 @@ class PointController extends BaseController
         $perPage = 20;
 
         $builder = $db->table('users')->select('id, email, nickname, point_balance')
-            ->where('role', 'member');
+            ->where('role', 'member')
+            ->where('withdrawn_at IS NULL');
 
         if ($keyword !== '') {
             $builder->groupStart()
