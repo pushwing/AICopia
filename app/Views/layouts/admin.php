@@ -87,7 +87,7 @@
             <div class="nav-subgroup">마케팅</div>
             <a href="/admin/banners"   class="nav-sublink <?= str_starts_with($uri, 'admin/banners') ? 'active' : '' ?>"><i class="bi bi-image me-2"></i>배너 관리</a>
             <a href="/admin/popups"    class="nav-sublink <?= str_starts_with($uri, 'admin/popups')  ? 'active' : '' ?>"><i class="bi bi-window me-2"></i>팝업 관리</a>
-            <a href="/admin/welcome"   class="nav-sublink <?= str_starts_with($uri, 'admin/welcome') ? 'active' : '' ?>"><i class="bi bi-layout-text-window-reverse me-2"></i>Welcome 페이지</a>
+            <a href="/admin/welcome"   class="nav-sublink <?= str_starts_with($uri, 'admin/welcome') ? 'active' : '' ?>"><i class="bi bi-house-door me-2"></i>홈페이지 설정</a>
         </div>
 
         <!-- 쇼핑 -->
