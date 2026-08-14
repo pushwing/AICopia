@@ -198,6 +198,8 @@
               cellRenderer: function(p) {
                   var on = p.value == 1;
                   return '<button class="btn btn-sm ' + (on ? 'btn-danger' : 'btn-outline-secondary') + '"'
+                       + ' data-in-new="' + (p.data.in_new_band ? '1' : '0') + '"'
+                       + ' data-in-discount="' + (p.data.in_discount_band ? '1' : '0') + '"'
                        + ' onclick="toggleFeatured(' + p.data.id + ', this)" title="PICK 상품 토글 — 홈페이지 PICK 상품 섹션 노출 여부">'
                        + (on ? '<i class=\'bi bi-star-fill\'></i>' : '<i class=\'bi bi-star\'></i>') + '</button>';
               }},
@@ -263,6 +265,18 @@
     };
 
     window.toggleFeatured = function(id, btn) {
+        var turningOn = btn.classList.contains('btn-outline-secondary'); // 현재 OFF → 클릭하면 ON
+
+        if (turningOn) {
+            var bands = [];
+            if (btn.dataset.inNew === '1') bands.push('신상품');
+            if (btn.dataset.inDiscount === '1') bands.push('할인 상품');
+            if (bands.length > 0) {
+                var msg = '이 상품은 이미 ' + bands.join('·') + '에 노출 중입니다.\n그래도 PICK 상품으로 지정하시겠습니까?';
+                if (!window.confirm(msg)) return;
+            }
+        }
+
         fetch('/admin/products/' + id + '/featured', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},

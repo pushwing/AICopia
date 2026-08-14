@@ -88,19 +88,28 @@ class ProductController extends BaseController
         $this->imageModel->attachPrimaryImages($rows);
         $threshold = (int) ($this->viewData['settings']['low_stock_threshold'] ?? 5);
 
+        // PICK 지정 시 "이미 신상품/할인 상품에 노출 중" 경고에 쓰는 플래그 —
+        // 홈페이지(welcome)가 같은 개수 설정으로 뽑는 것과 동일한 집합.
+        $newCount      = max(1, (int) ($this->viewData['settings']['welcome_new_count']      ?? 8));
+        $discountCount = max(1, (int) ($this->viewData['settings']['welcome_discount_count'] ?? 8));
+        $newBandIds      = array_map(intval(...), array_column($this->productModel->getLatest($newCount), 'id'));
+        $discountBandIds = array_map(intval(...), array_column($this->productModel->getDiscounted($discountCount), 'id'));
+
         $data = array_map(fn (array $p): array => [
-            'id'             => (int) $p['id'],
-            'name'           => $p['name'],
-            'slug'           => $p['slug'],
-            'category_name'  => $p['category_name'] ?? '',
-            'price'          => (int) $p['price'],
-            'discount_price' => $p['discount_price'] ? (int) $p['discount_price'] : 0,
-            'stock'          => (int) $p['stock'],
-            'status'         => $p['status'],
-            'primary_image'  => $p['primary_image'] ?? '',
-            'created_at'     => $p['created_at'],
-            'is_low_stock'   => (int) ($p['stock'] <= $threshold),
-            'is_featured'    => (int) $p['is_featured'],
+            'id'               => (int) $p['id'],
+            'name'             => $p['name'],
+            'slug'             => $p['slug'],
+            'category_name'    => $p['category_name'] ?? '',
+            'price'            => (int) $p['price'],
+            'discount_price'   => $p['discount_price'] ? (int) $p['discount_price'] : 0,
+            'stock'            => (int) $p['stock'],
+            'status'           => $p['status'],
+            'primary_image'    => $p['primary_image'] ?? '',
+            'created_at'       => $p['created_at'],
+            'is_low_stock'     => (int) ($p['stock'] <= $threshold),
+            'is_featured'      => (int) $p['is_featured'],
+            'in_new_band'      => in_array((int) $p['id'], $newBandIds, true),
+            'in_discount_band' => in_array((int) $p['id'], $discountBandIds, true),
         ], $rows);
 
         return $this->response->setJSON(['data' => $data]);
