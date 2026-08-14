@@ -48,12 +48,24 @@
                     </div>
                     <div class="form-text">배송업체를 추가하면 주문 송장 입력 시 셀렉트박스에 표시됩니다.</div>
                 <?php elseif ($s['type'] === 'image'): ?>
-                    <?php if ($s['value']): ?>
-                        <div class="mb-1"><img src="/<?= esc($s['value']) ?>" style="max-height:60px" class="img-thumbnail"></div>
-                    <?php endif; ?>
-                    <input type="text" name="<?= esc($s['key']) ?>" class="form-control form-control-sm"
-                           value="<?= esc($s['value']) ?>" placeholder="uploads/media/... 경로 입력">
-                    <div class="form-text">미디어 라이브러리에서 이미지 경로를 복사하세요.</div>
+                    <div class="media-picker-field" data-key="<?= esc($s['key']) ?>">
+                        <div class="mb-2">
+                            <img src="<?= $s['value'] ? '/' . esc($s['value']) : '' ?>"
+                                 class="img-thumbnail media-picker-preview <?= $s['value'] ? '' : 'd-none' ?>"
+                                 style="max-height:60px">
+                        </div>
+                        <input type="hidden" name="<?= esc($s['key']) ?>" class="media-picker-value" value="<?= esc($s['value']) ?>">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm media-picker-open-btn">
+                                <i class="bi bi-images me-1"></i>미디어에서 선택
+                            </button>
+                            <label class="btn btn-outline-primary btn-sm mb-0">
+                                <i class="bi bi-upload me-1"></i>새로 업로드
+                                <input type="file" accept="image/*" class="d-none media-picker-upload-input">
+                            </label>
+                        </div>
+                        <div class="form-text media-picker-status"></div>
+                    </div>
                 <?php elseif ($s['type'] === 'boolean'): ?>
                     <div class="form-check form-switch">
                         <input type="hidden" name="<?= esc($s['key']) ?>" value="0">
@@ -101,6 +113,22 @@
         </div>
         <?php endif; ?>
 
+    </div>
+</div>
+
+<!-- 미디어 선택 모달 -->
+<div class="modal fade" id="mediaPickerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">미디어 라이브러리에서 선택</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2" id="mediaPickerGrid"></div>
+                <nav class="mt-3 d-flex justify-content-center flex-wrap" id="mediaPickerPagination"></nav>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -193,6 +221,95 @@
             btn.disabled = false;
             spinner.classList.add('d-none');
         }
+    });
+}());
+
+(function () {
+    const modalEl = document.getElementById('mediaPickerModal');
+    if (! modalEl || ! window.bootstrap) return;
+
+    const modal      = new bootstrap.Modal(modalEl);
+    const grid        = document.getElementById('mediaPickerGrid');
+    const pagination   = document.getElementById('mediaPickerPagination');
+    let currentField  = null;
+
+    function setValue(field, path) {
+        const clean   = path.replace(/^\//, '');
+        const preview = field.querySelector('.media-picker-preview');
+        field.querySelector('.media-picker-value').value = clean;
+        preview.src = '/' + clean;
+        preview.classList.remove('d-none');
+    }
+
+    async function loadPage(page) {
+        grid.innerHTML = '<div class="col-12 text-center text-muted py-4">불러오는 중...</div>';
+        pagination.innerHTML = '';
+
+        const res  = await fetch('/admin/media/picker?page=' + page);
+        const data = await res.json();
+
+        grid.innerHTML = data.items.length
+            ? ''
+            : '<div class="col-12 text-center text-muted py-4">업로드된 미디어가 없습니다.</div>';
+
+        data.items.forEach(function (item) {
+            const col = document.createElement('div');
+            col.className = 'col-4 col-md-3';
+            col.innerHTML = '<div class="card border-0 shadow-sm media-picker-item" role="button" style="cursor:pointer">'
+                + '<div class="ratio ratio-1x1"><img src="' + item.url + '" class="img-fluid object-fit-cover rounded" alt=""></div>'
+                + '</div>';
+            col.querySelector('.media-picker-item').addEventListener('click', function () {
+                if (currentField) setValue(currentField, item.path);
+                modal.hide();
+            });
+            grid.appendChild(col);
+        });
+
+        for (let p = 1; p <= data.totalPages; p++) {
+            const pageBtn = document.createElement('button');
+            pageBtn.type = 'button';
+            pageBtn.className = 'btn btn-sm mx-1 ' + (p === data.currentPage ? 'btn-primary' : 'btn-outline-secondary');
+            pageBtn.textContent = String(p);
+            pageBtn.addEventListener('click', function () { loadPage(p); });
+            pagination.appendChild(pageBtn);
+        }
+    }
+
+    document.querySelectorAll('.media-picker-open-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            currentField = btn.closest('.media-picker-field');
+            loadPage(1);
+            modal.show();
+        });
+    });
+
+    document.querySelectorAll('.media-picker-upload-input').forEach(function (input) {
+        input.addEventListener('change', async function () {
+            const file = input.files[0];
+            if (! file) return;
+
+            const field  = input.closest('.media-picker-field');
+            const status = field.querySelector('.media-picker-status');
+            status.textContent = '업로드 중...';
+
+            const fd = new FormData();
+            fd.append('file', file);
+
+            try {
+                const res  = await fetch('/admin/media/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+                const data = await res.json();
+                if (data.success) {
+                    setValue(field, data.path);
+                    status.textContent = '업로드 완료';
+                } else {
+                    status.textContent = data.error || '업로드 실패';
+                }
+            } catch (e) {
+                status.textContent = '업로드 실패: ' + e.message;
+            } finally {
+                input.value = '';
+            }
+        });
     });
 }());
 </script>

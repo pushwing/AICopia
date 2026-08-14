@@ -33,6 +33,21 @@ class MediaController extends BaseController
         ]);
     }
 
+    /** GET /admin/media/picker — 미디어 선택 모달용 JSON 목록 */
+    public function picker(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        $page   = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $limit  = 24;
+        $offset = ($page - 1) * $limit;
+        $total  = $this->mediaModel->countAllResults();
+
+        return $this->response->setJSON([
+            'items'       => $this->mediaModel->getListForPicker($limit, $offset),
+            'totalPages'  => (int) ceil($total / $limit),
+            'currentPage' => $page,
+        ]);
+    }
+
     public function upload(): \CodeIgniter\HTTP\ResponseInterface
     {
         $file = $this->request->getFile('file');

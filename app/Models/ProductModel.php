@@ -36,6 +36,15 @@ class ProductModel extends Model
         WHERE pc.product_id = products.id) AS category_name';
 
     /**
+     * 할인가가 정가보다 낮은지 검증한다. 할인가가 없으면(null) 항상 유효하며,
+     * 정가와 같거나 높으면 무효로 취급한다.
+     */
+    public static function isDiscountPriceValid(int $price, ?int $discountPrice): bool
+    {
+        return $discountPrice === null || $discountPrice < $price;
+    }
+
+    /**
      * 상품에 카테고리 배열을 저장 (기존 연결 전부 교체)
      *
      * @param array<int, mixed> $categoryIds

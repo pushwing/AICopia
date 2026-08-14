@@ -22,6 +22,22 @@ class MediaModel extends Model
         return $this->orderBy('id', 'DESC')->findAll($limit, $offset);
     }
 
+    /**
+     * 미디어 선택 모달(picker)용 목록 — 경로에 선행 슬래시를 붙여 그대로 <img src>/hidden input 값으로 쓸 수 있게 정리한다.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getListForPicker(int $limit = 24, int $offset = 0): array
+    {
+        return array_map(static fn (array $m): array => [
+            'id'            => (int) $m['id'],
+            'path'          => $m['file_path'],
+            'url'           => '/' . $m['file_path'],
+            'alt'           => $m['alt'] ?? '',
+            'original_name' => $m['original_name'],
+        ], $this->getList($limit, $offset));
+    }
+
     public function deleteWithFile(int $id): bool
     {
         $media = $this->find($id);
