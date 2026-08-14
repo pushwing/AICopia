@@ -1,0 +1,172 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Winter Theme — AICopia 파생 테마 (겨울)
+   중립 default(themes/default/css/style.css) 위에 얹는 "팔레트 리틴트" 레이어.
+   구조·컴포넌트·접근성은 default 를 그대로 상속하고, 색만 겨울 톤으로 바꾼다.
+
+   팔레트: 프로스트 블루(브랜드) · 서리 화이트(배경) · 쿨 슬레이트(잉크) ·
+          에버그린 파인(성공) · 홀리 베리(할인/위험) · 아이스 블루(포인트).
+   시맨틱 색은 "녹=성공 / 빨=할인·위험" 의미를 유지한 채 겨울 채도로만 옮긴다.
+   모든 색은 아래 --wi-* 토큰으로 일원화한다(리터럴 색 사용 금지).
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* ── 겨울 팔레트 원색(단일 소스) ── */
+    --wi-primary:      #2f6fb3;   /* 프로스트 블루 — 브랜드/기본 액션 */
+    --wi-primary-dk:   #255a92;
+    --wi-primary-dker: #1e4a7a;
+    --wi-primary-lt:   #9dc3e6;   /* 아웃라인/포커스 보더(아이스) */
+    --wi-link:         #2a6bb0;
+    --wi-ice:          #5aa9d6;   /* 아이스 블루 포인트 */
+    --wi-frost:        #eef3f9;   /* 서리 배경 */
+    --wi-frost-2:      #e3ebf4;   /* 은은한 서브 배경 */
+    --wi-surface:      #ffffff;   /* 카드/네비 크리스프 화이트 */
+    --wi-ink:          #25303b;   /* 쿨 슬레이트 잉크 */
+    --wi-ink-dk:       #1a232c;
+    --wi-ink-dker:     #121920;
+    --wi-border:       #dbe4ee;   /* 쿨 헤어라인 */
+    --wi-pine:         #2f8f5b;   /* 에버그린 파인(성공) */
+    --wi-pine-dk:      #26744a;
+    --wi-berry:        #c62b3e;   /* 홀리 베리(할인/위험) */
+    --wi-berry-dk:     #a92131;
+    --wi-footer-link:  #a9c4e0;   /* 어두운 푸터 위 밝은 아이스 */
+    --wi-shadow:       rgba(30, 60, 100, .14);
+    --wi-focus:        rgba(47, 111, 179, .25);
+
+    /* ── 앱 커스텀 토큰(default 정의를 덮어씀) ── */
+    --primary:     var(--wi-primary);
+    --dark:        var(--wi-ink);
+    --ink-muted:   #697787;
+    --footer-link: var(--wi-footer-link);
+
+    /* ── Bootstrap 5.3 런타임 변수 ── */
+    --bs-primary:          var(--wi-primary);
+    --bs-primary-rgb:      47, 111, 179;
+    --bs-body-bg:          var(--wi-frost);
+    --bs-body-color:       var(--wi-ink);
+    --bs-emphasis-color:   var(--wi-ink-dk);
+    --bs-border-color:     var(--wi-border);
+    --bs-link-color:       var(--wi-link);
+    --bs-link-color-rgb:   42, 107, 176;
+    --bs-link-hover-color: var(--wi-primary-dker);
+    --bs-dark:             var(--wi-ink);
+    --bs-dark-rgb:         37, 48, 59;
+}
+
+/* ─── 기본 표면 ───────────────────────────────────── */
+body {
+    background: var(--wi-frost);
+    color: var(--wi-ink);
+}
+.bg-light { background-color: var(--wi-frost-2) !important; }
+
+/* ─── 내비게이션 ──────────────────────────────────── */
+.navbar {
+    background-color: var(--wi-surface) !important;
+    border-bottom-color: var(--wi-border);
+}
+.navbar-brand { color: var(--wi-primary) !important; }
+
+/* ─── 카드 ────────────────────────────────────────── */
+.card {
+    background-color: var(--wi-surface);
+    border-color: var(--wi-border);
+}
+.product-card:hover { box-shadow: 0 6px 16px var(--wi-shadow); }
+
+/* ─── 링크 ────────────────────────────────────────── */
+a { color: var(--wi-link); }
+a:hover { color: var(--wi-primary-dker); }
+
+/* ─── 기본 버튼(primary) ──────────────────────────── */
+.btn-primary {
+    --bs-btn-bg:                var(--wi-primary);
+    --bs-btn-border-color:      var(--wi-primary);
+    --bs-btn-hover-bg:          var(--wi-primary-dk);
+    --bs-btn-hover-border-color: var(--wi-primary-dk);
+    --bs-btn-active-bg:         var(--wi-primary-dker);
+    --bs-btn-active-border-color: var(--wi-primary-dker);
+    --bs-btn-disabled-bg:       var(--wi-primary);
+    --bs-btn-disabled-border-color: var(--wi-primary);
+}
+.btn-outline-primary {
+    --bs-btn-color:             var(--wi-primary-dk);
+    --bs-btn-border-color:      var(--wi-primary-lt);
+    --bs-btn-hover-bg:          var(--wi-primary);
+    --bs-btn-hover-border-color: var(--wi-primary);
+    --bs-btn-active-bg:         var(--wi-primary-dk);
+    --bs-btn-active-border-color: var(--wi-primary-dk);
+}
+.bg-primary      { background-color: var(--wi-primary) !important; }
+.text-primary    { color: var(--wi-primary-dk) !important; }
+.text-bg-primary { background-color: var(--wi-primary) !important; color: #fff !important; }
+
+/* ─── dark 버튼·배경(푸터 등) → 딥 슬레이트 ────────── */
+.btn-dark {
+    --bs-btn-bg:                var(--wi-ink);
+    --bs-btn-border-color:      var(--wi-ink);
+    --bs-btn-hover-bg:          var(--wi-ink-dk);
+    --bs-btn-hover-border-color: var(--wi-ink-dk);
+    --bs-btn-active-bg:         var(--wi-ink-dker);
+}
+.bg-dark      { background-color: var(--wi-ink) !important; }
+.text-bg-dark { background-color: var(--wi-ink) !important; }
+
+/* ─── 폼 포커스 링(아이스) ────────────────────────── */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--wi-primary-lt);
+    box-shadow: 0 0 0 .25rem var(--wi-focus);
+}
+.form-check-input:checked {
+    background-color: var(--wi-primary);
+    border-color: var(--wi-primary);
+}
+
+/* ─── 시맨틱: 성공(에버그린 파인) — 여전히 '녹=성공' ─ */
+.btn-success {
+    --bs-btn-bg:                var(--wi-pine);
+    --bs-btn-border-color:      var(--wi-pine);
+    --bs-btn-hover-bg:          var(--wi-pine-dk);
+    --bs-btn-hover-border-color: var(--wi-pine-dk);
+    --bs-btn-active-bg:         var(--wi-pine-dk);
+}
+.text-success   { color: var(--wi-pine) !important; }
+.bg-success     { background-color: var(--wi-pine) !important; }
+.border-success { border-color: var(--wi-pine) !important; }
+
+/* ─── 시맨틱: 할인·위험(홀리 베리) — 여전히 '빨=할인/위험' ─ */
+.text-danger { color: var(--wi-berry) !important; }
+.bg-danger,
+.badge.bg-danger { background-color: var(--wi-berry) !important; }
+.btn-danger {
+    --bs-btn-bg:                var(--wi-berry);
+    --bs-btn-border-color:      var(--wi-berry);
+    --bs-btn-hover-bg:          var(--wi-berry-dk);
+    --bs-btn-hover-border-color: var(--wi-berry-dk);
+}
+.btn-outline-danger {
+    --bs-btn-color:             var(--wi-berry);
+    --bs-btn-border-color:      var(--wi-berry);
+    --bs-btn-hover-bg:          var(--wi-berry);
+    --bs-btn-hover-border-color: var(--wi-berry);
+}
+
+/* ─── Bootstrap 컴포넌트의 '활성=primary' 상태 ────────
+   list-group·pagination·nav-pills 의 active 배경은 컴파일타임 $primary 라
+   런타임 --bs-primary 오버라이드로는 안 바뀐다. 각 컴포넌트 변수를 직접 덮는다. */
+.list-group-item.active {
+    background-color: var(--wi-primary);
+    border-color: var(--wi-primary);
+}
+.page-link {
+    --bs-pagination-color:              var(--wi-link);
+    --bs-pagination-hover-color:        var(--wi-primary-dker);
+    --bs-pagination-focus-color:        var(--wi-primary-dker);
+    --bs-pagination-active-bg:          var(--wi-primary);
+    --bs-pagination-active-border-color: var(--wi-primary);
+    --bs-pagination-focus-box-shadow:   0 0 0 .25rem var(--wi-focus);
+}
+.nav-pills { --bs-nav-pills-link-active-bg: var(--wi-primary); }
+
+/* 결제수단 브랜드 칩(.pg-chip)은 각 PG 고유색이라 테마와 무관하게 default 를 그대로 상속한다. */
