@@ -164,7 +164,8 @@
                 </div>
 
                 <!-- 전체선택 + 결과 수 -->
-                <div class="d-flex align-items-center gap-2 mb-2 small text-muted" id="modalResultMeta" style="display:none">
+                <?php // Bootstrap .d-flex 는 display:flex!important 라 인라인 display:none 을 항상 무시한다 — 클래스 없이 JS에서 display 를 직접 제어 ?>
+                <div class="align-items-center gap-2 mb-2 small text-muted" id="modalResultMeta" style="display:none">
                     <div class="form-check mb-0">
                         <input class="form-check-input" type="checkbox" id="chkSelectAll">
                         <label class="form-check-label" for="chkSelectAll">전체 선택</label>
@@ -348,7 +349,7 @@ renderSelected();
         }
 
         emptyMsg.style.display  = 'none';
-        metaBar.style.display   = '';
+        metaBar.style.display   = 'flex';
         resultTbl.style.display = '';
 
         products.forEach(p => {
