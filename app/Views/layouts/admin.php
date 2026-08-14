@@ -119,7 +119,8 @@
         </button>
         <div class="collapse <?= $inOps ? 'show' : '' ?>" id="sec-ops">
             <div class="nav-subgroup">회원</div>
-            <a href="/admin/users"          class="nav-sublink <?= str_starts_with($uri, 'admin/users') ? 'active' : '' ?>"><i class="bi bi-person-lines-fill me-2"></i>회원 관리</a>
+            <a href="/admin/users"          class="nav-sublink <?= $uri === 'admin/users' || str_starts_with($uri, 'admin/users/') && ! str_starts_with($uri, 'admin/users/withdrawn') ? 'active' : '' ?>"><i class="bi bi-person-lines-fill me-2"></i>회원 관리</a>
+            <a href="/admin/users/withdrawn" class="nav-sublink <?= str_starts_with($uri, 'admin/users/withdrawn') ? 'active' : '' ?>"><i class="bi bi-person-dash me-2"></i>탈퇴회원</a>
             <a href="/admin/grade/platinum" class="nav-sublink <?= str_starts_with($uri, 'admin/grade') ? 'active' : '' ?>"><i class="bi bi-trophy-fill me-2"></i>회원 등급</a>
             <div class="nav-subgroup">CS</div>
             <a href="/admin/inquiries" class="nav-sublink <?= str_starts_with($uri, 'admin/inquiries') ? 'active' : '' ?>">

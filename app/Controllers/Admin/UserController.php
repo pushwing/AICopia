@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
+use App\Exceptions\WithdrawalBlockedException;
 use App\Libraries\GradeService;
 use App\Libraries\Mailer;
+use App\Libraries\WithdrawalService;
 use App\Models\PointLogModel;
 use App\Models\UserModel;
+use App\Models\WithdrawnUserModel;
 
 class UserController extends BaseController
 {
@@ -21,7 +24,7 @@ class UserController extends BaseController
 
     public function json(): \CodeIgniter\HTTP\ResponseInterface
     {
-        $rows = $this->userModel->builder()
+        $rows = $this->userModel->activeBuilder()
             ->select('id, nickname, email, phone, role, grade, social_provider, is_active, email_verify_token, created_at, last_login')
             ->orderBy('id', 'DESC')
             ->get()->getResultArray();
@@ -51,7 +54,7 @@ class UserController extends BaseController
         $page     = max(1, (int) ($this->request->getGet('page') ?? 1));
         $perPage  = 20;
 
-        $builder = $this->userModel->builder();
+        $builder = $this->userModel->activeBuilder();
 
         if ($keyword !== '') {
             $builder->groupStart()
@@ -89,6 +92,24 @@ class UserController extends BaseController
             'keyword'     => $keyword,
             'role'        => $role,
             'status'      => $status,
+        ]);
+    }
+
+    /** 탈퇴회원 목록 */
+    public function withdrawn(): string
+    {
+        $keyword = (string) ($this->request->getGet('q') ?? '');
+        $page    = max(1, (int) ($this->request->getGet('page') ?? 1));
+        $perPage = 20;
+
+        $result = new WithdrawnUserModel()->paginateList($keyword, $page, $perPage);
+
+        return $this->render('admin/users/withdrawn', [
+            'rows'        => $result['rows'],
+            'total'       => $result['total'],
+            'currentPage' => $page,
+            'totalPages'  => (int) ceil($result['total'] / $perPage),
+            'keyword'     => $keyword,
         ]);
     }
 
@@ -136,15 +157,37 @@ class UserController extends BaseController
         return redirect()->to('/admin/users')->with('success', '회원 정보가 수정되었습니다.');
     }
 
+    /**
+     * 회원 삭제 → 강제 탈퇴로 처리
+     *
+     * users 행을 hard delete 하면 orders·product_reviews·posts 등의 user_id 가
+     * 고아가 된다(이 DB 에는 외래키 제약이 없어 에러 없이 통과한다). 회원 탈퇴와
+     * 같은 경로를 써서 개인정보만 분리 보관하고 참조는 유지한다.
+     */
     public function delete(int $id): \CodeIgniter\HTTP\RedirectResponse
     {
         if ($id === (int) session()->get('user_id')) {
             return redirect()->back()->with('error', '본인 계정은 삭제할 수 없습니다.');
         }
 
-        $this->userModel->delete($id);
+        try {
+            new WithdrawalService()->withdraw($id, 'admin', '관리자 처리', 'admin');
+        } catch (WithdrawalBlockedException $e) {
+            // 대상이 관리자 role 이라 canWithdraw() 가 막은 경우, 원본 사유
+            // ("관리자 계정은 탈퇴할 수 없습니다.")는 셀프 탈퇴 안내라 관리자 화면
+            // 맥락에는 맞지 않는다 — 우회 로직 없이 안내 메시지만 바꿔준다.
+            $message = str_contains(implode(' ', $e->reasons), '관리자')
+                ? '관리자 계정은 먼저 역할을 일반회원으로 변경한 뒤 탈퇴 처리할 수 있습니다.'
+                : implode(' ', $e->reasons);
 
-        return redirect()->to('/admin/users')->with('success', '회원이 삭제되었습니다.');
+            return redirect()->back()->with('error', $message);
+        } catch (\Throwable $e) {
+            log_message('error', '[admin withdraw] 실패 user_id=' . $id . ' — ' . $e->getMessage());
+
+            return redirect()->back()->with('error', '탈퇴 처리 중 오류가 발생했습니다.');
+        }
+
+        return redirect()->to('/admin/users')->with('success', '회원이 탈퇴 처리되었습니다.');
     }
 
     /** 관리자 수동 이메일 인증 처리 */
@@ -196,7 +239,7 @@ class UserController extends BaseController
         $from    = $this->request->getGet('from')      ?? '';
         $to      = $this->request->getGet('to')        ?? '';
 
-        $builder = $this->userModel->builder()
+        $builder = $this->userModel->activeBuilder()
             ->select('id, nickname, email, phone, role, grade, social_provider, is_active, email_verify_token, created_at, last_login');
 
         if ($keyword !== '') {

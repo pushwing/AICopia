@@ -32,6 +32,7 @@ final class ScheduleTasksConfigTest extends CIUnitTestCase
         'schedule_coupons_birthday',
         'schedule_grades_upgrade',
         'schedule_ai_work',
+        'schedule_users_purge_withdrawn',
     ];
 
     protected function setUp(): void
@@ -156,22 +157,24 @@ final class ScheduleTasksConfigTest extends CIUnitTestCase
         $this->assertCount(2, $scheduler->getTasks());
     }
 
-    public function test_all_four_jobs_enabled(): void
+    public function test_all_five_jobs_enabled(): void
     {
         $this->setSettings([
-            'schedule_orders_expire_enabled'    => '1',
-            'schedule_orders_expire_cron'       => '*/5 * * * *',
-            'schedule_stats_purge_logs_enabled' => '1',
-            'schedule_stats_purge_logs_cron'    => '0 2 * * 1',
-            'schedule_coupons_birthday_enabled' => '1',
-            'schedule_coupons_birthday_cron'    => '0 1 * * *',
-            'schedule_grades_upgrade_enabled'   => '1',
-            'schedule_grades_upgrade_cron'      => '0 3 * * *',
+            'schedule_orders_expire_enabled'         => '1',
+            'schedule_orders_expire_cron'            => '*/5 * * * *',
+            'schedule_stats_purge_logs_enabled'      => '1',
+            'schedule_stats_purge_logs_cron'         => '0 2 * * 1',
+            'schedule_coupons_birthday_enabled'      => '1',
+            'schedule_coupons_birthday_cron'         => '0 1 * * *',
+            'schedule_grades_upgrade_enabled'        => '1',
+            'schedule_grades_upgrade_cron'           => '0 3 * * *',
+            'schedule_users_purge_withdrawn_enabled' => '1',
+            'schedule_users_purge_withdrawn_cron'    => '0 4 * * *',
         ]);
 
         $scheduler = $this->runInit();
 
-        $this->assertCount(4, $scheduler->getTasks());
+        $this->assertCount(5, $scheduler->getTasks());
     }
 
     public function test_all_jobs_disabled_registers_nothing(): void

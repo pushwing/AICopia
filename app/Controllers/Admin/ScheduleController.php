@@ -12,11 +12,12 @@ class ScheduleController extends BaseController
     private readonly SettingModel $settingModel;
 
     private const array JOB_COMMANDS = [
-        'schedule_orders_expire'    => 'orders:expire',
-        'schedule_stats_purge_logs' => 'stats:purge-logs',
-        'schedule_coupons_birthday' => 'coupons:birthday',
-        'schedule_grades_upgrade'   => 'grades:upgrade',
-        'schedule_ai_work'          => 'ai:work',
+        'schedule_orders_expire'         => 'orders:expire',
+        'schedule_stats_purge_logs'      => 'stats:purge-logs',
+        'schedule_coupons_birthday'      => 'coupons:birthday',
+        'schedule_grades_upgrade'        => 'grades:upgrade',
+        'schedule_ai_work'               => 'ai:work',
+        'schedule_users_purge_withdrawn' => 'users:purge-withdrawn',
     ];
 
     public function __construct()
