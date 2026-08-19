@@ -17,11 +17,15 @@
 ## 명령어
 
 ```bash
-php spark serve --port 8303  # 개발 서버 실행 (http://localhost:8303)
+php spark serve --host 127.0.0.1 --port 8303  # 개발 서버 실행 (copia.test, Caddy 리버스 프록시 경유)
 php spark migrate            # 대기 중인 마이그레이션 전체 실행 (테이블 생성 + 시드)
 php spark migrate:rollback   # 마지막 마이그레이션 배치 롤백
 php spark db:seed <Seeder>   # 시더 실행 (예: ProductSeeder, PostSeeder)
+```
 
+> ⚠️ **`--host` 를 빼면 `copia.test` 접속이 `502 Bad Gateway` 로 실패한다.** 기본값 `localhost` 는 이 macOS 환경에서 IPv6(`::1`)로만 리슨되는데, `copia.test` 를 프록시하는 공용 Caddy(`~/claude-works/dev-proxy/Caddyfile`)는 `127.0.0.1:8303`(IPv4)로 연결을 시도해 거부당한다. 반드시 `--host 127.0.0.1` 을 명시할 것.
+
+```bash
 composer test                # PHPUnit
 composer analyse             # PHPStan (레벨 6)
 composer cs                  # 코드 스타일 검사 (PHP-CS-Fixer, dry-run)
