@@ -2,6 +2,11 @@
 
 이 문서는 AICopia의 저장소 전용 규칙이다. 사용자 전역 `~/.codex/AGENTS.md`의 PHP 기본 프로필을 상속하며, 여기의 규칙이 충돌 시 우선한다.
 
+### Claude 병행 운용
+
+- Codex는 이 `AGENTS.md`를 기준으로 작업한다. Claude는 당분간 `.claude/rules/`를 계속 사용한다.
+- 두 문서 체계에 공통으로 적용되는 규칙을 변경할 때는 같은 의미를 유지하도록 함께 갱신한다. Codex 전용 지시를 `.claude/rules/`에 추가하거나 Claude 전용 import 문법을 이 파일에 추가하지 않는다.
+
 ## 저장소 개요
 
 - AICopia는 AI 운영 보조 기능을 갖춘 단일 CodeIgniter 4 쇼핑몰 솔루션이다. 기업형 사이트(페이지·게시판·문의)와 상품·장바구니·주문·PG 결제를 함께 제공한다.
@@ -38,6 +43,8 @@ composer check
 - `composer install`은 훅을 자동 활성화한다. 필요하면 `composer hooks:install`을 실행한다.
 - 긴급 우회는 `git push --no-verify` 또는 `SKIP_HOOKS=1 git push`지만 정상 작업에서 사용하지 않는다.
 - Rector는 대량 변경이 될 수 있다. PR 단위로 검토하고 `composer cs-fix`, `composer analyse`, `composer test`로 재검증한다.
+- `composer cs`는 `app/`, `tests/`(View 제외)의 PSR-12와 `declare(strict_types=1);`을 검사한다. 새 PHP 파일에도 이를 적용한다.
+- PHPStan은 레벨 6과 `phpstan-baseline.neon`을 사용한다. 새 코드는 `@phpstan-ignore`로 숨기지 말고 원인을 수정한다.
 
 ### 테스트 DB
 
@@ -45,6 +52,7 @@ composer check
 - 테스트 DB의 `DBPrefix`는 빈 값이어야 한다. 일부 마이그레이션 raw DDL이 prefix 없는 테이블명을 사용한다.
 - 순차 테스트는 `aicopia_test`를 사용한다. 병렬 테스트는 `TEST_TOKEN`별 `aicopia_test_<token>` DB를 사용한다.
 - 병렬 테스트 전에는 템플릿 DB를 마이그레이션한 뒤 `bin/clone-test-dbs.sh`로 worker DB를 복제한다.
+- 단위 테스트는 `tests/unit/`에 작성하며, 새 Service·Model 로직에는 적절한 회귀 테스트를 함께 추가한다.
 
 ## 타임존과 데이터베이스
 
@@ -71,12 +79,21 @@ composer check
 - `/admin/*`에는 `auth:admin`이 필요하다. 장바구니 조회·수정·삭제에는 `auth:member`가 필요하고 `cart/add` POST는 비회원 세션 장바구니를 허용한다.
 - 동적 페이지 catch-all 라우트 `(:segment)` → `Front\PageController::show`는 항상 `Routes.php`의 마지막에 둔다.
 
+### Model·Service·스키마 규칙
+
+- CI4 Model은 `CodeIgniter\Model`을 상속하고 `$allowedFields`를 명시해 mass assignment를 방지한다.
+- 도메인 Service는 `app/Libraries/`에 두며, 복잡한 쿼리와 동시성 로직은 Model 메서드로 캡슐화한다. 별도 Repository 레이어는 추가하지 않는다.
+- 일반 인덱스는 `idx_{테이블}_{컬럼}`, UNIQUE 인덱스는 `uniq_{테이블}_{컬럼}` 형식을 사용한다. Pivot 테이블은 관련 테이블명을 알파벳순으로 조합한 복수형 snake_case 이름을 사용한다.
+
 ### 보안 구현 예외
 
 - 입력은 `$this->request->getPost()` 또는 `getGet()`으로 받고 `$this->validate()`로 검증한다.
 - 모든 출력은 `esc()`로 이스케이프하며 HTML 문맥은 `esc($value, 'html')`을 사용한다.
+- 뷰는 네이티브 PHP 대체 문법을 사용하며, 뷰에서 Model을 직접 호출하지 않는다.
+- 모든 POST/PUT/DELETE 폼에는 CSRF 예외가 아닌 한 `<?= csrf_field() ?>`를 포함한다.
 - CSRF 제외는 `api/*`, `payment/callback/*`, `board/image-upload`, `admin/media/upload`로 한정한다. 새 예외를 추가하려면 외부 콜백의 검증 필요성을 확인한다.
 - 업로드는 `FileUploader`, `ImageUploader`, `MediaUploader`만 사용한다.
+- `dd()`를 포함한 `var_dump()`·`print_r()` 디버그 코드는 커밋하지 않는다.
 
 ### 결제·주문·재고
 

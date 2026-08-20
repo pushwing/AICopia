@@ -357,7 +357,7 @@ flowchart TD
 ```
 
 - **코드 변경**: `feature/*` 브랜치 → TDD → 로컬 품질 게이트(pre-push 훅: cs·analyse·test) 통과 후 `dev`로 **Squash merge**(브랜치 자동 삭제). **`feature → dev` PR에는 CI가 돌지 않는다** — 로컬 pre-push 훅이 실질적 게이트, PR은 코드 리뷰만
-- **문서 전용 예외**: `*.md`·`.claude/rules/**`·`docs/**` 등 문서만 바뀌고 `app/`·설정·마이그레이션이 섞이지 않았다면 feature/PR 절차 없이 `dev`에 직접 커밋
+- **문서 전용 예외**: `AGENTS.md`·`*.md`·`.claude/rules/**`·`docs/**` 등 문서만 바뀌고 `app/`·설정·마이그레이션이 섞이지 않았다면 feature/PR 절차 없이 `dev`에 직접 커밋
 - **CI**: `dev → main` 배포 PR에서만 GitHub Actions(정적분석 + 테스트)가 self-hosted 러너에서 실행
 - **배포**: `dev → main`은 **merge commit**(Squash 금지). `production` 환경(Environments)은 만들어져 있으나 **승인 게이트는 설정돼 있지 않아**, 머지 즉시 SSH로 자동 배포된다 — 머지 자체를 신중히 판단할 것
 
