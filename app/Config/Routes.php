@@ -287,12 +287,13 @@ $routes->post('shop/(:segment)/wish', 'Front\ShopController::wishToggle/$1', ['f
 $routes->post('shop/(:segment)/restock-alert', 'Front\ShopController::restockAlert/$1');
 
 // ─── 장바구니 ──────────────────────────────────────────────────────────────────
-// add: 비로그인도 허용 (세션 저장), 나머지: 로그인 필요
+// 비회원도 세션 장바구니를 조회하고 주문 시 로그인으로 이동할 수 있다.
+// 수량 수정·삭제는 회원 장바구니(DB)만 대상으로 한다.
 $routes->post('cart/add', 'Front\CartController::add');
 $routes->post('cart/add-bundle', 'Front\CartController::addBundle');
+$routes->get('cart', 'Front\CartController::index');
+$routes->post('cart/checkout', 'Front\CartController::checkout');
 $routes->group('cart', ['filter' => 'auth:member'], function ($routes) {
-    $routes->get('', 'Front\CartController::index');
-    $routes->post('checkout', 'Front\CartController::checkout');
     $routes->post('update', 'Front\CartController::update');
     $routes->post('delete', 'Front\CartController::delete');
     $routes->post('clear', 'Front\CartController::clear');

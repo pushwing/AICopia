@@ -24,30 +24,41 @@ class CartController extends BaseController
     }
 
     /**
-     * GET /cart — 장바구니 목록 (auth:member 필터로 보호)
-     * 세션 장바구니가 있으면 DB에 병합
+     * GET /cart — 장바구니 목록
+     * 회원은 DB 장바구니를, 비회원은 세션 장바구니를 조회한다.
      */
     public function index(): string
     {
         $userId = (int) session()->get('user_id');
 
-        $this->cartModel->mergeAndClear($userId);
+        if ($userId > 0) {
+            $this->cartModel->mergeAndClear($userId);
+        }
 
         // 장바구니로 돌아왔다는 건 선택을 다시 한다는 뜻 — 이전 선택은 흘려보낸다.
         session()->remove(CartModel::CHECKOUT_SESSION_KEY);
 
-        $items = $this->cartModel->getByUser($userId);
+        $items = $userId > 0
+            ? $this->cartModel->getByUser($userId)
+            : $this->cartModel->getBySession((array) (session()->get('cart') ?? []));
 
-        return $this->render('shop/cart', ['items' => $items]);
+        return $this->render('shop/cart', ['items' => $items, 'isGuest' => $userId === 0]);
     }
 
     /**
-     * POST /cart/checkout — 선택한 상품만 주문서로 넘긴다 (auth:member)
+     * POST /cart/checkout — 비회원은 로그인 후 주문서로, 회원은 선택한 상품만 주문서로 넘긴다.
      * 선택 항목의 cart_items.id 를 세션에 담고 주문서로 리다이렉트한다.
      */
     public function checkout(): \CodeIgniter\HTTP\RedirectResponse
     {
         $userId = (int) session()->get('user_id');
+
+        if ($userId === 0) {
+            // 로그인 과정에서 세션 장바구니가 DB 장바구니로 병합된 뒤 주문서로 이동한다.
+            session()->setFlashdata('redirect_url', site_url('order'));
+
+            return redirect()->to('/auth/login')->with('error', '주문하려면 로그인이 필요합니다.');
+        }
 
         $cartIds = array_values(array_unique(array_filter(
             array_map(intval(...), (array) $this->request->getPost('cart_ids')),

@@ -6,6 +6,7 @@
 // 본품 → 그 본품의 추가구성상품 순서로 묶는다. 주문 상세와 동일한 규칙(AddonGrouping)을 써서
 // 화면마다 그룹핑 결과가 어긋나지 않게 한다.
 $items = \App\Libraries\AddonGrouping::order($items ?? []);
+$isGuest = $isGuest ?? false;
 
 // 장바구니 진입 시 구매 가능한(품절이 아닌) 상품은 기본으로 전체 선택된 상태로 시작한다.
 $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool => $item['is_available']);
@@ -14,6 +15,12 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
 <div class="container py-4">
 
     <h4 class="fw-bold mb-4">장바구니</h4>
+
+    <?php if ($isGuest): ?>
+    <div class="alert alert-info py-2 small" role="status">
+        <i class="bi bi-info-circle me-1"></i>비회원 장바구니입니다. 주문하려면 로그인해주세요.
+    </div>
+    <?php endif; ?>
 
     <?php /* 플래시 메시지는 레이아웃 상단에서 한 번만 출력한다. */ ?>
 
@@ -38,11 +45,13 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                            <?= $hasPurchasableItem ? 'checked' : '' ?>>
                     <label class="form-check-label fw-semibold" for="selectAll">전체 선택</label>
                 </div>
+                <?php if (! $isGuest): ?>
                 <form method="post" action="/cart/clear"
                       data-confirm="장바구니를 전체 비우시겠습니까?" data-confirm-danger>
                     <?= csrf_field() ?>
                     <button type="submit" class="btn btn-sm btn-outline-danger">전체 삭제</button>
                 </form>
+                <?php endif; ?>
             </div>
 
             <?php foreach ($items as $item):
@@ -126,7 +135,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
 
                         <!-- 수량 + 삭제 -->
                         <div class="d-flex flex-column align-items-end gap-2 flex-shrink-0 ms-auto">
-                            <?php if (! $isSoldOut): ?>
+                            <?php if (! $isSoldOut && ! $isGuest): ?>
                             <div class="d-flex align-items-center gap-2">
                                 <div class="input-group input-group-sm" style="width:108px">
                                     <button type="button" class="btn btn-outline-secondary qty-minus" aria-label="수량 줄이기">−</button>
@@ -146,6 +155,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                             <div class="text-muted small">수량 <?= (int) $item['qty'] ?>개</div>
                             <?php endif; ?>
 
+                            <?php if (! $isGuest): ?>
                             <form method="post" action="/cart/delete" class="d-inline"
                                   data-confirm="이 상품을 장바구니에서 삭제하시겠습니까?" data-confirm-danger>
                                 <?= csrf_field() ?>
@@ -155,6 +165,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                                 <?php endif; ?>
                                 <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
                             </form>
+                            <?php endif; ?>
                         </div>
 
                     </div>
@@ -185,12 +196,12 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
                         <i class="bi bi-info-circle me-1"></i>배송비는 결제 시 확인됩니다.
                     </div>
 
-                    <!-- 선택한 상품의 cart_items.id 만 담아 전송한다(주문서는 이 목록만 보여준다) -->
+                    <!-- 비회원은 로그인 후 세션 장바구니 전체를 주문서로 넘긴다. -->
                     <form id="checkoutForm" method="post" action="/cart/checkout">
                         <?= csrf_field() ?>
                         <div id="checkoutInputs"></div>
                         <button id="btnCheckout" type="submit" class="btn btn-primary w-100 mb-2" disabled>
-                            주문하기
+                            <?= $isGuest ? '로그인 후 주문하기' : '주문하기' ?>
                         </button>
                     </form>
                     <a href="/shop" class="btn btn-outline-secondary w-100">쇼핑 계속하기</a>
@@ -208,7 +219,7 @@ $hasPurchasableItem = (bool) array_filter($items, static fn (array $item): bool 
             <div class="fw-bold" id="stickyTotal">0원</div>
         </div>
         <button type="submit" form="checkoutForm" id="btnStickyCheckout" class="btn btn-primary flex-grow-1 py-2" disabled>
-            주문하기
+            <?= $isGuest ? '로그인 후 주문하기' : '주문하기' ?>
         </button>
     </div>
     <div class="d-lg-none" style="height:76px"></div>

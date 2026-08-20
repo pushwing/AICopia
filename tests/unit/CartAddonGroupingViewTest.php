@@ -34,6 +34,7 @@ final class CartAddonGroupingViewTest extends CIUnitTestCase
         parent::setUp();
         $this->prefix = 'CAGV' . substr(uniqid(), -6);
         session()->destroy();
+        session()->remove(['user_id', 'user_role', 'cart', 'cart_addon_of']);
     }
 
     protected function tearDown(): void
@@ -46,6 +47,7 @@ final class CartAddonGroupingViewTest extends CIUnitTestCase
         }
         $this->cleanup = ['cart_items' => [], 'products' => [], 'users' => []];
         session()->destroy();
+        session()->remove(['user_id', 'user_role', 'cart', 'cart_addon_of']);
         parent::tearDown();
     }
 
@@ -111,6 +113,14 @@ final class CartAddonGroupingViewTest extends CIUnitTestCase
         return $controller->index();
     }
 
+    private function renderGuestCart(): string
+    {
+        $controller = new CartController();
+        $controller->initController(service('request'), service('response'), service('logger'));
+
+        return $controller->index();
+    }
+
     // ── 테스트 ────────────────────────────────────────────────────────────────
 
     public function testAddonRendersIndentedAndBadgedAfterMainProduct(): void
@@ -147,5 +157,29 @@ final class CartAddonGroupingViewTest extends CIUnitTestCase
         $this->assertStringContainsString($this->prefix . 'SOLO', $html);
         $this->assertStringNotContainsString('추가구성', $html, '애드온이 없으면 배지가 없어야 한다');
         $this->assertStringNotContainsString('ps-4 border-start border-3', $html, '애드온이 없으면 들여쓰기 클래스가 없어야 한다');
+    }
+
+    public function testGuestCanViewSessionCartAndIsDirectedToLoginForCheckout(): void
+    {
+        $product = $this->insertProduct('GUEST');
+        session()->set('cart', [\App\Models\CartModel::sessionKey($product) => 2]);
+
+        $html = $this->renderGuestCart();
+
+        $this->assertStringContainsString($this->prefix . 'GUEST', $html, '비회원도 세션 장바구니 상품을 확인할 수 있어야 한다');
+        $this->assertStringContainsString('비회원 장바구니입니다.', $html);
+        $this->assertStringContainsString('로그인 후 주문하기', $html);
+        $this->assertStringNotContainsString('action="/cart/delete"', $html, '비회원에게 DB 장바구니 삭제 UI를 노출하면 안 된다');
+    }
+
+    public function testGuestCheckoutRedirectsToLoginThenOrder(): void
+    {
+        $controller = new CartController();
+        $controller->initController(service('request'), service('response'), service('logger'));
+
+        $response = $controller->checkout();
+
+        $this->assertStringContainsString('/auth/login', $response->getHeaderLine('Location'));
+        $this->assertSame(site_url('order'), session()->getFlashdata('redirect_url'));
     }
 }
