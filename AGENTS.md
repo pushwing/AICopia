@@ -87,7 +87,7 @@ composer check
 
 - 모든 컨트롤러는 `BaseController`를 상속한다. 화면 렌더링에는 `$this->render('view/path', $extraData)`를 사용해 `$viewData`의 전역 데이터를 보존한다.
 - `ThemeView`는 `app/Views/themes/{active_theme}/`, `app/Views/themes/default/`, `app/Views/` 순서로 뷰를 찾는다. 새 테마는 `app/Views/themes/{name}/`와 `public/themes/{name}/`에 추가하고, default와 다른 파일만 오버라이드한다.
-- `/admin/*`에는 `auth:admin`이 필요하다. 장바구니 조회·수정·삭제에는 `auth:member`가 필요하고 `cart/add` POST는 비회원 세션 장바구니를 허용한다.
+- `/admin/*`에는 `auth:admin`이 필요하다. `GET /cart`와 `cart/add` POST는 비회원 세션 장바구니를 허용한다. 장바구니 수량 수정·개별 삭제·전체 삭제에는 `auth:member`가 필요하다.
 - 동적 페이지 catch-all 라우트 `(:segment)` → `Front\PageController::show`는 항상 `Routes.php`의 마지막에 둔다.
 
 ### Model·Service·스키마 규칙
