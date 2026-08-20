@@ -46,6 +46,13 @@ composer check
 - `composer cs`는 `app/`, `tests/`(View 제외)의 PSR-12와 `declare(strict_types=1);`을 검사한다. 새 PHP 파일에도 이를 적용한다.
 - PHPStan은 레벨 6과 `phpstan-baseline.neon`을 사용한다. 새 코드는 `@phpstan-ignore`로 숨기지 말고 원인을 수정한다.
 
+### PR 문서화 기준
+
+- PR 본문은 제목·커밋 목록만으로 이해할 수 없는 맥락을 보완해야 한다. 최소한 **배경**, **변경 내용**, **영향 범위**, **검증 결과**를 Markdown 섹션으로 작성한다.
+- 변경 내용에는 사용자가 경험하는 동작 변화와 기존 동작 유지 범위를 명시하고, 영향 범위에는 변경 파일 또는 주요 컴포넌트를 나열한다.
+- 검증은 실제로 실행한 명령과 결과만 기록한다. 미실행 검증은 통과한 것처럼 적지 않는다.
+- `gh pr create`·`gh pr edit` 등 CLI로 본문을 작성할 때는 줄바꿈이 `\\n` 문자열로 표시되지 않도록 실제 Markdown 줄바꿈을 사용한다.
+
 ### 테스트 DB
 
 - PHPUnit은 미리 마이그레이션된 MySQL 테스트 DB를 사용한다. SQLite는 MySQL 전용 DDL 때문에 사용할 수 없으며 운영 DB 사용은 절대 금지다.
