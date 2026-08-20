@@ -51,6 +51,112 @@ class CartModel extends Model
             ->orderBy('cart_items.id', 'DESC')
             ->get()->getResultArray();
 
+        return $this->enrichItems($rows);
+    }
+
+    /**
+     * 비회원 세션 장바구니의 상품 정보를 조회한다.
+     *
+     * @param  array<string, mixed>            $sessionCart
+     * @return array<int, array<string, mixed>>
+     */
+    public function getBySession(array $sessionCart): array
+    {
+        if ($sessionCart === []) {
+            return [];
+        }
+
+        /** @var array<string, array{product_id: int, sku_id: int|null, qty: int}> $entries */
+        $entries    = [];
+        $productIds = [];
+        $skuIds     = [];
+
+        foreach ($sessionCart as $key => $qty) {
+            [$productId, $skuId] = self::parseSessionKey((string) $key);
+            $qty                 = (int) $qty;
+
+            if ($productId < 1 || $qty < 1) {
+                continue;
+            }
+
+            $entries[(string) $key] = [
+                'product_id' => $productId,
+                'sku_id'     => $skuId > 0 ? $skuId : null,
+                'qty'        => $qty,
+            ];
+            $productIds[] = $productId;
+            if ($skuId > 0) {
+                $skuIds[] = $skuId;
+            }
+        }
+
+        if ($entries === []) {
+            return [];
+        }
+
+        $products = $this->db->table('products')
+            ->select('products.id, products.name, products.slug, products.price, products.discount_price,
+                 products.stock, products.status, products.shipping_type, products.shipping_fee, products.free_threshold,
+                 media.file_path')
+            ->join('product_images pi', 'pi.product_id = products.id AND pi.is_primary = 1', 'left')
+            ->join('media', 'media.id = pi.media_id', 'left')
+            ->whereIn('products.id', array_values(array_unique($productIds)))
+            ->where('products.deleted_at IS NULL', null, false)
+            ->get()->getResultArray();
+        $productMap = array_column($products, null, 'id');
+
+        $skuMap = [];
+        if ($skuIds !== []) {
+            $skus = $this->db->table('product_skus')
+                ->select('id, product_id, price_diff, stock')
+                ->whereIn('id', array_values(array_unique($skuIds)))
+                ->get()->getResultArray();
+            $skuMap = array_column($skus, null, 'id');
+        }
+
+        $parentMap = session()->get('cart_addon_of') ?? [];
+        $rows      = [];
+        foreach ($entries as $key => $entry) {
+            $product = $productMap[$entry['product_id']] ?? null;
+            if (! is_array($product)) {
+                continue;
+            }
+
+            $sku = $entry['sku_id'] === null ? null : ($skuMap[$entry['sku_id']] ?? null);
+            if ($entry['sku_id'] !== null && (! is_array($sku) || (int) $sku['product_id'] !== $entry['product_id'])) {
+                continue;
+            }
+
+            $rows[] = [
+                'id'                => 0,
+                'product_id'        => $entry['product_id'],
+                'sku_id'            => $entry['sku_id'],
+                'parent_product_id' => isset($parentMap[$key]) ? (int) $parentMap[$key] : null,
+                'qty'               => $entry['qty'],
+                'name'              => $product['name'],
+                'slug'              => $product['slug'],
+                'price'             => $product['price'],
+                'discount_price'    => $product['discount_price'],
+                'stock'             => $product['stock'],
+                'status'            => $product['status'],
+                'shipping_type'     => $product['shipping_type'],
+                'shipping_fee'      => $product['shipping_fee'],
+                'free_threshold'    => $product['free_threshold'],
+                'file_path'         => $product['file_path'],
+                'price_diff'        => $sku['price_diff'] ?? null,
+                'sku_stock'         => $sku['stock'] ?? null,
+            ];
+        }
+
+        return $this->enrichItems($rows);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function enrichItems(array $rows): array
+    {
         $skuLabels = $this->getSkuLabels(array_filter(array_column($rows, 'sku_id')));
 
         foreach ($rows as &$row) {
@@ -60,6 +166,7 @@ class CartModel extends Model
             $row['is_available']  = $row['status'] !== 'hidden' && $effectiveStock > 0;
             $row['sku_label']     = $row['sku_id'] ? ($skuLabels[$row['sku_id']] ?? '') : '';
         }
+
         return $rows;
     }
 
